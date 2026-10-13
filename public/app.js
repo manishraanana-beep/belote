@@ -127,7 +127,7 @@ function handView(g, me) {
   ]
     .map(
       (s) =>
-        `<div class="suit-group ${["H", "D"].includes(s) ? "red-suit" : ""}"><div class="suit-label">${suits[s]} ${names[s]}</div><div class="hand-cards">${
+        `<div class="suit-group ${["H", "D"].includes(s) ? "red-suit" : ""}"><div class="suit-label">${suits[s]}<span class="suit-name"> ${names[s]}</span></div><div class="hand-cards">${
           g.hand
             .filter((c) => c.slice(-1) === s)
             .sort(

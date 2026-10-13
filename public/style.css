@@ -2281,3 +2281,77 @@ textarea {
   top: 12%;
   height: 76%;
 }
+
+/* Jeu classique SVG-cards : l'illustration remplit la carte. */
+.card.deck-card {
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  box-shadow: none;
+  filter: drop-shadow(0 3px 3px #0005);
+  overflow: visible;
+}
+.card.deck-card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Main en éventail : les index restent lisibles, toute la main tient à l'écran. */
+.hand {
+  --card-w: 100px;
+  --card-show: 58px;
+  overflow: visible;
+  justify-content: center;
+}
+.hand .card.deck-card,
+.hand .card.deck-card:first-child {
+  width: var(--card-w);
+  height: calc(var(--card-w) * 1.447);
+  margin-left: 0;
+}
+.hand .card.deck-card + .card.deck-card {
+  margin-left: calc(var(--card-show) - var(--card-w));
+}
+.hand-cards {
+  gap: 0;
+  min-height: calc(var(--card-w) * 1.447);
+}
+.bidding-glow .card.deck-card {
+  box-shadow: none;
+  filter: drop-shadow(0 0 3px #ffd84d) drop-shadow(0 0 9px #ffd84dcc);
+}
+@media (max-width: 1050px) {
+  .hand {
+    --card-w: 88px;
+    --card-show: 50px;
+  }
+}
+@media (max-width: 520px) {
+  /* Téléphone : un seul éventail continu, les couleurs restent séparées. */
+  .hand {
+    --card-w: min(74px, 19vw);
+    --card-show: min(36px, 9.2vw);
+    gap: 0;
+    padding: 8px 4px 16px;
+  }
+  .hand .suit-group + .suit-group {
+    margin-left: calc(var(--card-show) - var(--card-w) + 7px);
+  }
+  .hand .suit-group:has(.empty-suit) {
+    display: none;
+  }
+  .hand .suit-label {
+    text-align: left;
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+  .hand .suit-name {
+    display: none;
+  }
+}
