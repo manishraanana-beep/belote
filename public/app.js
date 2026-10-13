@@ -388,6 +388,9 @@ function nextTourLine() {
   const t = (state.tournaments ?? []).find((x) => ["soon", "open", "closed", "ready", "running"].includes(x.stage));
   return t ? `${e(t.name)} · ${dt(t.start)}` : "Élimination directe sur inscription";
 }
+// Vérification de l'adresse : proposée seulement quand l'envoi d'e-mails est configuré sur le
+// serveur (RESEND_API_KEY + BELOTE_MAIL_FROM). Sans cela, le compte est pleinement utilisable.
+const needVerify = () => !!(state.player.account && !state.player.account.verified && authConfig.mail);
 function homePage() {
   const p = state.player;
   const pending = p.friendIn.length;
@@ -397,7 +400,7 @@ function homePage() {
       <button type="button" class="wallet-chip" data-action="wallet" aria-label="Portefeuille">${coins(p.wallet.available / 2)}</button>
     </div>
     ${p.account && p.wallet.loginBonus ? `<p class="bonus-line">🎁 Prochain bonus de connexion (+${fmt(p.wallet.loginBonus.amount)}) dans <b data-countdown="${p.wallet.loginBonus.next}"></b></p>` : ""}
-    ${p.account && !p.account.verified ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
+    ${needVerify() ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
     ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 crédits offerts ${icon("chevron", "tiny")}</button>`}
     ${btn(`${icon("cards")} Jouer maintenant`, "quick", "gold-btn wide big")}
     ${invitesBlock()}
@@ -1575,11 +1578,11 @@ document.addEventListener("click", async (ev) => {
     case "useAvatar":
       cmd("profile", { avatar: el.dataset.avatar });
       toast("Avatar enregistré");
-      if (page.params.onboarding) go(state.player.account && !state.player.account.verified ? "verify" : "home");
+      if (page.params.onboarding) go(needVerify() ? "verify" : "home");
       else back();
       break;
     case "afterAvatar":
-      go(state.player.account && !state.player.account.verified ? "verify" : "home");
+      go(needVerify() ? "verify" : "home");
       break;
     case "createPublic":
       createModal();

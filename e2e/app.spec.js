@@ -259,8 +259,9 @@ test("compte : accueil, inscription, choix d’avatar, vérification, profil", a
   await expect(page.locator(".page-title")).toHaveText("Choisir mon avatar");
   await page.locator('[data-avatar="chat"]').first().click();
   await page.locator('[data-action="useAvatar"]').click();
-  await expect(page.locator(".page-title")).toHaveText("Vérifiez votre e-mail");
-  await page.screenshot({ path: `${shots}verifier-email.png` });
+  // Sans envoi d'e-mails configuré, la vérification d'adresse est désactivée : direction l'accueil.
+  await expect(page.locator(".page-home")).toBeVisible();
+  await expect(page.locator('.notice-row:has-text("Confirmez")')).toHaveCount(0);
   await page.reload();
   await page.locator('.tabbar [data-page="profile"]').click();
   await expect(page.locator(".profile-hero h1")).toHaveText("Sophie");
