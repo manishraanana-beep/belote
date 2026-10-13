@@ -75,8 +75,23 @@ function lobby() {
 function seatBox(s, i, mySeat, g) {
   const pos = (i - mySeat + 4) % 4,
     active = g && g.turn === i && ["bidding", "playing"].includes(g.phase);
-  return `<div class="player-seat seat-${pos} ${active ? "active" : ""}"><span class="avatar">${e(s?.avatar ?? "+")}</span><strong>${e(s?.name ?? "Place libre")}${i === mySeat ? " · Vous" : ""}</strong><small>Équipe ${i % 2 === mySeat % 2 ? "Nous" : "Eux"} ${s ? (s.bot ? "· Robot" : s.connected ? "· Connecté" : "· Reconnexion…") : ""}</small>${g && pos !== 0 ? `<div class="backs">${Array.from({ length: g.handCounts[i] }, () => "<i></i>").join("")}</div>` : ""}</div>`;
+  return `<div class="player-seat seat-${pos} ${active ? "active" : ""}"><span class="avatar">${e(s?.avatar ?? "+")}</span><strong>${e(s?.name ?? "Place libre")}${i === mySeat ? " · Vous" : ""}</strong><small>Équipe ${i % 2 === mySeat % 2 ? "Nous" : "Eux"} ${s ? (s.bot ? "· Robot" : s.connected ? "· Connecté" : "· Reconnexion…") : ""}</small>${g?.dealer === i ? '<span class="dealer-chip" title="Donneur">D</span>' : ""}${g ? seatBubble(g, i) : ""}${g && pos !== 0 ? `<div class="backs">${Array.from({ length: g.handCounts[i] }, () => "<i></i>").join("")}</div>` : ""}</div>`;
 }
+function seatBubble(g, i) {
+  if (!["bidding", "counter"].includes(g.phase)) return "";
+  const a = (g.auction ?? []).filter((x) => x.seat === i).at(-1);
+  if (!a) return "";
+  const text =
+    a.type === "bid"
+      ? `${a.amount === 250 ? "Capot" : a.amount} - ${names[a.suit]}`
+      : a.type === "pass"
+        ? "Passe"
+        : a.type === "counter"
+          ? "Contré !"
+          : "Surcontré !";
+  return `<span class="bid-bubble ${a.type}">${text}</span>`;
+}
+let bidAmount = null;
 function tableView() {
   const t = state.table,
     g = t.game,
@@ -168,6 +183,26 @@ function centerGame(g, t, me) {
   }
   return `<div class="auction-center"><h3>${g.phase === "counter" ? "CONTRÉ !" : g.contract ? `${g.contract.amount === 250 ? "Capot" : g.contract.amount} ${names[g.contract.suit]}` : "Enchères"}</h3>${g.auction?.length ? `<ol class="auction-log" aria-label="Annonces de la table">${auctionRows(g, t)}</ol>` : "<p>À vous de trouver votre contrat.</p>"}${g.phase === "counter" ? "<p>Surcontre ouverte</p>" : ""}</div>`;
 }
+function bidPanel(g, counter) {
+  const amounts = [80, 90, 100, 110, 120, 130, 140, 150, 160, 250].filter(
+    (n) => !g.contract || n > g.contract.amount,
+  );
+  if (!amounts.includes(bidAmount)) bidAmount = amounts[0];
+  const suitOrder = ["H", "C", "S", "D"];
+  return `<form id="bid-form" class="bid-panel"><input type="hidden" name="amount" value="${bidAmount ?? ""}"><div class="bid-amounts">${amounts
+    .map(
+      (n) =>
+        `<button type="button" class="amount-pill ${n === bidAmount ? "selected" : ""}" data-action="pickAmount" data-amount="${n}">${n === 250 ? "Capot" : n}</button>`,
+    )
+    .join("")}</div><div class="bid-row"><div class="bid-suits">${suitOrder
+    .map(
+      (s) =>
+        `<button class="suit-button ${["H", "D"].includes(s) ? "red" : ""}" name="suit" value="${s}" aria-label="Enchérir ${names[s]}" ${amounts.length ? "" : "disabled"}>${suits[s]}</button>`,
+    )
+    .join(
+      "",
+    )}</div><div class="bid-side">${counter ? btn("Contrer", "counter", "bid-big danger") : ""}${btn("Passer", "pass", "bid-big")}</div></div></form>`;
+}
 function gameActions(g, me, t) {
   const counter =
     g.phase === "bidding" &&
@@ -177,29 +212,18 @@ function gameActions(g, me, t) {
   const sur = g.phase === "counter" && me % 2 === g.contract.seat % 2;
   return `${
     g.phase === "bidding" && g.turn === me
-      ? `<form id="bid-form"><select name="amount" aria-label="Valeur du contrat">${[
-          80, 90, 100, 110, 120, 130, 140, 150, 160, 250,
-        ]
-          .filter((n) => !g.contract || n > g.contract.amount)
-          .map(
-            (n) => `<option value="${n}">${n === 250 ? "Capot" : n}</option>`,
-          )
-          .join(
-            "",
-          )}</select><select name="suit" aria-label="Atout">${Object.entries(
-          names,
-        )
-          .map(([s, n]) => `<option value="${s}">${suits[s]} ${n}</option>`)
-          .join(
-            "",
-          )}</select><button class="gold" ${g.contract?.amount === 250 ? "disabled" : ""}>Enchérir</button></form>${btn("Passer", "pass", "outline")}`
+      ? bidPanel(g, counter)
       : ""
-  }${counter ? btn("CONTRER !", "counter", "danger") : ""}${sur ? btn("SURCONTRER !", "surcounter", "danger") : ""}<span class="timer" data-deadline="${g.counterDeadline ?? t.deadline ?? 0}"></span>`;
+  }${counter && !(g.phase === "bidding" && g.turn === me) ? btn("CONTRER !", "counter", "danger") : ""}${sur ? btn("SURCONTRER !", "surcounter", "danger") : ""}<span class="timer" data-deadline="${g.counterDeadline ?? t.deadline ?? 0}"></span>`;
 }
 function render() {
   if (!state) return;
-  document.body.classList.toggle("in-game", !!state.table?.game);
-  if (!state.table?.game) document.body.classList.remove("show-panels");
+  document.body.classList.toggle(
+    "in-game",
+    !!state.table?.game && state.table.game.phase !== "finished",
+  );
+  if (!document.body.classList.contains("in-game"))
+    document.body.classList.remove("show-panels");
   const dealKey = state.table?.game
     ? state.table.gameId + ":" + state.table.game.deal
     : null;
@@ -318,6 +342,13 @@ document.addEventListener("click", async (ev) => {
       } catch {
         toast("Tournez votre téléphone à l’horizontale.");
       }
+      break;
+    case "pickAmount":
+      bidAmount = Number(el.dataset.amount);
+      el.form.amount.value = bidAmount;
+      el.form
+        .querySelectorAll(".amount-pill")
+        .forEach((b) => b.classList.toggle("selected", b === el));
       break;
     case "togglePanels":
       document.body.classList.toggle("show-panels");
@@ -517,7 +548,7 @@ async function adminRequest(data) {
 document.addEventListener("submit", (ev) => {
   const f = ev.target;
   ev.preventDefault();
-  const d = Object.fromEntries(new FormData(f));
+  const d = Object.fromEntries(new FormData(f, ev.submitter));
   if (f.id === "bid-form")
     cmd("action", {
       version: state.table.game.version,
