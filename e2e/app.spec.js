@@ -2,6 +2,18 @@ import { test, expect } from "@playwright/test";
 test("ordinateur : profil, table VIP, règles, robots et partie complète", async ({
   page,
 }) => {
+  await page.addInitScript(() => {
+    const Native = window.WebSocket;
+    window.WebSocket = class extends Native {
+      constructor(...args) {
+        super(...args);
+        this.addEventListener("message", (event) => {
+          const msg = JSON.parse(event.data);
+          if (msg.type === "state") window.__beloteState = msg;
+        });
+      }
+    };
+  });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
@@ -26,8 +38,18 @@ test("ordinateur : profil, table VIP, règles, robots et partie complète", asyn
   await page.locator('[data-action="bot"][data-seat="3"]').click();
   await page.getByRole("button", { name: "Commencer la partie" }).click();
   await expect(page.locator(".hand .card")).toHaveCount(8);
+  await expect(page.locator(".hand")).toHaveClass(/bidding-glow/);
+  await expect(page.locator(".suit-label")).toHaveText([
+    "♠ Pique",
+    "♥ Cœur",
+    "♣ Trèfle",
+    "♦ Carreau",
+  ]);
   await page.locator("#bid-form button").click();
-  await expect(page.locator(".hand .playable").first()).toBeVisible({
+  await expect(page.locator(".auction-history")).toContainText("80");
+  await expect(page.locator(".auction-log")).toContainText("80");
+  await expect(page.locator(".hand .playable")).toHaveCount(0);
+  await expect(page.locator(".hand [data-action=play]").first()).toBeVisible({
     timeout: 10000,
   });
   await page.screenshot({
@@ -35,9 +57,23 @@ test("ordinateur : profil, table VIP, règles, robots et partie complète", asyn
     fullPage: true,
   });
   for (let i = 0; i < 8; i++) {
-    await page.locator(".hand .playable").first().click();
+    const legal = await page.evaluate(
+      () => window.__beloteState.table.game.legal[0],
+    );
+    await page.locator(`.hand [data-card="${legal}"]`).click();
+    await expect(page.locator(".hand .card")).toHaveCount(7 - i);
+    if (i === 0) {
+      await expect(page.locator('[data-action="lastTrick"]')).toBeEnabled({
+        timeout: 15000,
+      });
+      await page.locator('[data-action="lastTrick"]').click();
+      await expect(page.locator(".last-trick-cards .card")).toHaveCount(4);
+      await page.locator('[data-action="close"]').click();
+    }
     if (i < 7)
-      await expect(page.locator(".hand .playable").first()).toBeVisible({
+      await expect(
+        page.locator(".hand [data-action=play]").first(),
+      ).toBeVisible({
         timeout: 15000,
       });
   }
@@ -121,6 +157,9 @@ test("mobile : lobby sans débordement, invitation privée et reconnexion naviga
   await page.locator('[data-action="bot"][data-seat="3"]').click();
   await page.getByRole("button", { name: "Commencer la partie" }).click();
   await expect(page.locator(".hand .card")).toHaveCount(8);
+  await expect(page.locator(".hand")).toHaveClass(/bidding-glow/);
+  await page.locator("#bid-form button").click();
+  await expect(page.locator(".auction-log")).toContainText("80");
   await page.screenshot({
     path: "test-results/mobile-table.png",
     fullPage: true,

@@ -85,6 +85,7 @@ export function deal(g) {
     leader: (g.dealer + 1) % 4,
     contract: null,
     passes: 0,
+    auction: [],
     multiplier: 1,
     trick: [],
     tricks: [],
@@ -152,6 +153,7 @@ export function act(g, seat, a, now = Date.now()) {
       (!g.rules.flyingCounter && seat !== g.turn)
     )
       fail("Contre interdite");
+    (g.auction ??= []).push({ seat, type: "counter", at: now });
     g.multiplier = 2;
     g.phase = "counter";
     g.counterDeadline = now + g.rules.counterWindowSeconds * 1000;
@@ -163,6 +165,7 @@ export function act(g, seat, a, now = Date.now()) {
       team(seat) !== team(g.contract.seat)
     )
       fail("Surcontre interdite");
+    (g.auction ??= []).push({ seat, type: "surcounter", at: now });
     g.multiplier = 4;
     startPlay(g);
     g.lastEvent = "SURCONTRÉ !";
@@ -176,10 +179,20 @@ export function act(g, seat, a, now = Date.now()) {
         (g.contract && a.amount <= g.contract.amount)
       )
         fail("Enchère invalide");
+      (g.auction ??= []).push({
+        seat,
+        type: "bid",
+        amount: a.amount,
+        suit: a.suit,
+        at: now,
+      });
       g.contract = { seat, amount: a.amount, suit: a.suit };
       g.passes = 0;
       g.lastEvent = `Contrat ${a.amount === 250 ? "capot" : a.amount}`;
-    } else g.passes++;
+    } else {
+      (g.auction ??= []).push({ seat, type: "pass", at: now });
+      g.passes++;
+    }
     g.turn = (g.turn + 1) % 4;
     if (g.contract && g.passes === 3) startPlay(g);
     else if (!g.contract && g.passes === 4) {

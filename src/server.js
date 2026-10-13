@@ -654,7 +654,7 @@ export function createApp({
       );
     }
     const rel = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
-    const allowed = ["index.html", "app.js", "style.css"];
+    const allowed = ["index.html", "app.js", "cards.js", "style.css"];
     if (!allowed.includes(rel)) {
       res.writeHead(404);
       return res.end("Introuvable");

@@ -507,14 +507,6 @@ footer button {
   opacity: 0.7;
   filter: brightness(0.83);
 }
-.playable {
-  box-shadow:
-    0 0 0 2px #d9b97580,
-    0 6px 16px #0006;
-}
-.playable:hover {
-  transform: translateY(-12px) !important;
-}
 .game-page {
   max-width: 1440px;
   margin: auto;
@@ -1611,5 +1603,322 @@ dialog .close-button {
   }
   .hand .card:first-child {
     margin-left: 0;
+  }
+}
+/* Cartes traditionnelles et main regroupée par couleur. */
+.card {
+  --pip-size: 19px;
+}
+.card-pips {
+  position: absolute;
+  left: 22%;
+  top: 14%;
+  width: 56%;
+  height: 72%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  align-items: center;
+  justify-items: center;
+  font-family: Georgia, serif;
+  line-height: 1;
+  font-size: var(--pip-size);
+}
+.pip-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pip-cell.inverted {
+  transform: rotate(180deg);
+}
+.card-pips.ace {
+  font-size: 40px;
+}
+.court-art {
+  position: absolute;
+  width: 56%;
+  height: 76%;
+  top: 12%;
+  left: 22%;
+}
+.hero-art .card {
+  --pip-size: 30px;
+}
+.hero-art .ace {
+  font-size: 76px;
+}
+.hand {
+  gap: 16px;
+  align-items: flex-start;
+  overflow-x: auto;
+  padding: 8px 8px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: #8d7850 transparent;
+}
+.suit-group {
+  flex-shrink: 0;
+}
+.suit-label {
+  font-size: 13px;
+  font-weight: bold;
+  color: #ecdfba;
+  margin-bottom: 9px;
+  text-align: center;
+}
+.red-suit .suit-label {
+  color: #f2aaa0;
+}
+.hand-cards {
+  display: flex;
+  gap: 4px;
+  min-height: 120px;
+  align-items: flex-start;
+}
+.empty-suit {
+  display: block;
+  min-width: 25px;
+  color: var(--muted);
+  text-align: center;
+}
+.hand .card {
+  margin-left: 0;
+}
+.hand .card:disabled {
+  opacity: 1;
+  filter: none;
+}
+.hand .card:hover:not(:disabled) {
+  transform: translateY(-5px) !important;
+}
+.bidding-glow .card {
+  box-shadow:
+    0 0 0 2px #e9c67e,
+    0 0 20px #e9c67e70;
+}
+.player-seat strong {
+  font-size: 16px;
+  max-width: 170px;
+}
+.player-seat small {
+  font-size: 10px;
+}
+.auction-center h3 {
+  font-size: 28px;
+}
+.auction-center p {
+  font-size: 16px;
+}
+.score-center {
+  font-size: 29px;
+}
+.counter-banner {
+  font-size: 20px;
+}
+.hand-label {
+  font-size: 12px;
+}
+.auction-history ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.auction-history li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.auction-history strong {
+  display: block;
+  font-size: 15px;
+  color: var(--cream);
+}
+.auction-history span {
+  display: block;
+  font-size: 19px;
+  color: var(--gold);
+  margin-top: 2px;
+}
+.last-trick-cards {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.last-trick-cards > div {
+  text-align: center;
+}
+.last-trick-cards strong {
+  display: block;
+  font-size: 14px;
+  margin-top: 8px;
+}
+.collecting {
+  animation: collect-pli 0.45s 0.65s forwards;
+  pointer-events: none;
+  --collect-x: 0px;
+  --collect-y: 110px;
+}
+.collect-1 {
+  --collect-x: -120px;
+  --collect-y: 0px;
+}
+.collect-2 {
+  --collect-y: -110px;
+}
+.collect-3 {
+  --collect-x: 120px;
+  --collect-y: 0px;
+}
+.collecting .trick-card {
+  animation: none;
+}
+.trick-card .card {
+  --pip-size: 14px;
+}
+.trick-card .ace {
+  font-size: 30px;
+}
+@keyframes collect-pli {
+  to {
+    transform: translate(var(--collect-x), var(--collect-y)) scale(0.08)
+      rotate(15deg);
+    opacity: 0;
+  }
+}
+@media (max-width: 1050px) {
+  .hand {
+    gap: 12px;
+    justify-content: flex-start;
+  }
+  .hand .card {
+    --pip-size: 16px;
+  }
+  .hand-cards {
+    min-height: 98px;
+  }
+}
+@media (max-width: 800px) {
+  .hand .card {
+    --pip-size: 18px;
+  }
+  .hand-cards {
+    min-height: 110px;
+  }
+}
+@media (max-width: 520px) {
+  .hand {
+    gap: 14px;
+    padding: 8px 6px 16px;
+  }
+  .hand-cards {
+    gap: 3px;
+    min-height: 86px;
+  }
+  .hand .card,
+  .hand .card:first-child {
+    width: 52px;
+    margin-left: 0;
+    --pip-size: 12px;
+  }
+  .hand .ace {
+    font-size: 28px;
+  }
+  .suit-label {
+    font-size: 12px;
+  }
+  .player-seat strong {
+    font-size: 14px;
+    max-width: 100px;
+  }
+  .player-seat small {
+    font-size: 8px;
+  }
+  .auction-center h3 {
+    font-size: 22px;
+  }
+  .auction-center p {
+    font-size: 13px;
+  }
+  .score-center {
+    font-size: 25px;
+  }
+  .hand-label {
+    font-size: 10px;
+  }
+  .trick-card .card {
+    --pip-size: 12px;
+  }
+  .trick-card .ace {
+    font-size: 26px;
+  }
+  .last-trick-cards {
+    gap: 8px;
+  }
+  .last-trick-cards .card {
+    width: 65px;
+    height: 100px;
+    --pip-size: 15px;
+  }
+  .last-trick-cards strong {
+    max-width: 70px;
+    font-size: 12px;
+  }
+}
+
+.auction-log {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  max-height: 145px;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #c6ad73 transparent;
+  min-width: 230px;
+}
+.auction-log li {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 6px 3px;
+  border-bottom: 1px solid #ffffff15;
+  text-align: left;
+  font-size: 16px;
+}
+.auction-log strong {
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.auction-log span {
+  color: var(--gold);
+  white-space: nowrap;
+  font-weight: bold;
+}
+.auction-center h3 {
+  margin: 0;
+}
+.auction-center {
+  max-width: 100%;
+}
+@media (max-width: 520px) {
+  .auction-log {
+    min-width: 0;
+    width: 180px;
+    max-height: 105px;
+    margin-top: 8px;
+  }
+  .auction-log li {
+    font-size: 14px;
+    gap: 8px;
+    padding: 5px 0;
+  }
+  .auction-log strong {
+    max-width: 90px;
+  }
+  .auction-center h3 {
+    font-size: 22px;
   }
 }

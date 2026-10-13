@@ -152,3 +152,25 @@ test("belote et rebelote automatiques au jeu des deux cartes", () => {
   act(g, 0, { type: "play", card: "QS" });
   assert.equal(g.belote[0], 20);
 });
+
+test("historique public des enchères : passes, enchères, contre et surcontre", () => {
+  const g = newGame();
+  act(g, 0, { type: "pass" }, 1000);
+  act(g, 1, { type: "bid", amount: 80, suit: "H" }, 2000);
+  act(g, 2, { type: "counter" }, 3000);
+  act(g, 3, { type: "surcounter" }, 4000);
+  assert.deepEqual(
+    view(g, 0).auction.map((a) => [a.seat, a.type]),
+    [
+      [0, "pass"],
+      [1, "bid"],
+      [2, "counter"],
+      [3, "surcounter"],
+    ],
+  );
+  assert.equal(g.auction[1].suit, "H");
+  assert.equal(g.auction[1].amount, 80);
+  const before = structuredClone(g.auction);
+  assert.throws(() => act(g, 0, { type: "counter" }));
+  assert.deepEqual(g.auction, before);
+});

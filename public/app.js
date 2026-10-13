@@ -1,3 +1,4 @@
+import { card } from "./cards.js";
 const $ = (s) => document.querySelector(s),
   e = (v) =>
     String(v ?? "").replace(
@@ -61,12 +62,6 @@ const btn = (text, action, cls = "", data = "", disabled = false) =>
 function ruleText(r) {
   return `Objectif ${r.target} • ${r.scoring === "added" ? "Points + contrat" : "Contrat seul"} • Belote ${r.beloteRetained ? "conservée" : "perdue si chute"}, ${r.beloteCountsContract ? "compte" : "ne compte pas"} pour le contrat • Capot ${r.capotValue} • Contre ${r.flyingCounter ? "à la volée" : "à son tour"} • Surcontre ${r.counterWindowSeconds}s • Tour ${r.turnSeconds}s • Absence ${r.reconnectSeconds}s • Tous passent : ${r.allPass === "rotate" ? "donneur suivant" : "même donneur"}`;
 }
-function card(c, { disabled = false, play = false } = {}) {
-  const s = c.slice(-1),
-    r = c.slice(0, -1),
-    label = { J: "V", Q: "D", K: "R" }[r] ?? r;
-  return `<button class="card ${["H", "D"].includes(s) ? "red" : ""} ${play ? "playable" : ""}" ${disabled ? "disabled" : ""} ${play ? `data-action="play" data-card="${c}"` : ""} aria-label="${label} de ${names[s]}"><span class="corner">${label}<small>${suits[s]}</small></span><span class="pip">${suits[s]}</span><span class="corner bottom">${label}<small>${suits[s]}</small></span></button>`;
-}
 function header() {
   const p = state.player;
   return `<header><a class="brand" href="/" aria-label="Maison Belote"><span class="brand-mark">♠</span><span>MAISON <b>BELOTE</b><small>LE PLAISIR DU BEAU JEU</small></span></a><nav>${btn("Les tables", "lobby", "nav-button")}${btn("Mes statistiques", "stats", "nav-button")}${btn(sound ? "♪ Sons activés" : "♪ Sons coupés", "sound", "nav-button")}</nav>${btn(`<span class="avatar">${e(p.avatar)}</span><span>${e(p.name)}<small>MON ESPACE JOUEUR</small></span>`, "profile", "profile-button")}</header>`;
@@ -103,21 +98,9 @@ function tableView() {
         }</div>`
   }</div></div>${
     g
-      ? `<div class="hand-label">VOTRE MAIN <span>${g.phase === "playing" ? (g.turn === me ? "À vous de jouer · cartes autorisées en lumière" : `Au tour de ${e(t.seats[g.turn]?.name)}`) : e(g.lastEvent)}</span></div><div class="hand ${distributing ? "distributing" : ""}">${[
-          ...g.hand,
-        ]
-          .sort((a, b) => a.slice(-1).localeCompare(b.slice(-1)))
-          .map((c) =>
-            card(c, {
-              disabled: !g.legal.includes(c),
-              play: g.legal.includes(c),
-            }),
-          )
-          .join(
-            "",
-          )}</div><div class="action-bar">${gameActions(g, me, t)}</div>`
+      ? `<div class="hand-label">VOTRE MAIN <span>${g.phase === "playing" ? (g.turn === me ? "À vous de jouer" : `Au tour de ${e(t.seats[g.turn]?.name)}`) : g.phase === "bidding" && g.turn === me ? "À vous d’enchérir" : e(g.lastEvent)}</span></div>${handView(g, me)}<div class="action-bar">${gameActions(g, me, t)}${btn("Dernier pli", "lastTrick", "outline", "", !g.tricks.length)}</div>`
       : `<div class="waiting-bottom"><p>${e(ruleText(t.rules))}</p>${owner ? btn("Personnaliser les règles", "editRules", "outline") + btn("Organiser les équipes", "teams", "outline") : ""}</div>`
-  }</section><aside class="table-sidebar">${t.vip && owner ? `<section class="side-panel"><h3>♛ Invitations privées</h3><p>Seules les personnes invitées peuvent demander une place.</p>${btn("Copier le lien d’invitation", "copyInvite", "outline")}<details><summary>Code privé</summary><code>${e(t.invite)}</code><small>Table : ${e(t.id)}</small></details>${t.pending.map((p) => `<div class="request"><strong>${e(p.name)}</strong>${btn("Accepter", "admit", "gold", `data-player="${p.id}"`)}${btn("Refuser", "reject", "text-button", `data-player="${p.id}"`)}</div>`).join("")}</section>` : ""}<section class="side-panel chat-panel"><h3>Le coin de la table <span>●</span></h3><div class="chat-messages">${t.chat.length ? t.chat.map((m) => `<p><strong>${e(m.name)}</strong><span>${e(m.text)}</span></p>`).join("") : '<p class="muted">Un bonjour, un beau pli…<br>Le jeu se partage aussi ici.</p>'}</div><div class="reactions">${["👏", "Bien joué !", "🍀"].map((text) => btn(e(text), "reaction", "", `data-text="${e(text)}"`)).join("")}</div><form id="chat-form"><input name="text" placeholder="Votre message…" maxlength="280" aria-label="Message de table" required><button aria-label="Envoyer">↗</button></form></section><section class="side-panel"><h3>Les dernières donnes</h3>${
+  }</section><aside class="table-sidebar">${t.vip && owner ? `<section class="side-panel"><h3>♛ Invitations privées</h3><p>Seules les personnes invitées peuvent demander une place.</p>${btn("Copier le lien d’invitation", "copyInvite", "outline")}<details><summary>Code privé</summary><code>${e(t.invite)}</code><small>Table : ${e(t.id)}</small></details>${t.pending.map((p) => `<div class="request"><strong>${e(p.name)}</strong>${btn("Accepter", "admit", "gold", `data-player="${p.id}"`)}${btn("Refuser", "reject", "text-button", `data-player="${p.id}"`)}</div>`).join("")}</section>` : ""}${g ? auctionView(g, t) : ""}<section class="side-panel chat-panel"><h3>Le coin de la table <span>●</span></h3><div class="chat-messages">${t.chat.length ? t.chat.map((m) => `<p><strong>${e(m.name)}</strong><span>${e(m.text)}</span></p>`).join("") : '<p class="muted">Un bonjour, un beau pli…<br>Le jeu se partage aussi ici.</p>'}</div><div class="reactions">${["👏", "Bien joué !", "🍀"].map((text) => btn(e(text), "reaction", "", `data-text="${e(text)}"`)).join("")}</div><form id="chat-form"><input name="text" placeholder="Votre message…" maxlength="280" aria-label="Message de table" required><button aria-label="Envoyer">↗</button></form></section><section class="side-panel"><h3>Les dernières donnes</h3>${
     g?.history.length
       ? g.history
           .slice(-5)
@@ -130,16 +113,56 @@ function tableView() {
       : '<p class="muted">Les scores apparaîtront ici.</p>'
   }${g ? btn("Historique des plis", "tricks", "text-button") : ""}</section></aside></div></main>`;
 }
+let collection = null,
+  lastTrickKey = null,
+  collectionTimer;
+function handView(g, me) {
+  const order = ["7", "8", "9", "10", "J", "Q", "K", "A"];
+  const active = g.phase === "playing" && g.turn === me && !collection;
+  return `<div class="hand ${distributing ? "distributing" : ""} ${g.phase === "bidding" && g.turn === me ? "bidding-glow" : ""}">${[
+    "S",
+    "H",
+    "C",
+    "D",
+  ]
+    .map(
+      (s) =>
+        `<div class="suit-group ${["H", "D"].includes(s) ? "red-suit" : ""}"><div class="suit-label">${suits[s]} ${names[s]}</div><div class="hand-cards">${
+          g.hand
+            .filter((c) => c.slice(-1) === s)
+            .sort(
+              (a, b) =>
+                order.indexOf(a.slice(0, -1)) - order.indexOf(b.slice(0, -1)),
+            )
+            .map((c) => card(c, { disabled: !active, play: active }))
+            .join("") || '<span class="empty-suit">—</span>'
+        }</div></div>`,
+    )
+    .join("")}</div>`;
+}
+function auctionRows(g, t) {
+  return (g.auction ?? [])
+    .map(
+      (a) =>
+        `<li><strong>${e(t.seats[a.seat]?.name)}</strong><span>${a.type === "bid" ? `${a.amount === 250 ? "Capot" : a.amount} ${suits[a.suit]} ${names[a.suit]}` : a.type === "pass" ? "Passe" : a.type === "counter" ? "CONTRÉ !" : "SURCONTRÉ !"}</span></li>`,
+    )
+    .join("");
+}
+function auctionView(g, t) {
+  return `<section class="side-panel auction-history"><h3>Historique des annonces</h3><ol>${auctionRows(g, t) || "<li>Les enchères commencent.</li>"}</ol></section>`;
+}
 function centerGame(g, t, me) {
+  if (collection)
+    return `<div class="trick collecting collect-${(collection.winner - me + 4) % 4}" aria-label="Pli ramassé">${collection.cards.map((p) => `<div class="trick-card trick-${(p.seat - me + 4) % 4}">${card(p.card)}<small>${e(t.seats[p.seat]?.name)}</small></div>`).join("")}</div>`;
   if (["summary", "finished"].includes(g.phase)) {
     const h = g.history.at(-1);
     return `<div class="summary"><div class="eyebrow">${g.phase === "finished" ? "PARTIE TERMINÉE" : "DONNE TERMINÉE"}</div><h3>${e(g.lastEvent)}</h3><p>Points : ${h.points[me % 2]} / ${h.points[1 - (me % 2)]}<br>Belote : ${h.belote[me % 2]} / ${h.belote[1 - (me % 2)]}</p><strong>+${h.score[me % 2]} / +${h.score[1 - (me % 2)]}</strong>${g.phase === "summary" ? btn("Donne suivante →", "next", "gold") : t.owner === state.player.id ? btn("Revanche →", "rematch", "gold") : "<p>Le créateur peut lancer une revanche.</p>"}</div>`;
   }
   if (g.phase === "playing") {
-    const trick = g.trick.length ? g.trick : (g.tricks.at(-1)?.cards ?? []);
-    return `<div class="trick ${!g.trick.length && g.tricks.length ? "last-trick" : ""}">${trick.map((p) => `<div class="trick-card trick-${(p.seat - me + 4) % 4}">${card(p.card)}<small>${e(t.seats[p.seat].name)}</small></div>`).join("")}</div>`;
+    const trick = g.trick;
+    return `<div class="trick ">${trick.map((p) => `<div class="trick-card trick-${(p.seat - me + 4) % 4}">${card(p.card)}<small>${e(t.seats[p.seat].name)}</small></div>`).join("")}</div>`;
   }
-  return `<div class="auction-center"><span class="auction-icon">${g.contract ? suits[g.contract.suit] : "♠"}</span><h3>${g.phase === "counter" ? "CONTRÉ !" : g.contract ? `${g.contract.amount === 250 ? "Capot" : g.contract.amount} ${names[g.contract.suit]}` : "Les enchères sont ouvertes"}</h3><p>${g.contract ? `Proposé par ${e(t.seats[g.contract.seat].name)}` : "À vous de trouver votre contrat."}</p>${g.phase === "counter" ? "<p>L’équipe preneuse peut surcontrer.</p>" : `<small>${g.passes} passe${g.passes > 1 ? "s" : ""} consécutive${g.passes > 1 ? "s" : ""}</small>`}</div>`;
+  return `<div class="auction-center"><h3>${g.phase === "counter" ? "CONTRÉ !" : g.contract ? `${g.contract.amount === 250 ? "Capot" : g.contract.amount} ${names[g.contract.suit]}` : "Enchères"}</h3>${g.auction?.length ? `<ol class="auction-log" aria-label="Annonces de la table">${auctionRows(g, t)}</ol>` : "<p>À vous de trouver votre contrat.</p>"}${g.phase === "counter" ? "<p>Surcontre ouverte</p>" : ""}</div>`;
 }
 function gameActions(g, me, t) {
   const counter =
@@ -174,6 +197,23 @@ function render() {
   const dealKey = state.table?.game
     ? state.table.gameId + ":" + state.table.game.deal
     : null;
+  const trickKey = dealKey + ":" + (state.table?.game?.tricks.length ?? 0);
+  if (dealKey !== lastRenderedDeal) {
+    collection = null;
+    clearTimeout(collectionTimer);
+    lastTrickKey = trickKey;
+  } else if (trickKey !== lastTrickKey && state.table?.game?.tricks.length) {
+    collection = {
+      ...state.table.game.tricks.at(-1),
+      startedAt: performance.now(),
+    };
+    clearTimeout(collectionTimer);
+    collectionTimer = setTimeout(() => {
+      collection = null;
+      render();
+    }, 1100);
+  }
+  lastTrickKey = trickKey;
   distributing = dealKey !== lastRenderedDeal;
   lastRenderedDeal = dealKey;
   const focus = document.activeElement,
@@ -202,6 +242,16 @@ function render() {
     document.querySelector(`#${form} [name="${name}"]`)?.focus();
   if (!scrolled && $(".chat-messages"))
     $(".chat-messages").scrollTop = $(".chat-messages").scrollHeight;
+  document.querySelectorAll(".auction-log").forEach((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  if (collection)
+    document
+      .querySelector(".collecting")
+      ?.getAnimations()
+      .forEach((animation) => {
+        animation.currentTime = performance.now() - collection.startedAt;
+      });
   clock();
 }
 function modal(content) {
@@ -392,6 +442,14 @@ document.addEventListener("click", async (ev) => {
         '<h2>Signaler un problème</h2><form id="report-form"><label>Que s’est-il passé ?<textarea name="reason" maxlength="500" required></textarea></label><button class="gold">Envoyer le signalement</button></form>',
       );
       break;
+    case "lastTrick": {
+      const p = g.tricks.at(-1);
+      if (!p) break;
+      modal(
+        `<h2>Dernier pli</h2><p>Remporté par <strong>${e(t.seats[p.winner]?.name)}</strong> · ${p.points} points</p><div class="last-trick-cards">${p.cards.map((c) => `<div>${card(c.card)}<strong>${e(t.seats[c.seat]?.name)}</strong></div>`).join("")}</div>`,
+      );
+      break;
+    }
     case "tricks":
       modal(
         `<h2>Historique des plis</h2>${[...(g.history ?? []).flatMap((h) => h.tricks.map((p, i) => ({ ...p, deal: h.deal, index: i + 1 }))), ...g.tricks.map((p, i) => ({ ...p, deal: g.deal, index: i + 1 }))].map((p) => `<div class="history-row"><span>Donne ${p.deal} · Pli ${p.index}<small>${e(t.seats[p.winner]?.name)} · ${p.points} points</small></span><strong>${p.cards.map((c) => e(c.card.slice(0, -1)) + suits[c.card.slice(-1)]).join(" ")}</strong></div>`).join("") || "<p>Aucun pli terminé.</p>"}`,

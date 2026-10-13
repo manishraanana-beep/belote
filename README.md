@@ -22,7 +22,7 @@ En développement : `npm run dev`. Aucun build ni base de données externe n’e
 - **Entraînement** : acceptez les règles et jouez contre trois robots.
 - **Public** : rejoignez une table après lecture de ses règles. Le premier joueur devient créateur et peut compléter les places avec des robots puis lancer la partie.
 - **VIP** : créez votre table, choisissez ses règles et son éventuel mot de passe, copiez le lien privé. L’invité ouvre le lien, lit les règles et demande une place. Le créateur accepte ou refuse, peut retirer un participant et organiser les équipes avant lancement. VIP ne nécessite aucun paiement.
-- Cliquez sur votre avatar pour changer pseudo/avatar, consulter vos statistiques et activer les sons. Chat, réactions, historique des plis, résumé des donnes et revanche sont disponibles à la table.
+- Cliquez sur votre avatar pour changer pseudo/avatar, consulter vos statistiques et activer les sons. Chat, réactions, historique des annonces, historique des plis, bouton Dernier pli, résumé des donnes et revanche sont disponibles à la table. Les cartes traditionnelles affichent leur nombre de symboles et sont regroupées dans l’ordre pique, cœur, trèfle, carreau. Toute la main s’illumine à votre tour d’enchérir. Au jeu, aucune carte n’est recommandée ou mise en avant : vous choisissez, et le serveur refuse les coups illégaux. Les quatre cartes du pli sont ramassées avec une animation.
 
 ## Règles retenues et variantes
 
