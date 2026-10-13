@@ -51,7 +51,7 @@ test("ordinateur : profil, table VIP, règles, robots et partie complète", asyn
   expect(
     await page.$$eval(".hand .suit-group", (g) => g.map((x) => x.dataset.suit)),
   ).toEqual(["S", "H", "C", "D"]);
-  await page.locator("#bid-form button").click();
+  await page.locator("#bid-form .suit-button").first().click();
   await expect(page.locator(".auction-history")).toContainText("80");
   await expect(page.locator(".auction-log")).toContainText("80");
   await expect(page.locator(".hand .playable")).toHaveCount(0);
@@ -116,6 +116,9 @@ test("mobile : lobby sans débordement, invitation privée et reconnexion naviga
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
+  await expect(page.locator("#rotate-hint")).toBeVisible();
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(page.locator("#rotate-hint")).toBeHidden();
   await expect(
     page.getByRole("heading", { name: "Les tables du salon" }),
   ).toBeVisible();
@@ -149,7 +152,7 @@ test("mobile : lobby sans débordement, invitation privée et reconnexion naviga
   const text = await page.locator(".side-panel details small").textContent();
   const tableId = text.replace("Table : ", "");
   const guestContext = await browser.newContext({
-    viewport: { width: 390, height: 844 },
+    viewport: { width: 844, height: 390 },
     isMobile: true,
     hasTouch: true,
   });
@@ -182,15 +185,12 @@ test("mobile : lobby sans débordement, invitation privée et reconnexion naviga
     )
     .toBe(8);
   await expect(page.locator(".hand")).toHaveClass(/bidding-glow/);
-  await expect(page.locator("#rotate-hint")).toBeVisible();
-  await page.setViewportSize({ width: 844, height: 390 });
-  await expect(page.locator("#rotate-hint")).toBeHidden();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollHeight <= innerHeight,
     ),
   ).toBe(true);
-  await page.locator("#bid-form button").click();
+  await page.locator("#bid-form .suit-button").first().click();
   await expect(page.locator(".auction-log")).toContainText("80");
   await page.screenshot({
     path: "test-results/mobile-table.png",
