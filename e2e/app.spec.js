@@ -46,12 +46,11 @@ test("ordinateur : profil, table VIP, règles, robots et partie complète", asyn
     )
     .toBe(8);
   await expect(page.locator(".hand")).toHaveClass(/bidding-glow/);
-  await expect(page.locator(".suit-label")).toHaveText([
-    "♠ Pique",
-    "♥ Cœur",
-    "♣ Trèfle",
-    "♦ Carreau",
-  ]);
+  await expect(page.locator(".suit-label")).toHaveCount(0);
+  await expect(page.locator(".hand .suit-group")).toHaveCount(4);
+  expect(
+    await page.$$eval(".hand .suit-group", (g) => g.map((x) => x.dataset.suit)),
+  ).toEqual(["S", "H", "C", "D"]);
   await page.locator("#bid-form button").click();
   await expect(page.locator(".auction-history")).toContainText("80");
   await expect(page.locator(".auction-log")).toContainText("80");
