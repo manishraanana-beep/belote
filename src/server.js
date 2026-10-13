@@ -532,6 +532,8 @@ export function createApp({
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".txt": "text/plain; charset=utf-8",
   };
   function getPlayer(req) {
     const token = /\bbelote_session=([A-Za-z0-9_-]+)/.exec(
@@ -654,12 +656,20 @@ export function createApp({
       );
     }
     const rel = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
-    const allowed = ["index.html", "app.js", "cards.js", "style.css"];
-    if (!allowed.includes(rel)) {
+    const allowed = [
+      "index.html",
+      "app.js",
+      "cards.js",
+      "style.css",
+      "cards-LICENSE.txt",
+    ];
+    const cardFile = /^cards\/(?:[789]|10|[JQKA])[SHCD]\.svg$/.test(rel);
+    if (!allowed.includes(rel) && !cardFile) {
       res.writeHead(404);
       return res.end("Introuvable");
     }
     res.setHeader("Content-Type", mime[path.extname(rel)]);
+    if (cardFile) res.setHeader("Cache-Control", "public, max-age=86400");
     res.end(readFileSync(path.join(root, "public", rel)));
   });
   const wss = new WebSocketServer({ noServer: true, maxPayload: 8192 });

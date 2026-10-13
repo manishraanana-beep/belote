@@ -306,6 +306,12 @@ test("HTTP : application disponible, origine hostile bloquée, administration au
     assert.equal((await fetch(f.base + "/api/health")).status, 200);
     const index = await fetch(f.base);
     assert.match(await index.text(), /Maison Belote/);
+    const svg = await fetch(f.base + "/cards/QH.svg");
+    assert.equal(svg.status, 200);
+    assert.equal(svg.headers.get("content-type"), "image/svg+xml");
+    assert.equal((await fetch(f.base + "/cards-LICENSE.txt")).status, 200);
+    assert.equal((await fetch(f.base + "/cards/../src/server.js")).status, 404);
+    assert.equal((await fetch(f.base + "/cards/6H.svg")).status, 404);
     assert.equal(
       (
         await fetch(f.base + "/api/session", {

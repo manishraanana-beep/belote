@@ -89,3 +89,9 @@ Les tests couvrent les obligations de jeu, scores, capot, belote, redistribution
 ## Limites de cette première version
 
 Version jouable sur **une instance serveur** ; pas encore de déploiement public effectué. La persistance JSON convient à un prototype à petit volume : PostgreSQL, journal d’événements, coordination multi-instance, quotas globaux et tests de charge restent à prévoir pour une exploitation à grande échelle. Les bots respectent les cartes cachées mais leur stratégie est volontairement simple. L’administration utilise une clé commune ; comptes administrateurs, rôles et audit complet restent à ajouter. Les profils sont invités et identifiés par navigateur. Paiement/abonnement premium, classement compétitif et modération avancée restent à réaliser. Le drapeau VIP et les règles par table fournissent le point d’extension pour un futur contrôle d’abonnement.
+
+## Illustrations des cartes
+
+Les cartes utilisent le jeu classique **SVG-cards** (David Bellot, Huub de Beer et contributeurs, licence LGPL) :
+figures françaises détaillées, index français agrandis. Les 32 fichiers `public/cards/*.svg` sont générés par
+`python3 scripts/build-cards.py` à partir de `assets/cards-source.svg` ; voir `assets/cards-NOTICE.md` et `/cards-LICENSE.txt`.

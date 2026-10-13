@@ -38,6 +38,13 @@ test("ordinateur : profil, table VIP, règles, robots et partie complète", asyn
   await page.locator('[data-action="bot"][data-seat="3"]').click();
   await page.getByRole("button", { name: "Commencer la partie" }).click();
   await expect(page.locator(".hand .card")).toHaveCount(8);
+  await expect
+    .poll(() =>
+      page.$$eval(".hand .card img", (imgs) =>
+        imgs.filter((i) => i.complete && i.naturalWidth > 0).length,
+      ),
+    )
+    .toBe(8);
   await expect(page.locator(".hand")).toHaveClass(/bidding-glow/);
   await expect(page.locator(".suit-label")).toHaveText([
     "♠ Pique",
@@ -89,6 +96,13 @@ test("ordinateur : profil, table VIP, règles, robots et partie complète", asyn
   await page.locator('[data-action="close"]').click();
   await page.getByRole("button", { name: "Revanche →" }).click();
   await expect(page.locator(".hand .card")).toHaveCount(8);
+  await expect
+    .poll(() =>
+      page.$$eval(".hand .card img", (imgs) =>
+        imgs.filter((i) => i.complete && i.naturalWidth > 0).length,
+      ),
+    )
+    .toBe(8);
   expect(errors).toEqual([]);
 });
 test("mobile : lobby sans débordement, invitation privée et reconnexion navigateur", async ({
@@ -161,6 +175,13 @@ test("mobile : lobby sans débordement, invitation privée et reconnexion naviga
   await page.locator('[data-action="bot"][data-seat="3"]').click();
   await page.getByRole("button", { name: "Commencer la partie" }).click();
   await expect(page.locator(".hand .card")).toHaveCount(8);
+  await expect
+    .poll(() =>
+      page.$$eval(".hand .card img", (imgs) =>
+        imgs.filter((i) => i.complete && i.naturalWidth > 0).length,
+      ),
+    )
+    .toBe(8);
   await expect(page.locator(".hand")).toHaveClass(/bidding-glow/);
   await page.locator("#bid-form button").click();
   await expect(page.locator(".auction-log")).toContainText("80");
