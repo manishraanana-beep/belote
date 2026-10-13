@@ -1035,7 +1035,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 @media (max-width: 380px) { .lobby-card b { font-size: 17px; } .ti-row { grid-template-columns: 20px 1fr; } .ti-row b { grid-column: 1 / -1; text-align: left; padding-left: 30px; } }
 
 /* ———————————————————————————— Table « Votre annonce » (maquette Belote Prestige) */
-.screen.game { display: flex; flex-direction: column; --cw: clamp(62px, min(21vw, 17vh), 124px); --av: clamp(50px, min(15vw, 9.5vh), 92px); }
+.screen.game { display: flex; flex-direction: column; --cw: clamp(62px, min(21vw, 17vh), 124px); --av: clamp(50px, min(15vw, 9.5vh), 92px); --tc: clamp(58px, min(19.5vw, 13vh), 112px); }
 .screen.game > .arena { flex: 1; min-height: 0; }
 .screen.game > .ambient { position: absolute; }
 .game-top { align-items: center; gap: 6px; padding: calc(6px + var(--safe-t)) 10px 0; }
@@ -1170,7 +1170,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 }
 /* Ordinateur : on agrandit l'interface autour du tapis */
 @media (min-width: 900px) and (min-height: 600px) {
-  .screen.game { --av: clamp(64px, 9.5vh, 92px); --cw: clamp(84px, 12.5vh, 118px); --tc: clamp(70px, 10vh, 96px); }
+  .screen.game { --av: clamp(64px, 9.5vh, 92px); --cw: clamp(84px, 12.5vh, 118px); --tc: clamp(80px, 13vh, 112px); }
   .gt-logo .logo .emblem { font-size: 12px; }
   .gt-logo .logo b { font-size: 34px; }
   .gt-logo .logo b + .orn { font-size: 11px; }
@@ -1192,4 +1192,11 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .screen.game { --av: 58px; --cw: 82px; }
   .scoreboard b { font-size: 22px; } .scoreboard small { font-size: 12px; }
   .gt-logo .logo b { font-size: 26px; }
+}
+/* Centre de la table ancré sous le partenaire : les grandes cartes jouées ne couvrent plus son avatar */
+.screen.game .center { top: calc(var(--av) + 30px); translate: -50% 0; }
+.screen.game .last-trick-btn { top: min(calc(var(--av) + 36px + var(--tc) * 2.9), calc(100% - 46px)); }
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen.game .center { top: 50%; translate: -50% -50%; }
+  .screen.game .last-trick-btn { top: auto; }
 }
