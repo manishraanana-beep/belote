@@ -1,6 +1,14 @@
 # Maison Belote — Belote contrée
 
-Application française jouable à quatre en temps réel ou contre trois robots, sur ordinateur, tablette et mobile. Serveur autoritaire, moteur indépendant, interface colorée à tapis turquoise. Aucun service tiers ni secret n’est nécessaire pour jouer.
+Application française jouable à quatre en temps réel ou contre trois robots, sur ordinateur, tablette et mobile. Serveur autoritaire, moteur indépendant. Interface « Club Pop » (tapis émeraude) pour les parties classiques et « Night VIP » (violet et or) pour les tables privées, sans défilement pendant la partie. Aucun service tiers ni secret n’est nécessaire pour jouer.
+
+## Nouveautés
+
+- **Comptes** communs au site et aux applications : e-mail (vérification, mot de passe oublié, suppression), Apple/Google à configurer — voir `docs/ARCHITECTURE-APPLIS.md`.
+- **Crédits virtuels** : portefeuille, bonus de bienvenue et quotidien, boutique (désactivée par défaut), mises 100 à 1 000, réservation, rubicon, journal — voir `docs/CREDITS-ET-STORES.md`.
+- **Social** : amis, favoris, statut masquable, invitations détaillées, revanche à quatre confirmations, réactions prédéfinies avec délai, masquage, blocage, signalement avec contexte.
+- **Progression** : défis quotidiens, expérience, niveaux d’activité, badges, collection de cadres, dos de cartes et décors (purement visuels).
+- **Modération** : signalements et alertes anti-abus multi-indices dans l’administration, annulation technique d’une partie.
 
 ## Lancement
 

@@ -11,6 +11,10 @@ import {
 } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createAccounts, createMailer } from "./accounts.js";
+import { createEconomy, economyConfig, STAKES, toCredits, toUnits } from "./economy.js";
+import { createProgression } from "./progression.js";
+import { createIntegrity, integrityConfig } from "./integrity.js";
+import { stripeCheckout, stripeEvent, verifyAppleTransaction, verifyGooglePurchase } from "./purchases.js";
 import path from "node:path";
 import {
   newGame,
@@ -77,6 +81,24 @@ export const AVATARS = [
 ];
 export const BOT_AVATARS = ["robot-bleu", "robot-corail", "robot-menthe", "robot-soleil"];
 const BOT_NAMES = ["Léon", "Margot", "Basile", "Rosalie", "Gaston", "Suzon", "Firmin", "Odette"];
+// Messages et réactions prédéfinis : impossible d'y décrire sa main à son partenaire.
+export const REACTIONS = [
+  { id: "bravo", text: "Bien joué !", emoji: "👏" },
+  { id: "merci", text: "Merci partenaire !", emoji: "🤝" },
+  { id: "belle", text: "Belle partie !", emoji: "🎉" },
+  { id: "dommage", text: "Pas de chance !", emoji: "🍀" },
+  { id: "rire", text: "", emoji: "😂" },
+  { id: "feu", text: "", emoji: "🔥" },
+  { id: "wow", text: "", emoji: "😮" },
+  { id: "coeur", text: "", emoji: "❤️" },
+];
+export const REPORT_REASONS = {
+  abuse: "Insultes ou harcèlement",
+  spam: "Spam",
+  cheat: "Suspicion de triche ou d’arrangement",
+  profile: "Pseudo ou photo inappropriés",
+  other: "Autre",
+};
 const validAvatar = (v, p) =>
   AVATARS.includes(v) || (typeof v === "string" && v.startsWith("u:") && v === p?.photo);
 const hashPassword = (password, salt) =>
@@ -87,6 +109,8 @@ export function createApp({
   botDelay = 800,
   adminKey = process.env.BELOTE_ADMIN_KEY,
   fillSeconds = Number(process.env.BELOTE_FILL_SECONDS) || 8,
+  env = process.env,
+  reactionCooldownMs = 4000,
 } = {}) {
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   const file = path.join(dataDir, "state.json");
@@ -97,6 +121,9 @@ export function createApp({
     settings: { maintenance: false },
   };
   if (existsSync(file)) db = JSON.parse(readFileSync(file, "utf8"));
+  const economy = createEconomy(db, economyConfig(env));
+  const progression = createProgression({ db, economy, env });
+  const integrity = createIntegrity(db, integrityConfig(env));
   const photoDir = path.join(dataDir, "avatars");
   mkdirSync(photoDir, { recursive: true, mode: 0o700 });
   // Anciens avatars (symboles) : remplacés par un avatar illustré.
@@ -106,6 +133,18 @@ export function createApp({
     for (const s of t.seats)
       if (s && !validAvatar(s.avatar, db.players[s.id]) && !BOT_AVATARS.includes(s.avatar))
         s.avatar = s.bot ? BOT_AVATARS[0] : AVATARS[0];
+  const tagOf = () => "MB-" + randomBytes(4).toString("hex").slice(0, 6).toUpperCase();
+  function socialDefaults(p) {
+    p.tag ??= tagOf();
+    p.friends ??= {};
+    p.friendIn ??= [];
+    p.friendOut ??= [];
+    p.blocked ??= {};
+    p.hidden ??= {};
+    p.invites ??= [];
+    p.settings ??= { hideStatus: false, invites: "friends", animations: true, sounds: true };
+  }
+  for (const p of Object.values(db.players)) socialDefaults(p);
   function newPlayer() {
     const p = {
       id: id(),
@@ -118,6 +157,7 @@ export function createApp({
       seen: [],
       created: Date.now(),
     };
+    socialDefaults(p);
     db.players[p.id] = p;
     return p;
   }
@@ -139,6 +179,12 @@ export function createApp({
       } catch {}
     }
     for (const t of Object.values(db.tables)) t.pending = t.pending.filter((x) => x !== p.id);
+    for (const o of Object.values(db.players)) {
+      delete o.friends?.[p.id];
+      o.friendIn = (o.friendIn ?? []).filter((x) => x !== p.id);
+      o.friendOut = (o.friendOut ?? []).filter((x) => x !== p.id);
+      o.invites = (o.invites ?? []).filter((x) => x.from !== p.id);
+    }
     delete db.players[p.id];
   }
   const baseUrl = (req) =>
@@ -151,8 +197,13 @@ export function createApp({
     writeFileSync(file + ".tmp", JSON.stringify(db), { mode: 0o600 });
     renameSync(file + ".tmp", file);
   }
-  function table(name, owner, vip = false, r = {}) {
+  function table(name, owner, vip = false, r = {}, stake = 0) {
     const t = {
+      stake,
+      money: null,
+      rematch: null,
+      reactions: [],
+      results: null,
       id: id(),
       name,
       owner,
@@ -195,6 +246,8 @@ export function createApp({
       rules: t.rules,
       quick: !!t.quick,
       fillAt: t.fillAt,
+      stake: t.stake ?? 0,
+      practice: !!t.practice,
       humans: t.seats.filter((s) => s && !s.bot).length,
     };
   }
@@ -206,6 +259,8 @@ export function createApp({
           avatar: s.avatar,
           bot: !!s.bot,
           replaced: s.replaced ?? null,
+          frame: s.bot ? null : (db.players[s.id]?.progress?.equipped?.frame ?? null),
+          tag: s.bot ? null : db.players[s.id]?.tag,
           connected: s.bot || connections.has(s.id),
           disconnectedAt: s.disconnectedAt ?? null,
         }
@@ -227,6 +282,19 @@ export function createApp({
           : [],
       invite: pid === t.owner ? t.invite : undefined,
       game: t.game ? view(t.game, seat >= 0 ? seat : null) : null,
+      // Crédits engagés (ou, avant lancement, ce qui serait engagé) pour chaque place.
+      money: t.money
+        ? { stake: toCredits(t.money.stake), settled: t.money.settled, cancelled: t.money.cancelled ?? null, seats: t.money.seats.map((x) => ({ seat: x.seat, name: x.name, engaged: toCredits(x.engaged) })) }
+        : null,
+      engagedPreview: t.stake
+        ? t.seats.map((s) => {
+            const p = s && !s.bot ? db.players[s.id] : null;
+            return p ? { engaged: toCredits(Math.min(economy.available(p), 6 * t.stake)), enough: economy.available(p) >= 2 * t.stake, account: !!p.accountId } : null;
+          })
+        : null,
+      rematch: t.rematch ? { votes: t.rematch.votes, blocked: t.rematch.blocked ?? [] } : null,
+      reactions: t.reactions.filter((r) => Date.now() - r.at < 6000),
+      result: t.results?.[pid] ?? null,
     };
   }
   function playerView(p) {
@@ -239,6 +307,38 @@ export function createApp({
       history: p.history,
       banned: !!p.banned,
       account: accounts.view(p),
+      tag: p.tag,
+      lastResult: p.lastResult ?? null,
+      wallet: economy.view(p),
+      progress: progression.view(p),
+      settings: p.settings,
+      hidden: Object.keys(p.hidden),
+      blocked: Object.keys(p.blocked),
+      friends: Object.entries(p.friends)
+        .map(([id, f]) => {
+          const o = db.players[id];
+          if (!o) return null;
+          const online = connections.has(id) && !o.settings?.hideStatus;
+          const t = db.tables[o.tableId];
+          return {
+            id,
+            name: o.name,
+            avatar: o.avatar,
+            tag: o.tag,
+            favorite: !!f.favorite,
+            status: !online ? "offline" : t?.game && t.game.phase !== "finished" ? "playing" : "available",
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.favorite - a.favorite || a.name.localeCompare(b.name)),
+      friendIn: p.friendIn.map((id) => db.players[id] && { id, name: db.players[id].name, avatar: db.players[id].avatar, tag: db.players[id].tag }).filter(Boolean),
+      friendOut: p.friendOut.map((id) => db.players[id] && { id, name: db.players[id].name }).filter(Boolean),
+      invites: p.invites
+        .filter((i) => db.tables[i.tableId] && Date.now() - i.at < 30 * 60_000)
+        .map((i) => {
+          const t = db.tables[i.tableId];
+          return { id: i.id, from: i.fromName, tableId: t.id, table: t.name, vip: t.vip, stake: t.stake ?? 0, rules: t.rules, free: t.seats.filter((s) => !s).length, started: !!t.game && t.game.phase !== "finished" };
+        }),
     };
   }
   function broadcast() {
@@ -277,28 +377,124 @@ export function createApp({
   function finishStats(t) {
     if (t.game.phase !== "finished" || t.recorded === t.gameId) return;
     t.recorded = t.gameId;
+    const g = t.game;
+    // Règlement des crédits (atomique, une seule fois grâce à la clé de partie).
+    let settlement = null;
+    if (t.money && !t.money.settled) {
+      settlement = economy.settle(db.players, t.money, g.scores, t.gameId);
+      if (settlement) integrity.settlement(t.gameId, settlement);
+    }
+    const winTeam = g.scores[0] > g.scores[1] ? 0 : 1;
+    const rubicon = g.scores[winTeam] > 2 * g.scores[1 - winTeam];
+    const humans = t.seats.filter((s) => s && !s.bot).map((s) => s.id).sort();
+    const lineup = humans.join("|");
+    t.results = {};
     for (let seat = 0; seat < 4; seat++) {
       const s = t.seats[seat],
         p = s && !s.bot ? db.players[s.id] : null;
-      if (p) {
-        const won = t.game.scores[seat % 2] > t.game.scores[1 - (seat % 2)];
-        p.stats.games++;
-        if (won) p.stats.wins++;
-        p.history.unshift({
-          table: t.name,
-          date: Date.now(),
-          scores: t.game.scores,
-          won,
-        });
-        p.history = p.history.slice(0, 30);
-      }
+      if (!p) continue;
+      const won = seat % 2 === winTeam;
+      p.stats.games++;
+      if (won) p.stats.wins++;
+      const row = settlement?.rows.find((r) => r.pid === p.id);
+      const team = seat % 2;
+      const capot = g.history.some((h) => h.contract.amount === 250 && h.made && h.contract.seat % 2 === team);
+      const counterWin = g.history.some((h) => h.multiplier > 1 && !h.made && h.contract.seat % 2 !== team);
+      const prog = progression.record(p, {
+        practice: t.practice ?? false,
+        won,
+        rubicon,
+        capot,
+        counterWin,
+        vipHost: t.vip && t.owner === p.id && !t.practice,
+        deals: g.history.length,
+        durationMs: Date.now() - (t.startedAt ?? Date.now()),
+        lineup,
+      });
+      if (!prog.counted && !t.practice) integrity.repetition(lineup, p.progress.daily[Object.keys(p.progress.daily)[0]]["lineup:" + lineup]);
+      p.history.unshift({
+        table: t.name,
+        date: Date.now(),
+        scores: [g.scores[team], g.scores[1 - team]],
+        won,
+        rubicon,
+        gameId: t.gameId,
+        stake: t.stake ?? 0,
+        delta: row ? toCredits(row.delta) : 0,
+      });
+      p.history = p.history.slice(0, 30);
+      t.results[p.id] = {
+        won,
+        rubicon,
+        stake: t.stake ?? 0,
+        engaged: row ? toCredits(row.engaged) : 0,
+        delta: row ? toCredits(row.delta) : 0,
+        adjusted: !!row?.adjusted,
+        balance: row ? toCredits(row.balance) : toCredits(economy.wallet(p).balance),
+        xp: prog.xp,
+        level: prog.level,
+        badges: prog.badges,
+        challenges: prog.challenges.map((c) => c.label),
+      };
+    }
+    // Les joueurs remplacés par un robot restent engagés : leur résultat leur est aussi communiqué.
+    for (const r of settlement?.rows ?? []) {
+      if (t.results[r.pid] || !db.players[r.pid]) continue;
+      t.results[r.pid] = { won: r.delta > 0, rubicon, stake: t.stake, engaged: toCredits(r.engaged), delta: toCredits(r.delta), adjusted: r.adjusted, balance: toCredits(r.balance), xp: 0, replaced: true };
+      db.players[r.pid].lastResult = { table: t.name, ...t.results[r.pid] };
     }
   }
   function start(t) {
     check(t.seats.every(Boolean), "Il faut quatre joueurs");
+    const gameId = id();
+    if (t.stake) {
+      // Parties avec crédits : quatre humains avec compte, réservation au lancement.
+      check(t.seats.every((s) => !s.bot), "Les parties avec crédits se jouent entre quatre joueurs");
+      check(t.seats.every((s) => db.players[s.id]?.accountId), "Chaque joueur doit avoir un compte pour miser des crédits");
+      t.gameId = gameId;
+      t.money = economy.reserve(t, t.seats.map((s) => db.players[s.id]));
+    } else t.money = null;
     t.game = newGame(t.rules);
-    t.gameId = id();
+    t.gameId = gameId;
+    t.startedAt = Date.now();
+    t.rematch = null;
+    t.results = null;
     update(t);
+  }
+  // Annulation technique : réservations libérées, ni gain ni perte.
+  function cancelGame(t, reason) {
+    if (t.money && !t.money.settled) {
+      economy.release(db.players, t.money, reason);
+      for (const x of t.money.seats) {
+        const p = db.players[x.pid];
+        if (p) economy.post(p, `cancel:${t.gameId}:${p.id}`, "cancel", 0, { gameId: t.gameId, label: reason, engaged: x.engaged, stake: t.money.stake });
+      }
+    }
+    t.game = null;
+    t.rematch = null;
+    t.seats = t.seats.map((s) => (s?.bot && s.owner ? null : s));
+    update(t);
+  }
+  // Revanche : chaque joueur confirme ; lancement automatique quand les quatre sont d'accord.
+  function voteRematch(t, pid, accept) {
+    check(t.game?.phase === "finished", "La partie n’est pas terminée");
+    t.rematch ??= { votes: {}, blocked: [] };
+    if (!accept) {
+      // Retour au salon avec les participants restants.
+      t.game = null;
+      t.rematch = null;
+      t.seats = t.seats.map((s) => (s?.bot && (t.stake || s.owner) ? null : s));
+      return;
+    }
+    t.rematch.votes[pid] = true;
+    for (const s of t.seats) if (s?.bot && !t.stake && !s.owner) t.rematch.votes[s.id] = true;
+    const ready = t.seats.every((s) => s && t.rematch.votes[s.id]);
+    if (!ready) return;
+    if (t.stake) {
+      t.rematch.blocked = t.seats.filter((s) => s.bot || economy.available(db.players[s.id]) < 2 * t.stake).map((s) => s.name);
+      if (t.rematch.blocked.length) return;
+    }
+    start(t);
   }
   // Départ d'une table. Pendant une partie, un robot reprend aussitôt la main et la place :
   // les cartes, le contrat et les scores sont conservés pour les autres joueurs.
@@ -308,10 +504,15 @@ export function createApp({
     if (!t) return;
     const seat = t.seats.findIndex((s) => s?.id === p.id);
     const playing = t.game && t.game.phase !== "finished";
-    if (seat >= 0) t.seats[seat] = playing ? makeBot(seat, p.name) : null;
+    if (seat >= 0) {
+      t.seats[seat] = playing ? { ...makeBot(seat, p.name), owner: p.id } : null;
+      if (playing && t.money && !t.money.settled) integrity.leave(p.id, t.gameId);
+    }
+    if (t.rematch) delete t.rematch.votes[p.id];
     if (t.owner === p.id) t.owner = t.seats.find((s) => s && !s.bot)?.id ?? null;
-    if (!t.seats.some((s) => s && !s.bot)) {
-      // Plus aucun humain : on ne fait pas jouer quatre robots dans le vide.
+    if (!t.seats.some((s) => s && !s.bot) && !(playing && t.money && !t.money.settled)) {
+      // Plus aucun humain : on ne fait pas jouer quatre robots dans le vide
+      // (sauf partie avec crédits engagés, menée à son terme pour un règlement valide).
       if (t.vip || t.quick) delete db.tables[t.id];
       else {
         t.seats = [null, null, null, null];
@@ -356,6 +557,28 @@ export function createApp({
       rate.set(pid, r);
     }
     check(++r.n <= 25, "Trop de requêtes");
+  }
+  // Le joueur doit disposer de la mise, sans compter les crédits déjà réservés ailleurs.
+  function canStake(p, stake) {
+    if (!stake) return;
+    check(p.accountId, "Créez un compte pour jouer avec des crédits");
+    if (economy.available(p) < stake * 2) {
+      const e = Error(`Solde insuffisant : il faut ${stake} crédits disponibles pour cette table.`);
+      e.code = "funds";
+      throw e;
+    }
+  }
+  const stakeOf = (v) => {
+    const n = Number(v ?? 0);
+    check(n === 0 || STAKES.includes(n), "Mise invalide");
+    return n;
+  };
+  const blockedEither = (a, b) => !!(a.blocked?.[b.id] || b.blocked?.[a.id]);
+  function seatPlayer(target, p, seat = target.seats.indexOf(null)) {
+    check(seat >= 0 && !target.seats[seat], "Table complète");
+    target.seats[seat] = { id: p.id, name: p.name, avatar: p.avatar };
+    p.tableId = target.id;
+    if (!target.owner) target.owner = p.id;
   }
   function command(pid, msg) {
     const p = db.players[pid];
@@ -404,7 +627,11 @@ export function createApp({
           Object.values(db.tables).filter((t) => t.owner === pid).length < 5,
           "Maximum cinq tables",
         );
-        changed = table(clean(d.name) || "Table privée", pid, !!d.vip, d.rules);
+        {
+          const stake = stakeOf(d.stake);
+          canStake(p, stake);
+          changed = table(clean(d.name) || "Table privée", pid, !!d.vip, d.rules, stake);
+        }
         changed.seats[0] = { id: pid, name: p.name, avatar: p.avatar };
         p.tableId = changed.id;
         if (d.password) {
@@ -434,6 +661,7 @@ export function createApp({
           target.seats.some((s) => !s),
           "Table complète",
         );
+        canStake(p, target.stake);
         if (target.vip) {
           validateInvite(target, d);
           if (!target.pending.includes(pid)) target.pending.push(pid);
@@ -454,6 +682,7 @@ export function createApp({
         if (msg.type === "admit") {
           const guest = db.players[d.playerId];
           check(guest && !guest.tableId, "Joueur indisponible");
+          canStake(guest, t.stake);
           const seat = Number.isInteger(d.seat)
             ? d.seat
             : t.seats.indexOf(null);
@@ -501,18 +730,37 @@ export function createApp({
           changed = t;
         }
         break;
+      case "rematchVote":
+        check(t && t.seats.some((s) => s?.id === pid), "Joueur non assis");
+        voteRematch(t, pid, d.accept !== false);
+        changed = t;
+        break;
       case "kick":
       case "bot":
       case "rules":
       case "start":
       case "rematch":
+        if (msg.type === "rematch") {
+          check(t && t.seats.some((s) => s?.id === pid), "Joueur non assis");
+          voteRematch(t, pid, true);
+          changed = t;
+          break;
+        }
         check(t && t.owner === pid, "Créateur uniquement");
         check(
           !t.game || t.game.phase === "finished",
           "Options figées pendant une partie",
         );
-        if (msg.type === "rules") t.rules = rules(d.rules);
+        if (msg.type === "rules") {
+          t.rules = rules(d.rules);
+          if (d.stake !== undefined) {
+            const stake = stakeOf(d.stake);
+            check(!stake || t.seats.every((s) => !s?.bot), "Retirez les robots pour jouer avec des crédits");
+            t.stake = stake;
+          }
+        }
         if (msg.type === "bot") {
+          check(!t.stake, "Les robots complètent uniquement les parties gratuites");
           check(
             Number.isInteger(d.seat) &&
               d.seat >= 0 &&
@@ -534,7 +782,8 @@ export function createApp({
           if (guest && !guest.bot) db.players[guest.id].tableId = null;
           t.seats[d.seat] = null;
         }
-        if (["start", "rematch"].includes(msg.type)) start(t);
+        if (msg.type === "start") start(t);
+        if (msg.type === "rematch") voteRematch(t, pid, true);
         changed = t;
         break;
       case "practice":
@@ -542,6 +791,7 @@ export function createApp({
         rules(d.rules);
         if (p.tableId) leave(p);
         changed = table("Entraînement", pid, true, d.rules);
+        changed.practice = true;
         changed.seats[0] = { id: pid, name: p.name, avatar: p.avatar };
         for (let i = 1; i < 4; i++) changed.seats[i] = makeBot(i);
         p.tableId = changed.id;
@@ -597,11 +847,190 @@ export function createApp({
         {
           const text = clean(d.text, 280);
           check(text, "Message vide");
+          // Pendant la donne, uniquement des messages prédéfinis : rien ne permet de décrire sa main.
+          if (t.game && t.game.phase !== "finished")
+            check(REACTIONS.some((r) => r.text === text || r.emoji === text), "Pendant la partie, utilisez les messages prédéfinis");
           t.chat.push({ id: id(), pid, name: p.name, text, at: Date.now() });
           t.chat = t.chat.slice(-60);
         }
         break;
+      case "react": {
+        check(t, "Rejoignez une table");
+        const r = REACTIONS.find((x) => x.id === d.id);
+        check(r, "Réaction inconnue");
+        check(Date.now() - (p.lastReact ?? 0) >= reactionCooldownMs, "Doucement ! Attendez quelques secondes");
+        p.lastReact = Date.now();
+        t.reactions.push({ id: id(), pid, reaction: r.id, at: Date.now() });
+        t.reactions = t.reactions.slice(-12);
+        break;
+      }
+      case "settings":
+        if (typeof d.hideStatus === "boolean") p.settings.hideStatus = d.hideStatus;
+        if (["all", "friends", "none"].includes(d.invites)) p.settings.invites = d.invites;
+        if (typeof d.animations === "boolean") p.settings.animations = d.animations;
+        if (typeof d.sounds === "boolean") p.settings.sounds = d.sounds;
+        break;
+      case "dismissResult":
+        delete p.lastResult;
+        break;
+      case "equip":
+        progression.equip(p, d.id);
+        break;
+      case "daily":
+        economy.daily(p);
+        break;
+      case "wallet":
+        return {
+          wallet: economy.history(p).map((x) => ({
+            id: x.id,
+            type: x.type,
+            label: x.label,
+            amount: toCredits(x.amount),
+            balance: toCredits(x.balance),
+            at: x.at,
+            gameId: x.gameId,
+            stake: x.stake ? toCredits(x.stake) : undefined,
+            engaged: x.engaged !== undefined ? toCredits(x.engaged) : undefined,
+            rubicon: x.rubicon,
+            adjusted: x.adjusted,
+          })),
+        };
+      case "search": {
+        const q = clean(d.q, 30).toLowerCase();
+        check(q.length >= 2, "Tapez au moins deux caractères");
+        const found = Object.values(db.players)
+          .filter((o) => o.id !== pid && !blockedEither(p, o) && (o.tag?.toLowerCase() === q || o.name.toLowerCase().includes(q)))
+          .slice(0, 10)
+          .map((o) => ({ id: o.id, name: o.name, avatar: o.avatar, tag: o.tag, friend: !!p.friends[o.id], pending: p.friendOut.includes(o.id) }));
+        return { found };
+      }
+      case "friendRequest": {
+        const o = db.players[d.id];
+        check(o && o.id !== pid, "Joueur introuvable");
+        check(!blockedEither(p, o), "Demande impossible");
+        check(!p.friends[o.id], "Déjà amis");
+        if (o.friendOut.includes(pid)) {
+          // Demande croisée : amitié immédiate.
+          o.friendOut = o.friendOut.filter((x) => x !== pid);
+          p.friendIn = p.friendIn.filter((x) => x !== o.id);
+          p.friends[o.id] = { since: Date.now() };
+          o.friends[pid] = { since: Date.now() };
+        } else if (!p.friendOut.includes(o.id)) {
+          check(p.friendOut.length < 100, "Trop de demandes en attente");
+          p.friendOut.push(o.id);
+          o.friendIn.push(pid);
+        }
+        break;
+      }
+      case "friendAccept":
+      case "friendDecline": {
+        const o = db.players[d.id];
+        check(o && p.friendIn.includes(o.id), "Demande introuvable");
+        p.friendIn = p.friendIn.filter((x) => x !== o.id);
+        o.friendOut = o.friendOut.filter((x) => x !== pid);
+        if (msg.type === "friendAccept") {
+          p.friends[o.id] = { since: Date.now() };
+          o.friends[pid] = { since: Date.now() };
+        }
+        break;
+      }
+      case "friendRemove": {
+        const o = db.players[d.id];
+        delete p.friends[d.id];
+        if (o) delete o.friends[pid];
+        break;
+      }
+      case "favorite":
+        check(p.friends[d.id], "Ce joueur n’est pas votre ami");
+        p.friends[d.id].favorite = !!d.on;
+        break;
+      case "invite": {
+        // Inviter un ami : aucune réservation, aucun engagement sans son acceptation.
+        check(t, "Rejoignez d’abord une table");
+        const o = db.players[d.id];
+        check(o && o.id !== pid, "Joueur introuvable");
+        check(!blockedEither(p, o), "Invitation impossible");
+        const policy = o.settings?.invites ?? "friends";
+        check(policy !== "none" && (policy === "all" || o.friends[pid]), "Ce joueur n’accepte pas les invitations");
+        check(t.seats.some((s) => !s) || (t.game && t.game.phase !== "finished"), "Table complète");
+        o.invites = o.invites.filter((i) => i.tableId !== t.id).slice(-19);
+        o.invites.push({ id: id(), tableId: t.id, from: pid, fromName: p.name, fromOwner: t.owner === pid, at: Date.now() });
+        break;
+      }
+      case "inviteAccept":
+      case "inviteDecline": {
+        const inv = p.invites.find((i) => i.id === d.id);
+        check(inv, "Invitation expirée");
+        p.invites = p.invites.filter((i) => i !== inv);
+        if (msg.type === "inviteDecline") break;
+        const target = db.tables[inv.tableId];
+        check(target, "Table fermée");
+        check(!target.game || target.game.phase === "finished", "La partie a déjà commencé");
+        check(!p.tableId || p.tableId === target.id, "Quittez votre table actuelle");
+        canStake(p, target.stake);
+        if (target.vip && !inv.fromOwner) {
+          if (!target.pending.includes(pid)) target.pending.push(pid);
+        } else seatPlayer(target, p);
+        changed = target;
+        break;
+      }
+      case "hide":
+        if (d.on) p.hidden[d.id] = true;
+        else delete p.hidden[d.id];
+        break;
+      case "block": {
+        // Le blocage coupe demandes, invitations et communications, sans toucher à la partie en cours.
+        const o = db.players[d.id];
+        check(o && o.id !== pid, "Joueur introuvable");
+        if (d.on === false) {
+          delete p.blocked[o.id];
+          delete p.hidden[o.id];
+          break;
+        }
+        p.blocked[o.id] = Date.now();
+        p.hidden[o.id] = true;
+        delete p.friends[o.id];
+        delete o.friends[pid];
+        p.friendIn = p.friendIn.filter((x) => x !== o.id);
+        p.friendOut = p.friendOut.filter((x) => x !== o.id);
+        o.friendIn = o.friendIn.filter((x) => x !== pid);
+        o.friendOut = o.friendOut.filter((x) => x !== pid);
+        p.invites = p.invites.filter((i) => i.from !== o.id);
+        break;
+      }
       case "report":
+        if (d.target) {
+          const o = db.players[d.target] ?? Object.values(db.tables).flatMap((x) => x.seats).find((s) => s?.id === d.target);
+          check(o, "Joueur introuvable");
+          check(REPORT_REASONS[d.category], "Motif requis");
+          check(
+            db.reports.filter((r) => r.by === pid && Date.now() - r.at < 3600000).length < 10,
+            "Trop de signalements",
+          );
+          const tt = db.tables[p.tableId];
+          // Contexte joint automatiquement : partie, donne, derniers messages et réactions du joueur.
+          db.reports.push({
+            id: id(),
+            by: pid,
+            byName: p.name,
+            target: d.target,
+            targetName: o.name,
+            category: d.category,
+            reason: REPORT_REASONS[d.category],
+            comment: clean(d.comment, 500),
+            table: tt?.id,
+            gameId: tt?.gameId ?? null,
+            deal: tt?.game?.deal ?? null,
+            context: {
+              chat: (tt?.chat ?? []).filter((m) => m.pid === d.target).slice(-10),
+              reactions: (tt?.reactions ?? []).filter((r) => r.pid === d.target).slice(-10),
+              ledger: (db.ledger ?? []).filter((x) => x.pid === d.target).slice(-10),
+            },
+            at: Date.now(),
+            resolved: false,
+          });
+          break;
+        }
         check(clean(d.reason, 500), "Motif requis");
         check(
           db.reports.filter((r) => r.by === pid && Date.now() - r.at < 3600000)
@@ -650,6 +1079,8 @@ export function createApp({
     baseUrl,
     newPlayer,
     retirePlayer,
+    // Crédits de bienvenue, une seule fois par adresse.
+    onAccount: (p, acc) => economy.signupBonus(p, acc),
   });
   const secure = (req) =>
     req.socket.encrypted || process.env.BELOTE_SECURE_COOKIE === "true" ? "; Secure" : "";
@@ -680,6 +1111,19 @@ export function createApp({
     const r = authRate.get(ip);
     if (!r || now - r.at > 60_000) authRate.set(ip, { at: now, n: 1 });
     else if (++r.n > 20) throw Object.assign(Error("Trop de tentatives, réessayez dans une minute."), { status: 429 });
+  }
+  // Crédit d'un achat vérifié, une seule fois par transaction de la plateforme.
+  function creditPurchase(p, purchase) {
+    check(p, "Joueur introuvable");
+    const pack = economy.config.packs.find((x) => x.id === purchase.packId);
+    check(pack, "Pack inconnu");
+    const e = economy.post(p, `purchase:${purchase.provider}:${purchase.transactionId}`, "purchase", toUnits(pack.credits), {
+      label: `Pack ${pack.credits} crédits`,
+      provider: purchase.provider,
+      transactionId: purchase.transactionId,
+    });
+    persist();
+    return e;
   }
   function json(res, status, body) {
     res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store" });
@@ -827,6 +1271,57 @@ export function createApp({
         return json(res, e.status ?? 400, { error: e.message });
       }
     }
+    if (url.pathname === "/api/shop/config") {
+      const c = economy.config;
+      return json(res, 200, {
+        packs: c.packs.map(({ id, credits, price, bonus }) => ({ id, credits, price, bonus })),
+        purchases: c.purchases,
+        stripe: c.stripe,
+        apple: c.apple,
+        google: c.google,
+        test: c.testShop,
+      });
+    }
+    if (url.pathname.startsWith("/api/shop/") && req.method === "POST") {
+      const cfg = economy.config;
+      try {
+        const action = url.pathname.slice("/api/shop/".length);
+        const raw = (await readBody(req, 65536)).toString();
+        if (action === "stripe-webhook") {
+          // Notification signée par Stripe : peut arriver plusieurs fois, créditée une seule fois.
+          if (!cfg.stripe) throw Object.assign(Error("Stripe non configuré"), { status: 501 });
+          const ev = stripeEvent(raw, req.headers["stripe-signature"], env);
+          if (ev) creditPurchase(db.players[ev.playerId], ev);
+          return json(res, 200, { received: true });
+        }
+        if (!sameOrigin(req)) throw Object.assign(Error("Origine refusée"), { status: 403 });
+        const p = getPlayer(req);
+        check(p?.accountId, "Créez un compte pour acheter des crédits");
+        check(cfg.purchases || (action === "test" && cfg.testShop), "La boutique est fermée pour le moment");
+        const d = JSON.parse(raw || "{}");
+        let result;
+        if (action === "checkout") {
+          check(cfg.stripe, "Paiement web non configuré");
+          const pack = cfg.packs.find((x) => x.id === d.pack);
+          check(pack, "Pack inconnu");
+          return json(res, 200, { url: await stripeCheckout({ env, pack, player: p, origin: baseUrl(req) }) });
+        } else if (action === "apple") {
+          check(cfg.apple, "Achats iOS non configurés");
+          result = creditPurchase(p, verifyAppleTransaction(d.signedTransaction, env));
+        } else if (action === "google") {
+          check(cfg.google, "Achats Android non configurés");
+          result = creditPurchase(p, await verifyGooglePurchase(d, env));
+        } else if (action === "test") {
+          // Paiement fictif réservé au développement : refusé dès que l'environnement est en production.
+          check(cfg.testShop, "Indisponible");
+          result = creditPurchase(p, { provider: "test", transactionId: clean(d.transactionId, 80) || id(), packId: d.pack });
+        } else throw Object.assign(Error("Action inconnue"), { status: 404 });
+        broadcast();
+        return json(res, 200, { ok: true, credited: !!result, wallet: economy.view(p) });
+      } catch (e) {
+        return json(res, e.status ?? 400, { error: e.message });
+      }
+    }
     const photo = /^\/u\/([0-9a-f]{32})\.jpg$/.exec(url.pathname);
     if (photo && existsSync(path.join(photoDir, photo[1] + ".jpg"))) {
       res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=31536000, immutable" });
@@ -853,7 +1348,20 @@ export function createApp({
         }
         try {
           const d = JSON.parse(body);
-          if (d.type === "resolve") {
+          if (d.type === "reviewAlert") {
+            const a = db.alerts.find((x) => x.id === d.id);
+            check(a, "Alerte introuvable");
+            a.reviewed = Date.now();
+            a.note = clean(d.note, 500);
+          } else if (d.type === "cancelGame") {
+            const t = db.tables[d.id];
+            check(t?.game && t.game.phase !== "finished", "Aucune partie en cours");
+            cancelGame(t, "Partie annulée (incident technique)");
+          } else if (d.type === "grant") {
+            const p = db.players[d.player];
+            check(p, "Joueur introuvable");
+            progression.grant(p, d.item);
+          } else if (d.type === "resolve") {
             const r = db.reports.find((r) => r.id === d.id);
             check(r, "Signalement introuvable");
             r.resolved = true;
@@ -892,9 +1400,18 @@ export function createApp({
       return res.end(
         JSON.stringify({
           players: Object.values(db.players).map(playerView),
-          tables: Object.values(db.tables).map(publicTable),
+          tables: Object.values(db.tables).map((t) => ({ ...publicTable(t), engaged: !!(t.money && !t.money.settled) })),
           reports: db.reports,
+          alerts: db.alerts.map((a) => ({ ...a, names: a.players.map((x) => db.players[x]?.name ?? x) })),
           settings: db.settings,
+          economy: {
+            purchases: economy.config.purchases,
+            stripe: economy.config.stripe,
+            apple: economy.config.apple,
+            google: economy.config.google,
+            reserved: toCredits(Object.values(db.players).reduce((a, p) => a + (p.wallet?.reserved ?? 0), 0)),
+            circulating: toCredits(Object.values(db.players).reduce((a, p) => a + (p.wallet?.balance ?? 0), 0)),
+          },
         }),
       );
     }

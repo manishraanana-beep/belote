@@ -166,7 +166,7 @@ test("partie complète contre les robots, scores et revanche", async ({ page }) 
   await page.locator('.sheet [data-action="scores"]').click();
   await expect(page.locator(".st-total")).toBeVisible();
   await page.locator(".sheet-close").click();
-  await page.locator('[data-action="rematch"]').click();
+  await page.locator('[data-action="rematchYes"]').click();
   await expect(page.locator(".hand .hcard")).toHaveCount(8);
 });
 

@@ -112,7 +112,7 @@ export async function verifyIdToken(provider, idToken, env = process.env, fetchI
   };
 }
 
-export function createAccounts({ db, mail, baseUrl, newPlayer, retirePlayer }) {
+export function createAccounts({ db, mail, baseUrl, newPlayer, retirePlayer, onAccount = () => {} }) {
   db.accounts ??= {};
   db.sessions ??= {};
   db.tokens ??= {};
@@ -194,6 +194,8 @@ export function createAccounts({ db, mail, baseUrl, newPlayer, retirePlayer }) {
       };
       db.accounts[acc.id] = acc;
       p.accountId = acc.id;
+      acc.emailHash = sha(email);
+      onAccount(p, acc);
       await sendVerification(acc, req);
       return p;
     },
@@ -222,6 +224,8 @@ export function createAccounts({ db, mail, baseUrl, newPlayer, retirePlayer }) {
         };
         db.accounts[acc.id] = acc;
         p.accountId = acc.id;
+        acc.emailHash = sha(info.email ?? `${d.provider}:${info.sub}`);
+        onAccount(p, acc);
       }
       acc.providers = { ...acc.providers, [d.provider]: info.sub };
       if (info.emailVerified && acc.email === info.email) acc.verified = true;

@@ -17,6 +17,28 @@ const AVATARS = [
   "lea", "hugo", "nadia", "karim", "mamie", "papi", "lou", "sacha",
 ];
 const BIDS = [80, 90, 100, 110, 120, 130, 140, 150, 160, 250];
+const STAKES = [100, 200, 500, 1000];
+const REACTIONS = [
+  { id: "bravo", text: "Bien joué !", emoji: "👏" },
+  { id: "merci", text: "Merci partenaire !", emoji: "🤝" },
+  { id: "belle", text: "Belle partie !", emoji: "🎉" },
+  { id: "dommage", text: "Pas de chance !", emoji: "🍀" },
+  { id: "rire", text: "", emoji: "😂" },
+  { id: "feu", text: "", emoji: "🔥" },
+  { id: "wow", text: "", emoji: "😮" },
+  { id: "coeur", text: "", emoji: "❤️" },
+];
+const REPORT_REASONS = {
+  abuse: "Insultes ou harcèlement",
+  spam: "Spam",
+  cheat: "Suspicion de triche ou d’arrangement",
+  profile: "Pseudo ou photo inappropriés",
+  other: "Autre",
+};
+const fmt = (n) => Number(n).toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+const coins = (n, cls = "") => `<span class="coins ${cls}"><i class="coin"></i>${fmt(n)}</span>`;
+const signed = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n));
+const stakeRisk = (s) => `Mise : ${fmt(s)} crédits. En rubicon, vous risquez jusqu’à ${fmt(3 * s)} crédits, dans la limite de votre solde engagé. Les gains dépendent des crédits engagés par les adversaires.`;
 const DEFAULT_RULES = {
   target: 1000,
   turnSeconds: 30,
@@ -62,7 +84,10 @@ let state = null,
   seenChat = 0,
   pendingInvite = null,
   cropper = null,
-  resetToken = null;
+  resetToken = null,
+  shopConfig = null,
+  seenInvites = 0,
+  lastReactionSeen = null;
 try {
   const raw = decodeURIComponent(location.hash.slice(1));
   if (raw.startsWith("{")) pendingInvite = JSON.parse(raw);
@@ -150,17 +175,39 @@ function topNav() {
   return `<header class="topnav">
     <a class="logo" href="/" aria-label="Maison Belote"><span class="logo-mark">♠</span><span class="logo-text">Maison <b>Belote</b></span></a>
     <div class="nav-actions">
+      <button type="button" class="wallet-chip" data-action="wallet" aria-label="Mon portefeuille">${coins(p.wallet.available / 2)}${p.wallet.dailyReady && p.account ? '<span class="gift" title="Bonus du jour">🎁</span>' : ""}</button>
       ${p.account ? "" : btn("Se connecter", "auth", "chip-btn ghost hide-xs")}
       <button type="button" class="profile-chip" data-action="profile" aria-label="Mon profil">${avatar(p.avatar)}<span><b>${e(p.name)}</b><small>${p.account ? (p.account.verified ? "Compte vérifié" : "E-mail à confirmer") : "Invité"}</small></span></button>
     </div>
   </header>`;
+}
+function navRow() {
+  const p = state.player;
+  const pending = p.friendIn.length + p.invites.length;
+  const todo = p.progress.challenges.filter((c) => !c.done).length;
+  return `<nav class="nav-row" aria-label="Raccourcis">
+    ${btn(`👥 <span>Amis</span>${pending ? `<i class="count-dot">${pending}</i>` : ""}`, "friends", "nav-pill")}
+    ${btn(`🎯 <span>Défis</span>${todo ? `<i class="count-dot soft">${todo}</i>` : ""}`, "challenges", "nav-pill")}
+    ${btn(`🏅 <span>Niveau ${p.progress.level.index + 1}</span>`, "progress", "nav-pill")}
+    ${btn("🎨 <span>Collection</span>", "collection", "nav-pill")}
+    ${btn("🪙 <span>Boutique</span>", "shop", "nav-pill")}
+  </nav>`;
+}
+function invitesBlock() {
+  const inv = state.player.invites;
+  if (!inv.length) return "";
+  return `<section class="invites">${inv.map((i) => `<article class="invite-card ${i.vip ? "vip" : ""}">
+    <span class="inv-icon">${i.vip ? "👑" : "🃏"}</span>
+    <div><b>${e(i.from)} vous invite</b><small>${e(i.table)} · ${i.stake ? `mise ${fmt(i.stake)} crédits` : "partie gratuite"} · ${i.free} place${i.free > 1 ? "s" : ""} libre${i.free > 1 ? "s" : ""} · ${i.rules.target} pts</small></div>
+    ${btn("Voir", "inviteOpen", "pill small", `data-id="${i.id}"`)}${btn("✕", "inviteDecline", "chip-btn ghost", `data-id="${i.id}" aria-label="Refuser"`)}
+  </article>`).join("")}</section>`;
 }
 function tableCard(t) {
   const taken = 4 - t.available;
   const seats = Array.from({ length: 4 }, (_, i) => `<i class="${i < t.humans ? "on" : i < taken ? "bot" : ""}"></i>`).join("");
   const busy = t.status === "Partie en cours";
   return `<article class="table-card ${busy ? "busy" : ""}">
-    <div class="table-card-top"><span class="tag ${t.quick ? "tag-quick" : "tag-public"}">${t.quick ? "⚡ Rapide" : "🌍 Publique"}</span><span class="table-status ${busy ? "" : "open"}">${busy ? "En jeu" : "Ouverte"}</span></div>
+    <div class="table-card-top"><span class="tag ${t.quick ? "tag-quick" : "tag-public"}">${t.quick ? "⚡ Rapide" : "🌍 Publique"}</span>${t.stake ? coins(t.stake, "stake") : '<span class="tag tag-free">Gratuite</span>'}<span class="table-status ${busy ? "" : "open"}">${busy ? "En jeu" : "Ouverte"}</span></div>
     <h3>${e(t.name)}</h3>
     <p>${t.rules.target} points · contre ${t.rules.flyingCounter ? "à la volée" : "à son tour"}</p>
     <div class="table-card-bottom"><span class="seat-dots" aria-label="${taken} places occupées sur 4">${seats}</span>
@@ -172,6 +219,8 @@ function lobby() {
   const rate = p.stats.games ? Math.round((100 * p.stats.wins) / p.stats.games) : 0;
   return `<div class="screen lobby">${topNav()}
   <main class="lobby-main">
+    ${navRow()}
+    ${invitesBlock()}
     <section class="hero">
       <div class="hero-copy">
         <span class="kicker">Belote contrée · 4 joueurs · 2 équipes</span>
@@ -203,6 +252,8 @@ function lobby() {
       <div class="panel me-panel">
         <div class="me-head">${avatar(p.avatar, "xl")}<div><h2>${e(p.name)}</h2>${btn("Modifier mon profil", "profile", "link")}</div></div>
         <div class="stat-row"><div><b>${p.stats.games}</b><small>parties</small></div><div><b>${p.stats.wins}</b><small>victoires</small></div><div><b>${rate}%</b><small>réussite</small></div></div>
+        ${levelBar(p.progress.level)}
+        <button type="button" class="wallet-card" data-action="wallet">${coins(p.wallet.available / 2, "big")}<small>${p.wallet.reserved ? `dont ${fmt(p.wallet.reserved / 2)} engagés en partie · ` : ""}crédits de jeu</small></button>
         ${p.account ? "" : `<div class="account-hint"><b>Créez votre compte</b><p>Retrouvez avatar, statistiques et tables VIP sur le site et dans l’application.</p>${btn("Créer un compte", "auth", "pill small", 'data-mode="register"')}</div>`}
       </div>
     </section>
@@ -225,12 +276,13 @@ function roomView() {
       return `<div class="room-seat r${rel} empty ${team}">
         <div class="seat-ring searching"><span class="dots"><i></i><i></i><i></i></span></div>
         <b>${t.quick ? "Recherche…" : "Place libre"}</b>
-        <div class="room-seat-actions">${me < 0 || t.quick ? "" : btn("S’asseoir", "seat", "chip-btn", `data-seat="${i}"`)}${owner && !t.quick ? btn("+ Robot", "bot", "chip-btn", `data-seat="${i}"`) : ""}</div>
+        <div class="room-seat-actions">${me < 0 || t.quick ? "" : btn("S’asseoir", "seat", "chip-btn", `data-seat="${i}"`)}${owner && !t.quick && !t.stake ? btn("+ Robot", "bot", "chip-btn", `data-seat="${i}"`) : ""}${me >= 0 ? btn("+ Ami", "friends", "chip-btn", 'data-tab="friends"') : ""}</div>
       </div>`;
     return `<div class="room-seat r${rel} ${team} ${s.bot ? "is-bot" : ""}">
       <div class="seat-ring">${avatar(s.avatar)}${s.bot ? '<span class="bot-badge" title="Robot">🤖</span>' : ""}</div>
       <b>${e(s.name)}${i === me ? " (vous)" : ""}</b>
       <small>${s.bot ? "Robot" : s.connected ? (t.owner === s.id ? "Hôte" : "Prêt") : "Reconnexion…"}</small>
+      ${t.stake && t.engagedPreview?.[i] ? `<span class="engaged ${t.engagedPreview[i].enough && t.engagedPreview[i].account ? "" : "short"}">${t.engagedPreview[i].account ? (t.engagedPreview[i].enough ? `${coins(t.engagedPreview[i].engaged)} engagés` : "Solde insuffisant") : "Compte requis"}</span>` : ""}
       ${owner && i !== me && !t.quick ? btn("Retirer", "kick", "chip-btn ghost", `data-seat="${i}"`) : ""}
     </div>`;
   };
@@ -239,8 +291,9 @@ function roomView() {
     ? `<div class="room-center"><span class="room-kicker">⚡ Partie rapide</span><h2>${free ? "On cherche des joueurs" : "C’est parti !"}</h2>
        ${free ? `<p>${t.humans} joueur${t.humans > 1 ? "s" : ""} · ${free} place${free > 1 ? "s" : ""} en recherche</p><div class="fill-timer">🤖 Robots dans <b data-deadline="${t.fillAt ?? 0}"></b></div>` : ""}</div>`
     : `<div class="room-center"><span class="room-kicker">${t.vip ? "👑 Table VIP" : "🌍 Table publique"}</span><h2>${e(t.name)}</h2><p>${e(ruleText(t.rules))}</p>
+       ${t.stake ? `<div class="stake-banner">${coins(t.stake)} <span>par joueur · rubicon jusqu’à ${fmt(3 * t.stake)}</span></div><p class="muted small">Engagé au lancement : le plus petit entre votre solde et ${fmt(3 * t.stake)}.</p>` : '<span class="tag tag-free">Partie gratuite</span>'}
        ${owner ? btn("▶ Lancer la partie", "start", "cta small", "", t.seats.some((s) => !s)) : '<p class="muted">L’hôte lancera la partie.</p>'}
-       ${owner && free ? `<p class="muted small">Complétez les places libres avec des robots.</p>` : ""}</div>`;
+       ${owner && free ? `<p class="muted small">${t.stake ? "Les parties avec crédits se jouent à quatre joueurs : invitez vos amis." : "Complétez les places libres avec des robots."}</p>` : ""}</div>`;
   const vip =
     t.vip && owner
       ? `<div class="room-invite"><b>Inviter des amis</b>
@@ -289,10 +342,17 @@ function topBar(g, t, me) {
         : `<div class="contract-badge pending"><div><b>${g.phase === "bidding" ? "Enchères" : "—"}</b><small>Donne ${g.deal}</small></div></div>`
     }
     <div class="bar-right">
+      ${btn("😊", "react", "icon-btn hide-xxs", 'aria-label="Réactions"')}
       ${btn("🃏", "lastTrick", "icon-btn", `aria-label="Dernier pli"${g.tricks.length ? "" : " disabled"}`)}
       ${btn(`💬${unread ? '<i class="dot"></i>' : ""}`, "chat", "icon-btn", 'aria-label="Discussion"')}
     </div>
   </header>`;
+}
+function reactionBubble(t, s) {
+  if (!s || state.player.hidden.includes(s.id)) return "";
+  const r = (t.reactions ?? []).filter((x) => x.pid === s.id && Date.now() - x.at < 3500).at(-1);
+  const def = r && REACTIONS.find((x) => x.id === r.reaction);
+  return def ? `<span class="reaction-pop" aria-label="${e(def.text || def.emoji)}"><b>${def.emoji}</b>${def.text ? `<small>${e(def.text)}</small>` : ""}</span>` : "";
 }
 function seatBubble(g, i) {
   if (!["bidding", "counter"].includes(g.phase)) return "";
@@ -310,7 +370,7 @@ function seatBubble(g, i) {
 }
 function chatBubble(t, s) {
   const m = t.chat.at(-1);
-  if (!m || !s || m.pid !== s.id || Date.now() - m.at > 5000) return "";
+  if (!m || !s || m.pid !== s.id || Date.now() - m.at > 5000 || state.player.hidden.includes(s.id)) return "";
   return `<span class="bubble chat-bubble">${e(m.text)}</span>`;
 }
 function seatView(g, t, me, i) {
@@ -326,11 +386,12 @@ function seatView(g, t, me, i) {
       : s?.replaced
         ? `<span class="seat-off">remplace ${e(s.replaced)}</span>`
         : "";
-  return `<div class="seat p${rel} ${team} ${active ? "active" : ""} ${offline ? "offline" : ""}">
-    <div class="seat-avatar">${avatar(s?.avatar)}${s?.bot ? '<span class="bot-badge" title="Robot">🤖</span>' : ""}${g.dealer === i ? '<span class="dealer" title="Donneur">D</span>' : ""}${g.contract?.seat === i ? '<span class="taker" title="Preneur">★</span>' : ""}</div>
+  const human = s && !s.bot && s.id !== state.player.id;
+  return `<div class="seat p${rel} ${team} ${active ? "active" : ""} ${offline ? "offline" : ""} ${s?.frame ?? ""}">
+    <div class="seat-avatar ${human ? "tappable" : ""}" ${human ? `data-action="player" data-id="${s.id}" role="button" aria-label="Profil de ${e(s.name)}"` : ""}>${avatar(s?.avatar)}${s?.bot ? '<span class="bot-badge" title="Robot">🤖</span>' : ""}${g.dealer === i ? '<span class="dealer" title="Donneur">D</span>' : ""}${g.contract?.seat === i ? '<span class="taker" title="Preneur">★</span>' : ""}</div>
     <div class="seat-label"><b>${e(s?.name ?? "—")}</b>${status}</div>
     ${rel !== 0 ? `<div class="backs">${Array.from({ length: Math.min(8, g.handCounts[i]) }, () => "<i></i>").join("")}</div>` : ""}
-    ${seatBubble(g, i)}${chatBubble(t, s)}
+    ${seatBubble(g, i)}${chatBubble(t, s)}${reactionBubble(t, s)}
   </div>`;
 }
 function trickCards(cards, me, cls = "") {
@@ -376,7 +437,29 @@ function summaryView(g, t, me) {
     <p>${e(t.seats[h.contract.seat]?.name)} · ${amountLabel(h.contract.amount)} ${suitHtml(h.contract.suit)} · ${ours ? "Votre équipe" : "Équipe adverse"}${h.multiplier > 1 ? ` · ${multLabel(h.multiplier)}` : ""}</p>
     <div class="sum-scores"><div class="us"><small>Nous</small><b>+${h.score[me % 2]}</b><span>${g.scores[me % 2]}</span></div><div class="them"><small>Eux</small><b>+${h.score[1 - (me % 2)]}</b><span>${g.scores[1 - (me % 2)]}</span></div></div>
     <p class="muted small">Points ${h.points[me % 2]} / ${h.points[1 - (me % 2)]}${h.belote[0] + h.belote[1] ? ` · belote ${h.belote[me % 2]} / ${h.belote[1 - (me % 2)]}` : ""}</p>
-    <div class="row">${finished ? (owner ? btn("Revanche", "rematch", "cta small") : "") + btn("Retour au salon", "leave", "chip-btn ghost") : btn("Donne suivante", "next", "cta small")}</div>
+    ${finished ? resultBlock(t.result) + rematchBlock(t, me) : `<div class="row">${btn("Donne suivante", "next", "cta small")}</div>`}
+  </div>`;
+}
+function moneyLines(r) {
+  if (!r || !r.stake) return "";
+  const kind = r.rubicon ? "Rubicon" : "Victoire simple";
+  if (r.delta > 0)
+    return `<div class="money win"><b>Bénéfice : ${signed(r.delta)} crédits</b><small>${fmt(r.stake + r.delta)} récupérés, dont ${fmt(r.stake)} de mise — bénéfice ${signed(r.delta)} · ${kind}</small>${r.adjusted ? "<small class=\"adjusted\">Gain ajusté aux crédits engagés par les adversaires.</small>" : ""}<span>Nouveau solde ${coins(r.balance)}</span></div>`;
+  return `<div class="money lose"><b>Perte : ${signed(r.delta)} crédits</b><small>${kind} · ${fmt(r.engaged)} étaient engagés</small><span>Nouveau solde ${coins(r.balance)}</span></div>`;
+}
+function resultBlock(r) {
+  if (!r) return "";
+  return `${moneyLines(r)}<div class="xp-line">✨ +${r.xp} XP ${r.level ? `· ${e(r.level.name)}` : ""}${r.badges?.length ? ` · ${r.badges.map((b) => `${b.icon} ${e(b.name)}`).join(", ")}` : ""}${r.challenges?.length ? ` · 🎯 ${r.challenges.map(e).join(", ")}` : ""}</div>`;
+}
+function rematchBlock(t, me) {
+  const votes = t.rematch?.votes ?? {};
+  const mine = votes[state.player.id];
+  const blocked = t.rematch?.blocked ?? [];
+  return `<div class="rematch">
+    <div class="votes">${t.seats.map((s) => `<span class="vote ${s && votes[s.id] ? "ok" : ""}" title="${e(s?.name ?? "")}">${avatar(s?.avatar)}<i>${s && votes[s.id] ? "✓" : "…"}</i></span>`).join("")}</div>
+    ${t.stake ? `<p class="muted small">${e(stakeRisk(t.stake))}</p>` : ""}
+    ${blocked.length ? `<p class="warn">Solde insuffisant pour ${blocked.map(e).join(", ")}. ${btn("Boutique", "shop", "link")} · ${btn("Tables moins chères", "cheaper", "link")}</p>` : ""}
+    <div class="row">${mine ? '<span class="waiting-vote">En attente des autres joueurs…</span>' : btn("Revanche", "rematchYes", "cta small")}${btn("Quitter", "rematchNo", "chip-btn ghost")}</div>
   </div>`;
 }
 function bidPanel(g, me) {
@@ -415,6 +498,9 @@ function sheetView(g, t, me) {
   if (!sheet) return "";
   const close = btn("✕", "closeSheet", "sheet-close", 'aria-label="Fermer"');
   let body = "";
+  if (sheet === "react")
+    body = `<h3>Réactions</h3><div class="react-grid">${REACTIONS.map((r) => btn(`<b>${r.emoji}</b>${r.text ? `<small>${e(r.text)}</small>` : ""}`, "sendReaction", "react-btn", `data-id="${r.id}"`)).join("")}</div><p class="muted small">Messages prédéfinis : impossible d’y décrire sa main. Une réaction toutes les quelques secondes.</p>`;
+  if (sheet?.startsWith("player:")) body = playerSheet(sheet.slice(7));
   if (sheet === "menu")
     body = `<h3>Menu de la partie</h3><div class="menu-list">
       ${btn("📣 Annonces de la donne", "auction", "menu-item")}
@@ -422,9 +508,11 @@ function sheetView(g, t, me) {
       ${btn("💬 Discussion", "chat", "menu-item")}
       ${btn("📜 Règles de la table", "rulesInfo", "menu-item")}
       ${btn(sound ? "🔊 Sons activés" : "🔇 Sons coupés", "sound", "menu-item")}
+      ${btn(state.player.settings.animations ? "✨ Animations activées" : "✨ Animations réduites", "toggleAnim", "menu-item")}
+      ${t.money ? `<div class="menu-info">${coins(t.money.stake)} mise · ${fmt(t.money.seats.find((x) => x.seat === me)?.engaged ?? 0)} engagés · rubicon jusqu’à ${fmt(3 * t.money.stake)}</div>` : ""}
       ${t.vip && t.owner === state.player.id ? btn("🔗 Copier le lien d’invitation", "copyInvite", "menu-item") : ""}
       ${btn("🚩 Signaler un problème", "report", "menu-item")}
-      ${btn("🚪 Quitter la partie", "quitGame", "menu-item danger")}
+      ${g.phase === "finished" ? "" : btn("🚪 Quitter la partie", "quitGame", "menu-item danger")}
     </div>`;
   if (sheet === "auction")
     body = `<h3>Annonces · donne ${g.deal}</h3><ol class="auction-list">${(g.auction ?? []).map((a) => `<li class="${a.seat % 2 === me % 2 ? "us" : "them"}">${avatar(t.seats[a.seat]?.avatar)}<b>${e(t.seats[a.seat]?.name)}</b><span>${a.type === "bid" ? `${amountLabel(a.amount)} ${suitHtml(a.suit)}` : a.type === "pass" ? "Passe" : a.type === "counter" ? "Contre !" : "Surcontre !"}</span></li>`).join("") || '<li class="empty">Aucune annonce pour l’instant.</li>'}</ol>`;
@@ -432,9 +520,10 @@ function sheetView(g, t, me) {
     body = `<h3>Scores · objectif ${t.rules.target}</h3><div class="score-table"><div class="st-head"><span>Donne</span><span>Contrat</span><span>Nous</span><span>Eux</span></div>${g.history.slice(-6).map((h) => `<div class="st-row"><span>${h.deal}</span><span>${amountLabel(h.contract.amount)} ${suitHtml(h.contract.suit)} ${h.made ? "✓" : "✗"}</span><b>${h.score[me % 2]}</b><b>${h.score[1 - (me % 2)]}</b></div>`).join("") || '<p class="empty">Les scores apparaîtront après la première donne.</p>'}<div class="st-total"><span>Total</span><span></span><b>${g.scores[me % 2]}</b><b>${g.scores[1 - (me % 2)]}</b></div></div>`;
   if (sheet === "chat") {
     seenChat = t.chat.length;
-    body = `<h3>Discussion</h3><div class="chat-log">${t.chat.slice(-30).map((m) => `<p class="${m.pid === state.player.id ? "mine" : ""}"><b>${e(m.name)}</b>${e(m.text)}</p>`).join("") || '<p class="empty">Un petit mot pour la table ?</p>'}</div>
-      <div class="reactions">${["👏", "😂", "🔥", "Bien joué !", "Belote !", "Oups…"].map((x) => btn(e(x), "reaction", "chip-btn", `data-text="${e(x)}"`)).join("")}</div>
-      <form id="chat-form" class="chat-form"><input name="text" maxlength="280" placeholder="Votre message…" aria-label="Message" autocomplete="off" required><button class="pill small">Envoyer</button></form>`;
+    const live = g.phase !== "finished";
+    body = `<h3>Discussion</h3><div class="chat-log">${t.chat.filter((m) => !state.player.hidden.includes(m.pid)).slice(-30).map((m) => `<p class="${m.pid === state.player.id ? "mine" : ""}"><b>${e(m.name)}${m.pid && m.pid !== state.player.id ? ` ${btn("⋯", "player", "mini", `data-id="${m.pid}" aria-label="Options"`)}` : ""}</b>${e(m.text)}</p>`).join("") || '<p class="empty">Un petit mot pour la table ?</p>'}</div>
+      <div class="reactions">${REACTIONS.map((r) => btn(e(r.text || r.emoji), "reaction", "chip-btn", `data-text="${e(r.text || r.emoji)}"`)).join("")}</div>
+      ${live ? '<p class="muted small">Pendant la donne, seuls les messages prédéfinis sont permis.</p>' : '<form id="chat-form" class="chat-form"><input name="text" maxlength="280" placeholder="Votre message…" aria-label="Message" autocomplete="off" required><button class="pill small">Envoyer</button></form>'}`;
   }
   if (sheet === "lastTrick") {
     const p = g.tricks.at(-1);
@@ -447,15 +536,33 @@ function sheetView(g, t, me) {
   }
   return `<div class="sheet-backdrop ${sheet === "lastTrick" ? "centered" : ""}" data-action="closeSheet"><section class="sheet sheet-${sheet}" role="dialog" aria-modal="true">${close}${body}</section></div>`;
 }
+function playerSheet(id) {
+  const t = state.table;
+  const s = t?.seats.find((x) => x?.id === id) ?? state.player.friends.find((f) => f.id === id);
+  const name = s?.name ?? "Joueur";
+  const friend = state.player.friends.some((f) => f.id === id);
+  const hidden = state.player.hidden.includes(id);
+  const blocked = state.player.blocked.includes(id);
+  return `<div class="player-card">${avatar(s?.avatar, "lg")}<div><h3>${e(name)}</h3><small class="muted">${e(s?.tag ?? "")}</small></div></div>
+    <div class="menu-list">
+      ${friend || blocked ? "" : btn("👥 Demander en ami", "friendRequest", "menu-item", `data-id="${id}"`)}
+      ${btn(hidden ? "👁️ Afficher ses messages et réactions" : "🙈 Masquer ses messages et réactions", "hide", "menu-item", `data-id="${id}" data-on="${!hidden}"`)}
+      ${btn(blocked ? "✅ Débloquer" : "⛔ Bloquer", "block", "menu-item", `data-id="${id}" data-on="${!blocked}"`)}
+      ${btn("🚩 Signaler", "reportPlayer", "menu-item danger", `data-id="${id}" data-name="${e(name)}"`)}
+    </div><p class="muted small">Bloquer n’interrompt pas la partie en cours et ne change rien aux crédits engagés.</p>`;
+}
 function gameView() {
   const t = state.table,
     g = t.game,
     me = Math.max(0, t.seats.findIndex((s) => s?.id === state.player.id));
   const myBid = g.phase === "bidding" && g.turn === me;
-  return `<div class="screen game ${myBid ? "bidding-me" : ""}">
+  const eq = state.player.progress.equipped;
+  const mine = t.money?.seats.find((x) => x.seat === me);
+  return `<div class="screen game ${myBid ? "bidding-me" : ""} ${eq.back} ${t.vip ? "" : eq.felt}">
     ${topBar(g, t, me)}
     <main class="arena">
       <div class="felt"></div>
+      ${t.money ? `<div class="stake-chip" title="Mise et crédits engagés">${coins(t.money.stake)}<small>engagé ${fmt(mine?.engaged ?? 0)}</small></div>` : ""}
       ${[1, 2, 3, 0].map((r) => seatView(g, t, me, (me + r) % 4)).join("")}
       <div class="center">${centerView(g, t, me)}</div>
       ${myBid ? bidPanel(g, me) : floatingAction(g, me)}
@@ -488,7 +595,8 @@ function render() {
   }
   const t = state.table,
     g = t?.game;
-  document.body.className = g ? "in-game" : t ? "in-room" : "in-lobby";
+  document.body.className = `${g ? "in-game" : t ? "in-room" : "in-lobby"} ${t?.vip && !t.practice ? "night-vip" : "club-pop"} ${state.player.settings.animations ? "" : "calm"}`;
+  sound = state.player.settings.sounds;
   const dealKey = g ? t.gameId + ":" + g.deal : null;
   const trickKey = dealKey + ":" + (g?.tricks.length ?? 0);
   if (dealKey !== lastRenderedDeal) {
@@ -691,6 +799,163 @@ async function oidc(provider) {
   }
 }
 
+// ———————————————————————————————————————————————————————————— crédits, progression, social
+function levelBar(l) {
+  return `<div class="level"><div class="level-head"><b>${e(l.name)}</b><small>${l.next ? `${fmt(l.xp)} / ${fmt(l.next)} XP` : `${fmt(l.xp)} XP`}</small></div><div class="bar"><i class="w${Math.round(l.progress * 20) * 5}"></i></div></div>`;
+}
+const when = (ts) => new Date(ts).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+function countdown(ts) {
+  const m = Math.max(0, Math.round((ts - Date.now()) / 60000));
+  return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`;
+}
+function walletModal() {
+  const w = state.player.wallet,
+    acc = state.player.account;
+  modal(
+    `<div class="wallet">
+      <div class="wallet-hero"><span class="big-coin"></span><div><small>Solde</small><b>${fmt(w.balance / 2)}</b><span>crédits de jeu</span></div></div>
+      <div class="wallet-split"><div><small>Disponible</small><b>${fmt(w.available / 2)}</b></div><div><small>Engagé en partie</small><b>${fmt(w.reserved / 2)}</b></div></div>
+      ${acc ? (w.dailyReady ? btn("🎁 Recevoir le bonus du jour", "daily", "cta small wide") : `<p class="daily-done">🎁 Bonus du jour reçu · prochain dans ${countdown(w.nextReset)}</p>`) : `<div class="account-box guest"><b>Créez un compte</b><p class="muted small">Recevez vos crédits de bienvenue et le bonus quotidien, sur le site et dans l’application.</p>${btn("Créer un compte", "auth", "pill small", 'data-mode="register"')}</div>`}
+      <div class="row">${btn("🪙 Boutique", "shop", "pill small")}${btn("📜 Historique", "history", "chip-btn")}${btn("🤖 Entraînement gratuit", "practice", "chip-btn")}</div>
+      <p class="muted small center">Les crédits servent uniquement à jouer : ils ne peuvent être ni retirés, ni transférés, ni convertis en argent.</p>
+    </div>`,
+    "wallet-modal",
+  );
+}
+async function shopModal() {
+  try {
+    shopConfig = await (await fetch("/api/shop/config")).json();
+  } catch {}
+  const c = shopConfig ?? { packs: [], purchases: false };
+  const open = c.purchases || c.test;
+  modal(
+    `<div class="modal-head"><span class="modal-icon">🪙</span><h2>Boutique de crédits</h2></div>
+    <p class="muted">Solde : ${coins(state.player.wallet.balance / 2)}</p>
+    <div class="packs">${c.packs.map((pk) => `<article class="pack">${pk.bonus ? `<span class="pack-tag">${e(pk.bonus)}</span>` : ""}<span class="pack-coins">${"<i class=\"coin\"></i>".repeat(Math.min(4, 1 + Math.round(Math.log10(pk.credits / 500))))}</span><b>${fmt(pk.credits)}</b><small>crédits</small>
+      ${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(pk.price)) : e(pk.price), "buy", "pill small", `data-pack="${pk.id}"`, !open || !state.player.account)}</article>`).join("")}</div>
+    ${!state.player.account ? '<p class="warn">Créez un compte pour acheter des crédits.</p>' : open ? "" : '<p class="warn">Les achats ne sont pas encore ouverts. En attendant : bonus du jour, défis et entraînement gratuit.</p>'}
+    ${c.test && !c.purchases ? '<p class="warn">Mode développement : paiement fictif, jamais disponible en production.</p>' : ""}
+    <p class="muted small">Achats vérifiés par le serveur (App Store sur iPhone, Google Play sur Android, paiement sécurisé sur le site). Crédits sans valeur monétaire, non remboursables en argent, non transférables. Réservé aux joueurs majeurs.</p>`,
+    "sheet-modal",
+  );
+}
+async function historyModal() {
+  const id = crypto.randomUUID();
+  pendingAcks[id] = (m) => {
+    const rows = m.wallet
+      .map((x) => {
+        const game = x.gameId ? `<small>Partie ${e(x.gameId.slice(0, 6))} · mise ${fmt(x.stake)} · engagé ${fmt(x.engaged)} · ${x.rubicon ? "rubicon" : "simple"}</small>${x.adjusted ? '<small class="adjusted">Gain ajusté aux crédits engagés par les adversaires.</small>' : ""}` : "";
+        return `<li class="${x.amount > 0 ? "in" : x.amount < 0 ? "out" : ""}"><div><b>${e(x.label ?? x.type)}</b><small>${when(x.at)}</small>${game}</div><span><b>${x.amount ? signed(x.amount) : "0"}</b><small>solde ${fmt(x.balance)}</small></span></li>`;
+      })
+      .join("");
+    modal(`<div class="modal-head"><span class="modal-icon">📜</span><h2>Historique des crédits</h2></div><ul class="ledger">${rows || '<li class="empty">Aucun mouvement pour l’instant.</li>'}</ul><p class="muted small">Journal en lecture seule : chaque règlement et chaque récompense ont un identifiant unique.</p>`, "sheet-modal");
+  };
+  ws.send(JSON.stringify({ id, type: "wallet", data: {} }));
+}
+function fundsModal(stake) {
+  const cheaper = state.tables.filter((t) => t.stake < stake && t.available && t.status !== "Partie en cours");
+  modal(
+    `<div class="confirm"><span class="confirm-icon">🪙</span><h2>Solde insuffisant</h2>
+    <p>Il faut ${coins(stake)} disponibles pour cette table. Vous avez ${coins(state.player.wallet.available / 2)}.</p>
+    <div class="menu-list wide">
+      ${cheaper.slice(0, 3).map((t) => btn(`${t.stake ? `🪙 ${fmt(t.stake)}` : "Gratuite"} · ${e(t.name)}`, "join", "menu-item", `data-table="${t.id}"`)).join("") || btn("⚡ Partie rapide gratuite", "quick", "menu-item")}
+      ${btn("🪙 Boutique de crédits", "shop", "menu-item")}
+      ${btn("🤖 Entraînement gratuit", "practice", "menu-item")}
+      ${state.player.wallet.dailyReady && state.player.account ? btn("🎁 Bonus du jour", "daily", "menu-item") : ""}
+    </div></div>`,
+    "confirm-modal",
+  );
+}
+function needFunds(stake) {
+  if (!stake) return false;
+  if (!state.player.account) {
+    authModal("register");
+    toast("Créez un compte pour jouer avec des crédits");
+    return true;
+  }
+  if (state.player.wallet.available / 2 < stake) {
+    fundsModal(stake);
+    return true;
+  }
+  return false;
+}
+function friendsModal(tab = "friends") {
+  const p = state.player;
+  const at = state.table && state.table.seats.some((s) => s?.id === p.id);
+  const status = { available: "Disponible", playing: "En partie", offline: "Hors ligne" };
+  const list = p.friends.map((f) => `<li class="friend ${f.status}">${avatar(f.avatar)}<div><b>${e(f.name)} ${f.favorite ? "⭐" : ""}</b><small><i class="dot-status"></i>${status[f.status]}</small></div>
+      ${at ? btn("Inviter", "inviteFriend", "pill small", `data-id="${f.id}"`) : ""}
+      ${btn(f.favorite ? "★" : "☆", "favorite", "chip-btn", `data-id="${f.id}" data-on="${!f.favorite}" aria-label="Favori"`)}
+      ${btn("⋯", "player", "chip-btn", `data-id="${f.id}" aria-label="Options"`)}</li>`).join("");
+  const tabs = [["friends", `Amis (${p.friends.length})`], ["requests", `Demandes${p.friendIn.length ? ` (${p.friendIn.length})` : ""}`], ["search", "Rechercher"], ["settings", "Réglages"]];
+  const body = {
+    friends: `<ul class="friend-list">${list || '<li class="empty">Pas encore d’amis : cherchez un pseudo ou un identifiant.</li>'}</ul>`,
+    requests: `<ul class="friend-list">${p.friendIn.map((r) => `<li class="friend">${avatar(r.avatar)}<div><b>${e(r.name)}</b><small>${e(r.tag)}</small></div>${btn("Accepter", "friendAccept", "pill small", `data-id="${r.id}"`)}${btn("Refuser", "friendDecline", "chip-btn", `data-id="${r.id}"`)}</li>`).join("") || '<li class="empty">Aucune demande reçue.</li>'}</ul>${p.friendOut.length ? `<p class="muted small">En attente : ${p.friendOut.map((r) => e(r.name)).join(", ")}</p>` : ""}`,
+    search: `<form id="search-form" class="form inline"><label>Pseudo ou identifiant<input name="q" minlength="2" maxlength="30" placeholder="ex. Sophie ou MB-4F7K2A" required></label><button class="pill small">Chercher</button></form><ul class="friend-list" id="search-results"></ul><p class="muted small">Votre identifiant : <b>${e(p.tag)}</b></p>`,
+    settings: `<div class="form"><label class="switch"><input type="checkbox" data-setting="hideStatus" ${p.settings.hideStatus ? "checked" : ""}><span class="knob"></span>Masquer mon statut en ligne</label>
+      <label>Qui peut m’inviter ?<select data-setting="invites"><option value="friends" ${p.settings.invites === "friends" ? "selected" : ""}>Mes amis</option><option value="all" ${p.settings.invites === "all" ? "selected" : ""}>Tout le monde</option><option value="none" ${p.settings.invites === "none" ? "selected" : ""}>Personne</option></select></label>
+      ${p.blocked.length ? `<p class="muted small">${p.blocked.length} joueur(s) bloqué(s) : touchez « ⋯ » sur un profil pour débloquer.</p>` : ""}</div>`,
+  };
+  modal(`<div class="modal-head"><span class="modal-icon">👥</span><h2>Amis</h2></div><div class="seg tabs">${tabs.map(([k, l]) => btn(l, "friends", k === tab ? "on" : "", `data-tab="${k}"`)).join("")}</div>${body[tab]}`, "sheet-modal friends-modal");
+}
+function challengesModal() {
+  const pr = state.player.progress;
+  modal(
+    `<div class="modal-head"><span class="modal-icon">🎯</span><h2>Défis du jour</h2></div>
+    <p class="muted small">Renouvellement dans ${countdown(pr.nextReset)} (à ${new Date(pr.nextReset).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}, heure locale).</p>
+    <ul class="challenges">${pr.challenges.map((c) => `<li class="${c.done ? "done" : ""}"><span class="ch-icon">${c.done ? "✅" : "🎯"}</span><div><b>${e(c.label)}</b><div class="bar"><i class="w${Math.round((c.progress / c.goal) * 20) * 5}"></i></div><small>${c.progress} / ${c.goal}</small></div><span class="reward">${c.reward.credits ? coins(c.reward.credits) : ""}${c.reward.xp ? `<small>+${c.reward.xp} XP</small>` : ""}${c.reward.cosmetic ? "<small>🎨 dos de cartes</small>" : ""}</span></li>`).join("")}</ul>
+    <p class="muted small">Seules les parties terminées comptent ; une même tablée compte au plus deux fois par jour.</p>`,
+    "sheet-modal",
+  );
+}
+function progressModal() {
+  const pr = state.player.progress;
+  modal(
+    `<div class="modal-head"><span class="modal-icon">🏅</span><h2>Niveau d’activité</h2></div>
+    ${levelBar(pr.level)}
+    <p class="muted small">Le niveau récompense la participation : il ne mesure pas la force de jeu et ne se perd jamais, même si vous perdez des crédits.</p>
+    <div class="stat-row light"><div><b>${pr.finished}</b><small>parties terminées</small></div><div><b>${pr.wins}</b><small>victoires</small></div><div><b>${pr.badges.filter((b) => b.at).length}</b><small>badges</small></div></div>
+    <h3>Badges</h3><div class="badges">${pr.badges.map((b) => `<div class="badge ${b.at ? "on" : ""}"><span>${b.icon}</span><b>${e(b.name)}</b><small>${b.at ? new Date(b.at).toLocaleDateString("fr-FR") : e(b.hint)}</small></div>`).join("")}</div>`,
+    "sheet-modal",
+  );
+}
+function collectionModal(kind = "frame", preview = null) {
+  const pr = state.player.progress;
+  const items = pr.cosmetics.filter((c) => c.kind === kind);
+  const sel = items.find((c) => c.id === preview) ?? items.find((c) => c.id === pr.equipped[kind]);
+  const tabs = [["frame", "Cadres"], ["back", "Dos de cartes"], ["felt", "Décors"]];
+  const prev = kind === "frame" ? `<div class="pv-avatar ${sel.id}"><div class="seat-avatar">${avatar(state.player.avatar)}</div></div>` : kind === "back" ? `<div class="pv-backs ${sel.id}"><div class="backs big">${"<i></i>".repeat(5)}</div></div>` : `<div class="pv-felt ${sel.id}"><div class="felt"></div></div>`;
+  modal(
+    `<div class="modal-head"><span class="modal-icon">🎨</span><h2>Collection</h2></div>
+    <div class="seg tabs">${tabs.map(([k, l]) => btn(l, "collection", k === kind ? "on" : "", `data-kind="${k}"`)).join("")}</div>
+    <div class="preview">${prev}<div><b>${e(sel.name)}</b><small>${sel.owned ? (pr.equipped[kind] === sel.id ? "Activé" : "Possédé") : `🔒 ${e(sel.unlock.label)}`}</small>${sel.owned && pr.equipped[kind] !== sel.id ? btn("Activer", "equip", "pill small", `data-id="${sel.id}" data-kind="${kind}"`) : ""}</div></div>
+    <div class="items">${items.map((c) => btn(`<span class="swatch ${c.id}"></span><small>${e(c.name)}</small>${c.owned ? "" : '<i class="lock">🔒</i>'}`, "collection", `item ${c.id === sel.id ? "on" : ""} ${c.owned ? "" : "locked"}`, `data-kind="${kind}" data-preview="${c.id}"`)).join("")}</div>
+    <p class="muted small">Purement visuel : aucun avantage, aucune règle modifiée. Le dos de cartes et le décor ne s’affichent que chez vous.</p>`,
+    "sheet-modal",
+  );
+}
+function reportModal(id, name) {
+  modal(
+    `<div class="modal-head"><span class="modal-icon">🚩</span><h2>Signaler ${e(name)}</h2></div>
+    <form id="report-player-form" class="form"><input type="hidden" name="target" value="${e(id)}">
+      <div class="radios">${Object.entries(REPORT_REASONS).map(([k, l], i) => `<label class="radio"><input type="radio" name="category" value="${k}" ${i ? "" : "checked"}><span>${l}</span></label>`).join("")}</div>
+      <label>Commentaire <small>facultatif</small><textarea name="comment" maxlength="500"></textarea></label>
+      <p class="muted small">La partie en cours et les derniers échanges sont joints automatiquement pour la modération.</p>
+      <button class="cta small wide">Envoyer le signalement</button></form>`,
+    "sheet-modal",
+  );
+}
+function joinConfirm(t, action, data = "") {
+  rulesModal(
+    t.rules,
+    `${t.stake ? `<div class="stake-warning">${coins(t.stake, "big")}<p>${e(stakeRisk(t.stake))}</p><small>Votre solde disponible : ${fmt(state.player.wallet.available / 2)} crédits</small></div>` : '<p class="free-note">Partie gratuite : aucun crédit engagé.</p>'}${btn(t.stake ? "J’ai compris, rejoindre" : "Accepter et rejoindre", action, "cta small wide", data)}`,
+  );
+}
+function resultModal(r) {
+  modal(`<div class="confirm"><span class="confirm-icon">${r.delta > 0 ? "🎉" : "🃏"}</span><h2>Résultat de « ${e(r.table)} »</h2><p class="muted">Vous aviez quitté la partie : un robot l’a terminée à votre place.</p>${moneyLines(r)}${btn("OK", "dismissResult", "cta small")}</div>`, "confirm-modal");
+}
+const pendingAcks = {};
+
 // ———————————————————————————————————————————————————————————— création de table
 function createModal(r = DEFAULT_RULES, editing = false) {
   const num = (k, label, min, max) => `<label>${label}<input name="${k}" type="number" value="${r[k]}" min="${min}" max="${max}" required></label>`;
@@ -701,6 +966,7 @@ function createModal(r = DEFAULT_RULES, editing = false) {
       ${editing ? "" : `<label>Nom de la table<input name="name" placeholder="Le salon de Sophie" maxlength="40" required></label>
       <div class="seg radio"><label><input type="radio" name="vip" value="true" checked><span>👑 Privée</span></label><label><input type="radio" name="vip" value="false"><span>🌍 Publique</span></label></div>
       <label>Mot de passe <small>facultatif</small><input name="password" type="password" maxlength="128" autocomplete="new-password"></label>`}
+      <fieldset class="stakes"><legend>Mise par joueur</legend><div class="seg radio">${[0, ...STAKES].map((n) => `<label><input type="radio" name="stake" value="${n}" ${n === (editing ? state.table.stake : 0) ? "checked" : ""}><span>${n ? `🪙 ${fmt(n)}` : "Gratuit"}</span></label>`).join("")}</div><small class="muted">Avec crédits : quatre joueurs, rubicon jusqu’à 3 × la mise.</small></fieldset>
       <details class="advanced" ${editing ? "open" : ""}><summary>Règles et délais</summary>
       <div class="form-grid">${num("target", "Points pour gagner", 100, 10000)}${num("turnSeconds", "Temps par tour (s)", 5, 120)}${num("counterWindowSeconds", "Délai de surcontre (s)", 2, 30)}${num("capotValue", "Valeur du capot", 160, 500)}${num("reconnectSeconds", "Délai d’absence (s)", 10, 600)}
       <label>Score<select name="scoring"><option value="added" ${r.scoring === "added" ? "selected" : ""}>Points + contrat</option><option value="contract" ${r.scoring === "contract" ? "selected" : ""}>Contrat seul</option></select></label>
@@ -741,6 +1007,7 @@ document.addEventListener("click", async (ev) => {
       break;
     case "menu":
     case "chat":
+      if (a === "chat" && !state.table?.game) break;
     case "auction":
     case "scores":
     case "lastTrick":
@@ -749,7 +1016,7 @@ document.addEventListener("click", async (ev) => {
       break;
     case "sound":
       sound = !sound;
-      localStorage.setItem("beloteSound", sound);
+      cmd("settings", { sounds: sound });
       tone([523, 784]);
       render();
       if ($("#modal").open && $(".profile")) profileModal();
@@ -805,9 +1072,128 @@ document.addEventListener("click", async (ev) => {
       break;
     case "join": {
       const target = state.tables.find((x) => x.id === el.dataset.table);
-      rulesModal(target.rules, btn("Accepter et rejoindre", "confirmJoin", "cta small wide", `data-table="${target.id}"`));
+      if (needFunds(target.stake)) break;
+      joinConfirm(target, "confirmJoin", `data-table="${target.id}"`);
       break;
     }
+    case "wallet":
+      walletModal();
+      break;
+    case "shop":
+      shopModal();
+      break;
+    case "history":
+      historyModal();
+      break;
+    case "daily":
+      cmd("daily");
+      tone([523, 659, 784, 1046], 0.09, 0.05);
+      toast("🎁 Bonus du jour ajouté à votre portefeuille !");
+      closeModal();
+      break;
+    case "buy": {
+      try {
+        const c = shopConfig ?? {};
+        if (c.stripe && c.purchases) {
+          const r = await api("/api/shop/checkout", { pack: el.dataset.pack });
+          location.href = r.url;
+        } else if (c.test) {
+          await api("/api/shop/test", { pack: el.dataset.pack });
+          toast("Crédits ajoutés (paiement de test)");
+          closeModal();
+        }
+      } catch (err) {
+        toast(err.message);
+      }
+      break;
+    }
+    case "cheaper":
+      fundsModal(state.table?.stake ?? 100);
+      break;
+    case "friends":
+      friendsModal(el.dataset.tab ?? "friends");
+      break;
+    case "challenges":
+      challengesModal();
+      break;
+    case "progress":
+      progressModal();
+      break;
+    case "collection":
+      collectionModal(el.dataset.kind ?? "frame", el.dataset.preview ?? null);
+      break;
+    case "equip":
+      cmd("equip", { id: el.dataset.id });
+      setTimeout(() => collectionModal(el.dataset.kind, el.dataset.id), 250);
+      break;
+    case "friendRequest":
+    case "friendAccept":
+    case "friendDecline":
+    case "friendRemove":
+      cmd(a, { id: el.dataset.id });
+      if (a === "friendRequest") toast("Demande d’ami envoyée");
+      if ($("#modal").open && $(".friends-modal")) setTimeout(() => friendsModal(a === "friendRequest" ? "search" : "requests"), 250);
+      break;
+    case "favorite":
+      cmd("favorite", { id: el.dataset.id, on: el.dataset.on === "true" });
+      setTimeout(() => friendsModal("friends"), 250);
+      break;
+    case "inviteFriend":
+      cmd("invite", { id: el.dataset.id });
+      toast("Invitation envoyée");
+      break;
+    case "inviteOpen": {
+      const inv = state.player.invites.find((i) => i.id === el.dataset.id);
+      if (!inv || needFunds(inv.stake)) break;
+      joinConfirm({ rules: inv.rules, stake: inv.stake }, "inviteAccept", `data-id="${inv.id}"`);
+      break;
+    }
+    case "inviteAccept":
+    case "inviteDecline":
+      cmd(a, { id: el.dataset.id });
+      closeModal();
+      break;
+    case "player":
+      sheet = "player:" + el.dataset.id;
+      if (state.table?.game) render();
+      else modal(`<div class="sheet-lite">${playerSheet(el.dataset.id)}</div>`, "sheet-modal");
+      break;
+    case "hide":
+    case "block":
+      cmd(a, { id: el.dataset.id, on: el.dataset.on === "true" });
+      toast(a === "block" ? (el.dataset.on === "true" ? "Joueur bloqué" : "Joueur débloqué") : el.dataset.on === "true" ? "Messages masqués" : "Messages affichés");
+      sheet = null;
+      closeModal();
+      render();
+      break;
+    case "reportPlayer":
+      sheet = null;
+      render();
+      reportModal(el.dataset.id, el.dataset.name);
+      break;
+    case "react":
+      sheet = sheet === "react" ? null : "react";
+      render();
+      break;
+    case "sendReaction":
+      cmd("react", { id: el.dataset.id });
+      sheet = null;
+      render();
+      break;
+    case "toggleAnim":
+      cmd("settings", { animations: !state.player.settings.animations });
+      break;
+    case "rematchYes":
+      if (state.table.stake && needFunds(state.table.stake)) break;
+      cmd("rematchVote", { accept: true });
+      break;
+    case "rematchNo":
+      cmd("rematchVote", { accept: false });
+      break;
+    case "dismissResult":
+      cmd("dismissResult");
+      closeModal();
+      break;
     case "confirmJoin":
       cmd("join", { tableId: el.dataset.table });
       closeModal();
@@ -904,6 +1290,12 @@ document.addEventListener("click", async (ev) => {
     case "deleteTable":
       await adminRequest({ type: "deleteTable", id: el.dataset.id });
       break;
+    case "reviewAlert":
+      await adminRequest({ type: "reviewAlert", id: el.dataset.id });
+      break;
+    case "cancelGame":
+      if (confirm("Annuler cette partie ? Les crédits engagés seront libérés sans gain ni perte.")) await adminRequest({ type: "cancelGame", id: el.dataset.id });
+      break;
     case "resolveReport":
       await adminRequest({ type: "resolve", id: el.dataset.id });
       break;
@@ -914,6 +1306,8 @@ document.addEventListener("click", async (ev) => {
 });
 document.addEventListener("change", (ev) => {
   if (ev.target.id === "photo-input" && ev.target.files[0]) openCropper(ev.target.files[0]);
+  const k = ev.target.dataset?.setting;
+  if (k) cmd("settings", { [k]: ev.target.type === "checkbox" ? ev.target.checked : ev.target.value });
 });
 document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape" && sheet) {
@@ -932,8 +1326,18 @@ async function adminRequest(data) {
     if (!res.ok) throw Error(await res.text());
     const d = await res.json();
     const row = (l, r) => `<div class="admin-row"><span>${l}</span>${r}</div>`;
-    $("#admin-result").innerHTML =
-      `<h3>${d.players.length} joueurs · ${d.tables.length} tables</h3>${btn(d.settings.maintenance ? "Rouvrir les entrées" : "Suspendre les nouvelles entrées", "maintenance", "chip-btn", `data-enabled="${!d.settings.maintenance}"`)}<h3>Joueurs</h3>${d.players.map((p) => row(`${e(p.name)} · ${p.stats.games} parties`, btn(p.banned ? "Réactiver" : "Suspendre", "suspendPlayer", "chip-btn", `data-id="${p.id}" data-enabled="${!p.banned}"`))).join("")}<h3>Tables</h3>${d.tables.map((t) => row(`${e(t.name)} · ${e(t.status)}`, btn("Supprimer", "deleteTable", "chip-btn", `data-id="${t.id}"`, t.status === "Partie en cours"))).join("")}<h3>Signalements</h3>${d.reports.map((r) => row(`${e(r.reason)} <small>${new Date(r.at).toLocaleString("fr-FR")}</small>`, r.resolved ? "Traité" : btn("Traiter", "resolveReport", "chip-btn", `data-id="${r.id}"`))).join("") || "<p>Aucun signalement.</p>"}`;
+    const open = d.reports.filter((r) => !r.resolved);
+    const alerts = d.alerts.filter((x) => !x.reviewed);
+    $("#admin-result").innerHTML = `
+      <div class="admin-stats"><div><b>${d.players.length}</b><small>joueurs</small></div><div><b>${d.tables.length}</b><small>tables</small></div><div><b>${open.length}</b><small>signalements</small></div><div><b>${alerts.length}</b><small>alertes</small></div></div>
+      <p class="muted small">Crédits en circulation : ${fmt(d.economy.circulating)} · engagés : ${fmt(d.economy.reserved)} · achats ${d.economy.purchases ? "ouverts" : "fermés"} (web ${d.economy.stripe ? "✓" : "—"}, iOS ${d.economy.apple ? "✓" : "—"}, Android ${d.economy.google ? "✓" : "—"})</p>
+      ${btn(d.settings.maintenance ? "Rouvrir les entrées" : "Suspendre les nouvelles entrées", "maintenance", "chip-btn", `data-enabled="${!d.settings.maintenance}"`)}
+      <h3>Alertes à examiner</h3><p class="muted small">Indices combinés, jamais une preuve : aucune sanction automatique.</p>
+      ${alerts.map((x) => `<div class="admin-card"><b>${e(x.kind)}</b><small>${when(x.at)} · ${x.names.map(e).join(", ")}</small><ul>${x.indicators.map((i) => `<li>${e(i)}</li>`).join("")}</ul>${btn("Marquer comme examinée", "reviewAlert", "chip-btn", `data-id="${x.id}"`)}</div>`).join("") || "<p>Aucune alerte.</p>"}
+      <h3>Signalements</h3>
+      ${open.map((r) => `<div class="admin-card"><b>${e(r.reason)}${r.targetName ? ` · ${e(r.targetName)}` : ""}</b><small>${when(r.at)} · par ${e(r.byName ?? r.by)}${r.gameId ? ` · partie ${e(r.gameId.slice(0, 8))}, donne ${r.deal ?? "—"}` : ""}</small>${r.comment ? `<p>${e(r.comment)}</p>` : ""}${r.context?.chat?.length ? `<p class="muted small">Messages : ${r.context.chat.map((m) => e(m.text)).join(" · ")}</p>` : ""}${r.context?.reactions?.length ? `<p class="muted small">${r.context.reactions.length} réaction(s) récente(s)</p>` : ""}${btn("Traiter", "resolveReport", "chip-btn", `data-id="${r.id}"`)}</div>`).join("") || "<p>Aucun signalement ouvert.</p>"}
+      <h3>Tables</h3>${d.tables.map((t) => row(`${e(t.name)} · ${e(t.status)}${t.stake ? ` · 🪙 ${t.stake}` : ""}`, t.engaged ? btn("Annuler (incident)", "cancelGame", "chip-btn danger", `data-id="${t.id}"`) : btn("Supprimer", "deleteTable", "chip-btn", `data-id="${t.id}"`, t.status === "Partie en cours"))).join("")}
+      <h3>Joueurs</h3>${d.players.map((p) => row(`${e(p.name)} · ${e(p.tag ?? "")} · ${p.stats.games} parties`, btn(p.banned ? "Réactiver" : "Suspendre", "suspendPlayer", "chip-btn", `data-id="${p.id}" data-enabled="${!p.banned}"`))).join("")}`;
   } catch (err) {
     toast(err.message);
   }
@@ -957,9 +1361,25 @@ document.addEventListener("submit", async (ev) => {
         for (const k of ["target", "turnSeconds", "counterWindowSeconds", "reconnectSeconds", "capotValue"]) r[k] = Number(d[k]);
         for (const k of ["scoring", "allPass"]) r[k] = d[k];
         for (const k of ["flyingCounter", "beloteRetained", "beloteCountsContract"]) r[k] = d[k] === "on";
-        cmd(f.id === "create-form" ? "create" : "rules", { name: d.name, password: d.password || undefined, vip: d.vip === "true", rules: r });
+        if (f.id === "create-form" && needFunds(Number(d.stake))) return;
+        cmd(f.id === "create-form" ? "create" : "rules", { name: d.name, password: d.password || undefined, vip: d.vip === "true", rules: r, stake: Number(d.stake ?? 0) });
         break;
       }
+      case "search-form": {
+        const id = crypto.randomUUID();
+        pendingAcks[id] = (m) => {
+          const ul = $("#search-results");
+          if (ul)
+            ul.innerHTML =
+              m.found.map((o) => `<li class="friend">${avatar(o.avatar)}<div><b>${e(o.name)}</b><small>${e(o.tag)}</small></div>${o.friend ? "<small>Ami</small>" : o.pending ? "<small>Demande envoyée</small>" : btn("Ajouter", "friendRequest", "pill small", `data-id="${o.id}"`)}</li>`).join("") || '<li class="empty">Aucun joueur trouvé.</li>';
+        };
+        ws.send(JSON.stringify({ id, type: "search", data: d }));
+        return;
+      }
+      case "report-player-form":
+        cmd("report", d);
+        toast("Merci, le signalement a été transmis à la modération");
+        break;
       case "profile-form":
         cmd("profile", { name: d.name });
         toast("Pseudo enregistré");
@@ -1041,9 +1461,29 @@ async function connect() {
         render();
         if (first && pendingInvite && !state.table) joinModal(pendingInvite);
       }
+      if (msg.type === "ack" && pendingAcks[msg.id]) {
+        pendingAcks[msg.id](msg);
+        delete pendingAcks[msg.id];
+      }
+      if (msg.type === "state") {
+        if (state.player.invites.length > seenInvites) {
+          toast(`📨 ${state.player.invites.at(-1).from} vous invite à « ${state.player.invites.at(-1).table} »`);
+          tone([660, 990], 0.08, 0.05);
+        }
+        seenInvites = state.player.invites.length;
+        if (state.player.lastResult && !$("#modal").open && !state.table) resultModal({ ...state.player.lastResult, table: state.player.lastResult.table });
+        const r = state.table?.reactions?.at(-1);
+        if (r && r.id !== lastReactionSeen) {
+          lastReactionSeen = r.id;
+          setTimeout(render, 3600);
+        }
+      }
       if (msg.type === "ack" && msg.invitation)
         rulesModal(msg.invitation.rules, `<p class="muted small">Table « ${e(msg.invitation.name)} »</p>${btn("Accepter et demander une place", "confirmVip", "cta small wide")}`);
-      if (msg.type === "error") toast(msg.message);
+      if (msg.type === "error") {
+        if (/Solde insuffisant/.test(msg.message)) fundsModal(state.table?.stake ?? 100);
+        toast(msg.message);
+      }
     };
     ws.onclose = (ev) => {
       if (ev.code === 4001) return connect(); // session changée (connexion, déconnexion)

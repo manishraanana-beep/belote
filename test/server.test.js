@@ -6,6 +6,7 @@ import path from "node:path";
 import { WebSocket } from "ws";
 import { randomUUID } from "node:crypto";
 import { createApp } from "../src/server.js";
+import { view } from "../src/engine.js";
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 async function fixture(opts = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), "belote-test-"));
@@ -623,6 +624,178 @@ test("quitter la partie : un robot reprend la main, les autres continuent", asyn
     // Plus aucun humain : la table publique est remise à zéro.
     for (const i of [0, 2, 3]) await players[i].command("leave");
     await players[0].wait((c) => !c.state.table && c.state.tables.every((x) => x.status === "En attente"));
+  } finally {
+    await f.close();
+  }
+});
+async function member(f, email) {
+  const s = await fetch(f.base + "/api/session", { method: "POST" });
+  const cookie = s.headers.get("set-cookie").split(";")[0];
+  const r = await api(f, cookie, "/api/auth/register", { email, password: "motdepasse" });
+  return f.client(r.cookie);
+}
+test("crédits : table à 200, réservations, achat en cours, départ, règlement unique et équilibré", async () => {
+  const { createHmac } = await import("node:crypto");
+  const env = { BELOTE_TEST_SHOP: "on", BELOTE_PURCHASES: "on", STRIPE_SECRET_KEY: "sk", STRIPE_WEBHOOK_SECRET: "whsec" };
+  const f = await fixture({ env, botDelay: 1 });
+  try {
+    const ps = [];
+    for (let i = 0; i < 4; i++) ps.push(await member(f, `j${i}@exemple.fr`));
+    assert.equal(ps[0].state.player.wallet.balance, 4000, "2000 crédits offerts (en demi-crédits)");
+    // Un invité ne peut pas miser.
+    const guest = await f.client();
+    await ps[0].command("create", { name: "Table 200", vip: false, stake: 200, rules: { target: 100 } });
+    const table = ps[0].state.table.id;
+    await guest.command("join", { tableId: table }, "error");
+    await ps[0].command("bot", { seat: 1 }, "error");
+    for (const p of ps.slice(1)) await p.command("join", { tableId: table });
+    await ps[0].wait((c) => c.state.table.engagedPreview?.every((x) => x?.engaged === 600));
+    await ps[0].command("start");
+    await ps[3].wait((c) => c.state.table?.game);
+    const db = f.app.db;
+    for (const p of ps) assert.equal(db.players[p.state.player.id].wallet.reserved, 1200);
+    assert.deepEqual(ps[0].state.table.money.seats.map((x) => x.engaged), [600, 600, 600, 600]);
+    // Le joueur 1 achète des crédits pendant la partie : sa mise engagée ne change pas.
+    const buy = await api(f, ps[1].cookie, "/api/shop/test", { pack: "pack-1000", transactionId: "tx-1" });
+    assert.equal(buy.body.credited, true);
+    assert.equal((await api(f, ps[1].cookie, "/api/shop/test", { pack: "pack-1000", transactionId: "tx-1" })).body.credited, false, "transaction rejouée ignorée");
+    // Notification Stripe reçue deux fois : créditée une seule fois.
+    const pid2 = ps[2].state.player.id;
+    const raw = JSON.stringify({ type: "checkout.session.completed", data: { object: { id: "cs_1", payment_status: "paid", client_reference_id: pid2, metadata: { pack: "pack-3000" } } } });
+    const t = Math.floor(Date.now() / 1000);
+    const sig = `t=${t},v1=${createHmac("sha256", "whsec").update(`${t}.${raw}`).digest("hex")}`;
+    for (let i = 0; i < 2; i++)
+      assert.equal((await fetch(f.base + "/api/shop/stripe-webhook", { method: "POST", headers: { "Stripe-Signature": sig }, body: raw })).status, 200);
+    assert.equal(db.ledger.filter((x) => x.key === "purchase:stripe:cs_1").length, 1);
+    assert.equal((await fetch(f.base + "/api/shop/stripe-webhook", { method: "POST", headers: { "Stripe-Signature": "t=1,v1=00" }, body: raw })).status, 401);
+    // Tout le monde quitte : les robots finissent la partie, les crédits restent engagés.
+    for (const p of ps) await p.command("leave");
+    const tb = db.tables[table];
+    await ps[0].wait(() => tb.game?.phase === "finished");
+    assert.equal(tb.money.settled, true);
+    const deltas = db.ledger.filter((x) => x.gameId === tb.gameId).map((x) => x.amount);
+    assert.equal(deltas.length, 4);
+    assert.equal(deltas.reduce((a, b) => a + b, 0), 0, "crédits prélevés = distribués");
+    const rubicon = tb.money.result.rubicon;
+    assert.ok(deltas.every((d) => Math.abs(d) === (rubicon ? 1200 : 400)));
+    for (const p of ps) {
+      const w = db.players[p.state.player.id].wallet;
+      assert.equal(w.reserved, 0);
+      assert.ok(w.balance >= 0);
+    }
+    await ps[0].wait((c) => c.state.player.lastResult);
+    const hist = await ps[0].command("wallet");
+    assert.ok(hist.wallet.some((x) => x.gameId === tb.gameId && x.stake === 200 && x.engaged === 600));
+  } finally {
+    await f.close();
+  }
+});
+test("crédits : annulation technique par l'administration, sans gain ni perte", async () => {
+  const f = await fixture({ adminKey: "k", botDelay: 100000 });
+  try {
+    const ps = [];
+    for (let i = 0; i < 4; i++) ps.push(await member(f, `a${i}@exemple.fr`));
+    await ps[0].command("create", { name: "T", vip: false, stake: 1000 });
+    for (const p of ps.slice(1)) await p.command("join", { tableId: ps[0].state.table.id });
+    await ps[0].command("start");
+    const id = ps[0].state.table.id;
+    const r = await fetch(f.base + "/api/admin", { method: "POST", headers: { Authorization: "Bearer k", "Content-Type": "application/json" }, body: JSON.stringify({ type: "cancelGame", id }) });
+    assert.equal(r.status, 200);
+    for (const p of ps) {
+      const w = f.app.db.players[p.state.player.id].wallet;
+      assert.deepEqual([w.balance, w.reserved], [4000, 0]);
+    }
+  } finally {
+    await f.close();
+  }
+});
+test("social : amis, invitation sans engagement, blocage, réactions limitées, chat prédéfini en partie", async () => {
+  const f = await fixture({ reactionCooldownMs: 300, botDelay: 100000 });
+  try {
+    const a = await member(f, "a@x.fr"),
+      b = await member(f, "b@x.fr"),
+      c = await f.client();
+    await a.command("profile", { name: "Alice" });
+    const found = await b.command("search", { q: a.state.player.tag });
+    const alice = found.found[0];
+    assert.equal(alice.name, "Alice");
+    await b.command("friendRequest", { id: alice.id });
+    await a.wait((x) => x.state.player.friendIn.length === 1);
+    await a.command("friendAccept", { id: b.state.player.id });
+    await b.wait((x) => x.state.player.friends[0]?.status === "available");
+    await b.command("favorite", { id: alice.id, on: true });
+    // Invitation : précise table, mise, règles ; aucun crédit réservé.
+    await a.command("create", { name: "Salon VIP", vip: true, stake: 100 });
+    await a.command("invite", { id: b.state.player.id });
+    await b.wait((x) => x.state.player.invites.length === 1);
+    const inv = b.state.player.invites[0];
+    assert.deepEqual([inv.table, inv.stake, inv.free], ["Salon VIP", 100, 3]);
+    assert.equal(f.app.db.players[b.state.player.id].wallet.reserved, 0);
+    await c.command("invite", { id: a.state.player.id }, "error"); // c n'est à aucune table
+    await b.command("inviteAccept", { id: inv.id });
+    await b.wait((x) => x.state.table?.name === "Salon VIP");
+    // Blocage : plus de demandes ni d'invitations.
+    await c.command("friendRequest", { id: a.state.player.id });
+    await a.command("block", { id: c.state.player.id, on: true });
+    await c.command("friendRequest", { id: a.state.player.id }, "error");
+    assert.equal(f.app.db.players[a.state.player.id].friendIn.length, 0);
+    // Réactions : délai entre deux réactions.
+    await a.command("react", { id: "bravo" });
+    await a.command("react", { id: "merci" }, "error");
+    await delay(320);
+    await a.command("react", { id: "merci" });
+    // Pendant la partie, messages prédéfinis uniquement.
+    await a.command("rules", { rules: {}, stake: 0 });
+    await a.command("bot", { seat: 2 });
+    await a.command("bot", { seat: 3 });
+    await a.command("start");
+    await a.command("chat", { text: "j'ai le valet" }, "error");
+    await a.command("chat", { text: "Bien joué !" });
+    // Signalement avec contexte de partie.
+    await b.command("report", { target: a.state.player.id, category: "cheat", comment: "test" });
+    const rep = f.app.db.reports.at(-1);
+    assert.equal(rep.gameId, f.app.db.tables[a.state.player && b.state.table.id].gameId);
+    assert.equal(rep.reason, "Suspicion de triche ou d’arrangement");
+    // Les mains adverses ne sont jamais transmises.
+    const g = b.state.table.game;
+    assert.equal(g.hand.length, 8);
+    assert.equal(JSON.stringify(b.state).includes('"hands"'), false);
+  } finally {
+    await f.close();
+  }
+});
+test("revanche : chaque joueur confirme, nouvelles réservations, refus = retour au salon", async () => {
+  const f = await fixture({ botDelay: 1 });
+  try {
+    const ps = [];
+    for (let i = 0; i < 4; i++) ps.push(await member(f, `r${i}@x.fr`));
+    await ps[0].command("create", { name: "R", vip: false, stake: 100, rules: { target: 100 } });
+    for (const p of ps.slice(1)) await p.command("join", { tableId: ps[0].state.table.id });
+    await ps[0].command("start");
+    const t = f.app.db.tables[ps[0].state.table.id];
+    // Les quatre joueurs jouent la partie jusqu'au bout.
+    for (let guard = 0; t.game.phase !== "finished" && guard < 2000; guard++) {
+      const g = t.game;
+      if (g.phase === "summary") await ps[0].command("next");
+      else if (g.phase === "counter") await delay(5);
+      else {
+        const v = view(g, g.turn);
+        const action = g.phase === "bidding" ? (g.contract ? { type: "pass" } : { type: "bid", amount: 80, suit: "S" }) : { type: "play", card: v.legal[0] };
+        await ps[g.turn].command("action", { version: g.version, action });
+      }
+    }
+    for (let i = 0; i < 3; i++) await ps[i].command("rematchVote", { accept: true });
+    assert.equal(t.game.phase, "finished", "pas de lancement sans les quatre accords");
+    assert.equal(Object.keys(t.rematch.votes).length, 3);
+    assert.equal(f.app.db.players[ps[3].state.player.id].wallet.reserved, 0);
+    await ps[3].command("rematchVote", { accept: true });
+    assert.equal(t.game.phase, "bidding");
+    assert.ok(t.money && !t.money.settled);
+    for (const p of ps) assert.equal(f.app.db.players[p.state.player.id].wallet.reserved, 600);
+    // Fin de la revanche puis refus : retour au salon.
+    f.app.db.tables[t.id].game.phase = "finished";
+    await ps[1].command("rematchVote", { accept: false });
+    assert.equal(t.game, null);
   } finally {
     await f.close();
   }
