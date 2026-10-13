@@ -2867,3 +2867,259 @@ body.in-game .table-title button {
     padding: 4px 10px;
   }
 }
+
+/* ===== Téléphone : jeu uniquement en paysage ===== */
+#rotate-hint {
+  display: none;
+}
+@media (orientation: portrait) and (max-width: 700px) {
+  body.in-game #rotate-hint {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    text-align: center;
+    background:
+      radial-gradient(circle at 50% 35%, #33c2aa 0, #12695f 70%);
+    color: #fff;
+    font-size: 20px;
+    font-weight: bold;
+  }
+  body.in-game #rotate-hint p {
+    margin: 0;
+    text-shadow: 0 2px 0 #0005;
+  }
+  body.in-game .rotate-phone {
+    font-size: 64px;
+    animation: rotatePhone 1.8s ease-in-out infinite;
+  }
+}
+@keyframes rotatePhone {
+  0%, 25% { transform: rotate(0); }
+  60%, 100% { transform: rotate(-90deg); }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  body.in-game header {
+    display: none;
+  }
+  body.in-game main.game-page {
+    padding: 4px 8px 4px;
+  }
+  body.in-game .table-title {
+    position: absolute;
+    top: 4px;
+    left: 8px;
+    right: 8px;
+    margin: 0;
+    z-index: 5;
+    pointer-events: none;
+  }
+  body.in-game .table-title > * {
+    pointer-events: auto;
+  }
+  body.in-game .table-title > div:first-child {
+    display: none;
+  }
+  body.in-game .table-title > div:last-child {
+    margin-left: auto;
+  }
+  body.in-game .table-title [data-action="rulesInfo"] {
+    display: none;
+  }
+  body.in-game .game-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 190px;
+    gap: 8px;
+    padding-top: 30px;
+  }
+  body.in-game .play-area {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    gap: 2px;
+  }
+  body.in-game .table-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body.in-game .table-sidebar > .side-panel {
+    display: none;
+  }
+  body.in-game .table-sidebar > .last-trick-panel,
+  body.in-game .table-sidebar > .auction-history {
+    display: block;
+    padding: 6px 8px;
+    border-radius: 12px;
+  }
+  body.in-game .last-trick-panel h3,
+  body.in-game .auction-history h3 {
+    font-size: 12px !important;
+    margin: 0 0 4px !important;
+  }
+  body.in-game .last-trick-panel .trick-winner {
+    display: block;
+    font-size: 10px;
+    margin: 0 0 4px;
+  }
+  body.in-game .last-trick-panel .last-trick-cards {
+    display: flex;
+    gap: 4px;
+  }
+  body.in-game .last-trick-panel .card.deck-card {
+    max-width: 40px;
+  }
+  body.in-game .last-trick-panel .last-trick-cards strong {
+    display: block;
+    font-size: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  body.in-game .auction-history li {
+    padding: 1px 6px;
+  }
+  body.in-game .auction-history li strong {
+    font-size: 9px;
+  }
+  body.in-game .auction-history li span {
+    font-size: 10px;
+  }
+  body.in-game .scoreboard {
+    position: absolute;
+    top: 3px;
+    left: 8px;
+    margin: 0;
+    padding: 2px 14px;
+    gap: 14px;
+    z-index: 6;
+  }
+  body.in-game .scoreboard strong {
+    font-size: 16px;
+  }
+  body.in-game .scoreboard small {
+    font-size: 8px;
+  }
+  body.in-game .score-center {
+    font-size: 15px;
+  }
+  body.in-game .felt {
+    min-height: 120px;
+    border-width: 5px;
+    border-radius: 28px;
+    box-shadow:
+      inset 0 0 0 2px #ffffff30,
+      inset 0 0 40px #04332b80,
+      0 4px 0 #c98f2e;
+  }
+  body.in-game .felt:after {
+    inset: 6px;
+    border-radius: 22px;
+  }
+  body.in-game .felt-logo {
+    display: none;
+  }
+  body.in-game .player-seat .avatar {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+  body.in-game .player-seat strong {
+    font-size: 11px;
+  }
+  body.in-game .player-seat small,
+  body.in-game .backs {
+    display: none;
+  }
+  body.in-game .seat-0 {
+    bottom: 2px;
+  }
+  body.in-game .seat-2 {
+    top: 2px;
+  }
+  body.in-game .center-play {
+    inset: 34px 70px 34px;
+  }
+  body.in-game .center-play h3 {
+    font-size: 15px;
+  }
+  body.in-game .center-play p {
+    font-size: 11px;
+    margin: 2px 0;
+  }
+  body.in-game .trick {
+    --tw: clamp(30px, 10vh, 48px);
+  }
+  body.in-game .hand-label {
+    display: none;
+  }
+  body.in-game .hand {
+    --card-w: min(17vh, 8.5vw, 80px);
+    --card-show: calc(var(--card-w) * 0.55);
+    padding: 4px 2px 0;
+  }
+  body.in-game .action-bar {
+    min-height: 0;
+    gap: 6px;
+    margin: 2px 0 0;
+  }
+  body.in-game .action-bar select,
+  body.in-game .action-bar button {
+    padding: 4px 9px;
+    font-size: 12px;
+  }
+  body.in-game .last-trick-panel { order: 0; }
+}
+@media (orientation: portrait) and (max-width: 700px) {
+  body.in-game #rotate-hint p {
+    color: #fff;
+    opacity: 1;
+  }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  body.in-game .scoreboard {
+    top: 4px;
+    padding: 1px 14px;
+    height: 24px;
+    align-items: center;
+  }
+  body.in-game .scoreboard small {
+    display: none;
+  }
+  body.in-game .scoreboard strong,
+  body.in-game .score-center {
+    font-size: 15px;
+    line-height: 1;
+  }
+  body.in-game .scoreboard > div {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  body.in-game .scoreboard > div:first-child:before {
+    content: "Nous";
+    font-size: 10px;
+    color: #b8d6db;
+  }
+  body.in-game .scoreboard > div:last-child:after {
+    content: "Eux";
+    font-size: 10px;
+    color: #b8d6db;
+  }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  body.in-game .scoreboard {
+    height: 26px !important;
+    min-height: 0 !important;
+    overflow: hidden;
+  }
+  body.in-game .table-sidebar > .side-panel.auction-history {
+    display: block;
+  }
+}

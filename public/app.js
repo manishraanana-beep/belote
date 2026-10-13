@@ -310,6 +310,15 @@ document.addEventListener("click", async (ev) => {
     t = state?.table,
     g = t?.game;
   switch (a) {
+    case "landscape":
+      // Android : plein écran puis verrouillage en paysage. iOS l'ignore : le message reste affiché.
+      try {
+        await document.documentElement.requestFullscreen?.();
+        await screen.orientation?.lock?.("landscape");
+      } catch {
+        toast("Tournez votre téléphone à l’horizontale.");
+      }
+      break;
     case "togglePanels":
       document.body.classList.toggle("show-panels");
       break;
