@@ -6,6 +6,7 @@ import path from "node:path";
 import { WebSocket } from "ws";
 import { randomUUID } from "node:crypto";
 import { createApp } from "../src/server.js";
+import { view } from "../src/engine.js";
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 async function fixture(opts = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), "belote-test-"));
@@ -305,7 +306,7 @@ test("HTTP : application disponible, origine hostile bloquée, administration au
   try {
     assert.equal((await fetch(f.base + "/api/health")).status, 200);
     const index = await fetch(f.base);
-    assert.match(await index.text(), /Maison Belote/);
+    assert.match(await index.text(), /Contrée/);
     const svg = await fetch(f.base + "/cards/QH.svg");
     assert.equal(svg.status, 200);
     assert.equal(svg.headers.get("content-type"), "image/svg+xml");
@@ -492,6 +493,436 @@ test("choix des équipes par le créateur, refus des autres joueurs et gel au la
     await owner.command("bot", { seat: 3 });
     await owner.command("start");
     await owner.command("move", { from: 0, to: 1 }, "error");
+  } finally {
+    await f.close();
+  }
+});
+async function api(f, cookie, route, body) {
+  const r = await fetch(f.base + route, {
+    method: "POST",
+    headers: { Cookie: cookie, "Content-Type": "application/json", Origin: f.base },
+    body: typeof body === "string" || body instanceof Uint8Array ? body : JSON.stringify(body ?? {}),
+  });
+  const set = r.headers.get("set-cookie");
+  return { status: r.status, body: await r.json(), cookie: set ? set.split(";")[0] : cookie };
+}
+test("comptes : inscription, vérification, connexion sur un autre appareil, réinitialisation, suppression", async () => {
+  const f = await fixture();
+  try {
+    const guest = await fetch(f.base + "/api/session", { method: "POST" });
+    let cookie = guest.headers.get("set-cookie").split(";")[0];
+    const guestId = (await guest.json()).id;
+    let r = await api(f, cookie, "/api/auth/register", { email: "Sophie@Exemple.fr", password: "court" });
+    assert.equal(r.status, 400);
+    r = await api(f, cookie, "/api/auth/register", { email: "Sophie@Exemple.fr", password: "motdepasse1" });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.id, guestId, "le profil invité devient le compte");
+    assert.deepEqual(r.body.account, { email: "sophie@exemple.fr", verified: false, providers: [], hasPassword: true });
+    const link = /\/api\/auth\/verify\?token=\S+/.exec(f.app.db.outbox.at(-1).text)[0];
+    const v = await fetch(f.base + link, { redirect: "manual" });
+    assert.equal(v.headers.get("location"), "/#verified");
+    assert.equal((await fetch(f.base + link, { redirect: "manual" })).headers.get("location"), "/#verify-failed");
+    // Deuxième appareil : nouvel invité qui se connecte → même profil, ses parties sont reprises.
+    const other = await fetch(f.base + "/api/session", { method: "POST" });
+    const otherCookie = other.headers.get("set-cookie").split(";")[0];
+    f.app.db.players[(await other.json()).id].stats.games = 2;
+    assert.equal((await api(f, otherCookie, "/api/auth/login", { email: "sophie@exemple.fr", password: "mauvais!!" })).status, 401);
+    r = await api(f, otherCookie, "/api/auth/login", { email: "sophie@exemple.fr", password: "motdepasse1" });
+    assert.equal(r.body.id, guestId);
+    assert.equal(r.body.account.verified, true);
+    assert.equal(r.body.stats.games, 2);
+    const ws = await f.client(r.cookie);
+    assert.equal(ws.state.player.id, guestId);
+    // Mot de passe oublié : réponse identique pour une adresse inconnue.
+    assert.equal((await api(f, "", "/api/auth/forgot", { email: "inconnu@exemple.fr" })).status, 200);
+    await api(f, "", "/api/auth/forgot", { email: "sophie@exemple.fr" });
+    const reset = /#reset=(\S+)/.exec(f.app.db.outbox.at(-1).text)[1];
+    r = await api(f, "", "/api/auth/reset", { token: reset, password: "nouveau-mdp" });
+    assert.equal(r.body.id, guestId);
+    assert.equal((await api(f, "", "/api/auth/reset", { token: reset, password: "nouveau-mdp" })).status, 400);
+    assert.equal((await fetch(f.base + "/api/session", { method: "POST", headers: { Cookie: cookie } }).then((x) => x.json())).id !== guestId, true, "anciennes sessions révoquées");
+    cookie = r.cookie;
+    // Connexion Apple/Google sans configuration : refus explicite.
+    assert.equal((await api(f, cookie, "/api/auth/oidc", { provider: "google", idToken: "x.y.z" })).status, 501);
+    // Suppression du compte.
+    assert.equal((await api(f, cookie, "/api/auth/delete", { password: "faux-mdp!" })).status, 401);
+    r = await api(f, cookie, "/api/auth/delete", { password: "nouveau-mdp" });
+    assert.equal(r.status, 200, r.body.error);
+    assert.notEqual(r.body.id, guestId);
+    assert.equal(f.app.db.players[guestId], undefined);
+    assert.equal(Object.keys(f.app.db.accounts).length, 0);
+  } finally {
+    await f.close();
+  }
+});
+test("profil : pseudo, avatar illustré, photo recadrée", async () => {
+  const f = await fixture();
+  try {
+    const c = await f.client();
+    await c.command("profile", { name: "Sophie", avatar: "chat" });
+    await c.wait((c) => c.state.player.avatar === "chat");
+    await c.command("profile", { avatar: "♠" }, "error");
+    await c.command("profile", { name: "x" }, "error");
+    const jpeg = new Uint8Array(200).fill(1);
+    jpeg.set([0xff, 0xd8, 0xff]);
+    assert.equal((await api(f, c.cookie, "/api/avatar", new Uint8Array([1, 2, 3]))).status, 400);
+    const r = await api(f, c.cookie, "/api/avatar", jpeg);
+    assert.match(r.body.avatar, /^u:[0-9a-f]{32}$/);
+    const img = await fetch(`${f.base}/u/${r.body.avatar.slice(2)}.jpg`);
+    assert.equal(img.headers.get("content-type"), "image/jpeg");
+    assert.equal((await fetch(f.base + "/avatars/chien.webp")).status, 200);
+    assert.equal((await fetch(f.base + "/avatars/inconnu.svg")).status, 404);
+  } finally {
+    await f.close();
+  }
+});
+test("jouer maintenant : humains regroupés, robots ajoutés après le délai", async () => {
+  const f = await fixture({ fillSeconds: 0.3 });
+  try {
+    const a = await f.client(),
+      b = await f.client();
+    await a.command("quick");
+    await b.command("quick");
+    await a.wait((c) => c.state.table?.seats.filter(Boolean).length === 2);
+    assert.equal(a.state.table.id, b.state.table.id);
+    assert.equal(a.state.table.quick, true);
+    assert.equal(a.state.table.game, null);
+    await a.wait((c) => c.state.table?.game);
+    const seats = a.state.table.seats;
+    assert.equal(seats.filter((s) => s.bot).length, 2);
+    assert.equal(seats.filter((s) => !s.bot).length, 2);
+  } finally {
+    await f.close();
+  }
+});
+test("quitter la partie : un robot reprend la main, les autres continuent", async () => {
+  const f = await fixture({ botDelay: 100000 });
+  try {
+    const players = await Promise.all(Array.from({ length: 4 }, () => f.client()));
+    const t = players[0].state.tables[0];
+    for (const p of players) await p.command("join", { tableId: t.id });
+    await players[0].command("start");
+    await players[1].wait((c) => c.state.table?.game);
+    const before = players[1].state.table.game;
+    const hand = f.app.db.tables[t.id].game.hands[1].slice();
+    await players[1].command("leave");
+    await players[1].wait((c) => !c.state.table);
+    await players[0].wait((c) => c.state.table.seats[1].bot);
+    const seat = players[0].state.table.seats[1];
+    assert.equal(seat.replaced, players[1].state.player.name);
+    const g = f.app.db.tables[t.id].game;
+    assert.deepEqual(g.hands[1], hand, "main conservée");
+    assert.deepEqual(g.scores, before.scores);
+    // Le robot joue à son tour.
+    while (g.turn !== 1) {
+      const p = players[g.turn];
+      await p.command("action", { version: g.version, action: { type: "pass" } });
+    }
+    const v = g.version;
+    f.app.db.tables[t.id].botAt = 0;
+    await players[0].wait(() => g.version > v);
+    // Plus aucun humain : la table publique est remise à zéro.
+    for (const i of [0, 2, 3]) await players[i].command("leave");
+    await players[0].wait((c) => !c.state.table && c.state.tables.every((x) => x.status === "En attente"));
+  } finally {
+    await f.close();
+  }
+});
+async function member(f, email) {
+  const s = await fetch(f.base + "/api/session", { method: "POST" });
+  const cookie = s.headers.get("set-cookie").split(";")[0];
+  const r = await api(f, cookie, "/api/auth/register", { email, password: "motdepasse" });
+  return f.client(r.cookie);
+}
+test("crédits : table à 200, réservations, achat en cours, départ, règlement unique et équilibré", async () => {
+  const { createHmac } = await import("node:crypto");
+  const env = { BELOTE_TEST_SHOP: "on", BELOTE_PURCHASES: "on", STRIPE_SECRET_KEY: "sk", STRIPE_WEBHOOK_SECRET: "whsec", BELOTE_LOGIN_BONUS: "0" };
+  const f = await fixture({ env, botDelay: 1 });
+  try {
+    const ps = [];
+    for (let i = 0; i < 4; i++) ps.push(await member(f, `j${i}@exemple.fr`));
+    assert.equal(ps[0].state.player.wallet.balance, 4000, "2000 crédits offerts (en demi-crédits)");
+    // Un invité ne peut pas miser.
+    const guest = await f.client();
+    await ps[0].command("create", { name: "Table 200", vip: false, stake: 200, rules: { target: 100 } });
+    const table = ps[0].state.table.id;
+    await guest.command("join", { tableId: table }, "error");
+    await ps[0].command("bot", { seat: 1 }, "error");
+    for (const p of ps.slice(1)) await p.command("join", { tableId: table });
+    await ps[0].wait((c) => c.state.table.engagedPreview?.every((x) => x?.engaged === 600));
+    await ps[0].command("start");
+    await ps[3].wait((c) => c.state.table?.game);
+    const db = f.app.db;
+    for (const p of ps) assert.equal(db.players[p.state.player.id].wallet.reserved, 1200);
+    assert.deepEqual(ps[0].state.table.money.seats.map((x) => x.engaged), [600, 600, 600, 600]);
+    // Le joueur 1 achète des crédits pendant la partie : sa mise engagée ne change pas.
+    const buy = await api(f, ps[1].cookie, "/api/shop/test", { pack: "pack-1000", transactionId: "tx-1" });
+    assert.equal(buy.body.credited, true);
+    assert.equal((await api(f, ps[1].cookie, "/api/shop/test", { pack: "pack-1000", transactionId: "tx-1" })).body.credited, false, "transaction rejouée ignorée");
+    // Notification Stripe reçue deux fois : créditée une seule fois.
+    const pid2 = ps[2].state.player.id;
+    const raw = JSON.stringify({ type: "checkout.session.completed", data: { object: { id: "cs_1", payment_status: "paid", client_reference_id: pid2, metadata: { pack: "pack-3000" } } } });
+    const t = Math.floor(Date.now() / 1000);
+    const sig = `t=${t},v1=${createHmac("sha256", "whsec").update(`${t}.${raw}`).digest("hex")}`;
+    for (let i = 0; i < 2; i++)
+      assert.equal((await fetch(f.base + "/api/shop/stripe-webhook", { method: "POST", headers: { "Stripe-Signature": sig }, body: raw })).status, 200);
+    assert.equal(db.ledger.filter((x) => x.key === "purchase:stripe:cs_1").length, 1);
+    assert.equal((await fetch(f.base + "/api/shop/stripe-webhook", { method: "POST", headers: { "Stripe-Signature": "t=1,v1=00" }, body: raw })).status, 401);
+    // Tout le monde quitte : les robots finissent la partie, les crédits restent engagés.
+    for (const p of ps) await p.command("leave");
+    const tb = db.tables[table];
+    await ps[0].wait(() => tb.game?.phase === "finished");
+    assert.equal(tb.money.settled, true);
+    const deltas = db.ledger.filter((x) => x.gameId === tb.gameId).map((x) => x.amount);
+    assert.equal(deltas.length, 4);
+    assert.equal(deltas.reduce((a, b) => a + b, 0), 0, "crédits prélevés = distribués");
+    const rubicon = tb.money.result.rubicon;
+    assert.ok(deltas.every((d) => Math.abs(d) === (rubicon ? 1200 : 400)));
+    for (const p of ps) {
+      const w = db.players[p.state.player.id].wallet;
+      assert.equal(w.reserved, 0);
+      assert.ok(w.balance >= 0);
+    }
+    await ps[0].wait((c) => c.state.player.lastResult);
+    const hist = await ps[0].command("wallet");
+    assert.ok(hist.wallet.some((x) => x.gameId === tb.gameId && x.stake === 200 && x.engaged === 600));
+  } finally {
+    await f.close();
+  }
+});
+test("crédits : annulation technique par l'administration, sans gain ni perte", async () => {
+  const f = await fixture({ adminKey: "k", botDelay: 100000, env: { BELOTE_LOGIN_BONUS: "0" } });
+  try {
+    const ps = [];
+    for (let i = 0; i < 4; i++) ps.push(await member(f, `a${i}@exemple.fr`));
+    await ps[0].command("create", { name: "T", vip: false, stake: 1000 });
+    for (const p of ps.slice(1)) await p.command("join", { tableId: ps[0].state.table.id });
+    await ps[0].command("start");
+    const id = ps[0].state.table.id;
+    const r = await fetch(f.base + "/api/admin", { method: "POST", headers: { Authorization: "Bearer k", "Content-Type": "application/json" }, body: JSON.stringify({ type: "cancelGame", id }) });
+    assert.equal(r.status, 200);
+    for (const p of ps) {
+      const w = f.app.db.players[p.state.player.id].wallet;
+      assert.deepEqual([w.balance, w.reserved], [4000, 0]);
+    }
+  } finally {
+    await f.close();
+  }
+});
+test("social : amis, invitation sans engagement, blocage, réactions limitées, chat prédéfini en partie", async () => {
+  const f = await fixture({ reactionCooldownMs: 300, botDelay: 100000 });
+  try {
+    const a = await member(f, "a@x.fr"),
+      b = await member(f, "b@x.fr"),
+      c = await f.client();
+    await a.command("profile", { name: "Alice" });
+    const found = await b.command("search", { q: a.state.player.tag });
+    const alice = found.found[0];
+    assert.equal(alice.name, "Alice");
+    await b.command("friendRequest", { id: alice.id });
+    await a.wait((x) => x.state.player.friendIn.length === 1);
+    await a.command("friendAccept", { id: b.state.player.id });
+    await b.wait((x) => x.state.player.friends[0]?.status === "available");
+    await b.command("favorite", { id: alice.id, on: true });
+    // Invitation : précise table, mise, règles ; aucun crédit réservé.
+    await a.command("create", { name: "Salon VIP", vip: true, stake: 100 });
+    await a.command("invite", { id: b.state.player.id });
+    await b.wait((x) => x.state.player.invites.length === 1);
+    const inv = b.state.player.invites[0];
+    assert.deepEqual([inv.table, inv.stake, inv.free], ["Salon VIP", 100, 3]);
+    assert.equal(f.app.db.players[b.state.player.id].wallet.reserved, 0);
+    await c.command("invite", { id: a.state.player.id }, "error"); // c n'est à aucune table
+    await b.command("inviteAccept", { id: inv.id });
+    await b.wait((x) => x.state.table?.name === "Salon VIP");
+    // Blocage : plus de demandes ni d'invitations.
+    await c.command("friendRequest", { id: a.state.player.id });
+    await a.command("block", { id: c.state.player.id, on: true });
+    await c.command("friendRequest", { id: a.state.player.id }, "error");
+    assert.equal(f.app.db.players[a.state.player.id].friendIn.length, 0);
+    // Réactions : délai entre deux réactions.
+    await a.command("react", { id: "bravo" });
+    await a.command("react", { id: "merci" }, "error");
+    await delay(320);
+    await a.command("react", { id: "merci" });
+    // Pendant la partie, messages prédéfinis uniquement.
+    await a.command("rules", { rules: {}, stake: 0 });
+    await a.command("bot", { seat: 2 });
+    await a.command("bot", { seat: 3 });
+    await a.command("start");
+    await a.command("chat", { text: "j'ai le valet" }, "error");
+    await a.command("chat", { text: "Bien joué !" });
+    // Signalement avec contexte de partie.
+    await b.command("report", { target: a.state.player.id, category: "cheat", comment: "test" });
+    const rep = f.app.db.reports.at(-1);
+    assert.equal(rep.gameId, f.app.db.tables[a.state.player && b.state.table.id].gameId);
+    assert.equal(rep.reason, "Suspicion de triche ou d’arrangement");
+    // Les mains adverses ne sont jamais transmises.
+    const g = b.state.table.game;
+    assert.equal(g.hand.length, 8);
+    assert.equal(JSON.stringify(b.state).includes('"hands"'), false);
+  } finally {
+    await f.close();
+  }
+});
+test("revanche : chaque joueur confirme, nouvelles réservations, refus = retour au salon", async () => {
+  const f = await fixture({ botDelay: 1 });
+  try {
+    const ps = [];
+    for (let i = 0; i < 4; i++) ps.push(await member(f, `r${i}@x.fr`));
+    await ps[0].command("create", { name: "R", vip: false, stake: 100, rules: { target: 100 } });
+    for (const p of ps.slice(1)) await p.command("join", { tableId: ps[0].state.table.id });
+    await ps[0].command("start");
+    const t = f.app.db.tables[ps[0].state.table.id];
+    // Les quatre joueurs jouent la partie jusqu'au bout.
+    for (let guard = 0; t.game.phase !== "finished" && guard < 2000; guard++) {
+      const g = t.game;
+      if (g.phase === "summary") await ps[0].command("next");
+      else if (g.phase === "counter") await delay(5);
+      else {
+        const v = view(g, g.turn);
+        const action = g.phase === "bidding" ? (g.contract ? { type: "pass" } : { type: "bid", amount: 80, suit: "S" }) : { type: "play", card: v.legal[0] };
+        await ps[g.turn].command("action", { version: g.version, action });
+      }
+    }
+    for (let i = 0; i < 3; i++) await ps[i].command("rematchVote", { accept: true });
+    assert.equal(t.game.phase, "finished", "pas de lancement sans les quatre accords");
+    assert.equal(Object.keys(t.rematch.votes).length, 3);
+    assert.equal(f.app.db.players[ps[3].state.player.id].wallet.reserved, 0);
+    await ps[3].command("rematchVote", { accept: true });
+    assert.equal(t.game.phase, "bidding");
+    assert.ok(t.money && !t.money.settled);
+    for (const p of ps) assert.equal(f.app.db.players[p.state.player.id].wallet.reserved, 600);
+    // Fin de la revanche puis refus : retour au salon.
+    f.app.db.tables[t.id].game.phase = "finished";
+    await ps[1].command("rematchVote", { accept: false });
+    assert.equal(t.game, null);
+  } finally {
+    await f.close();
+  }
+});
+test("bonus de connexion : un seul par compte et par 24 h, sur tous les appareils", async () => {
+  const f = await fixture({ adminKey: "k", env: { BELOTE_SIGNUP_BONUS: "1000" } });
+  try {
+    const phone = await member(f, "bonus@exemple.fr");
+    const id = phone.state.player.id;
+    await phone.wait((c) => c.state.player.wallet.balance === 2400); // 1 000 offerts + 200 à la première connexion
+    assert.ok(phone.queue.some((m) => m.type === "bonus" && m.amount === 200 && m.balance === 1200));
+    // Ordinateur et tablette connectés en même temps : aucun second bonus.
+    const s = await fetch(f.base + "/api/session", { method: "POST" });
+    const login = await api(f, s.headers.get("set-cookie").split(";")[0], "/api/auth/login", { email: "bonus@exemple.fr", password: "motdepasse" });
+    const [desk, tablet] = await Promise.all([f.client(login.cookie), f.client(login.cookie)]);
+    assert.equal(desk.state.player.id, id);
+    await Promise.all([desk.command("checkin"), tablet.command("checkin"), phone.command("checkin")]);
+    assert.equal(f.app.db.players[id].wallet.balance, 2400);
+    // 24 h plus tard (heure du serveur), le joueur toujours connecté revient dans l'appli.
+    f.app.db.players[id].loginBonusAt -= 24 * 3600_000;
+    await Promise.all([desk.command("checkin"), tablet.command("checkin"), phone.command("checkin")]);
+    assert.equal(f.app.db.players[id].wallet.balance, 2800);
+    assert.equal(f.app.db.ledger.filter((x) => x.pid === id && x.type === "login").length, 2);
+    // Montant réglé dans l'administration.
+    const r = await fetch(f.base + "/api/admin", { method: "POST", headers: { Authorization: "Bearer k", "Content-Type": "application/json" }, body: JSON.stringify({ type: "loginBonus", amount: 350 }) });
+    assert.equal(r.status, 200);
+    f.app.db.players[id].loginBonusAt -= 24 * 3600_000;
+    await desk.command("checkin");
+    assert.equal(f.app.db.players[id].wallet.balance, 3500);
+  } finally {
+    await f.close();
+  }
+});
+test("tournoi programmé : départ automatique, vraies tables sans robots, forfait sur absence prolongée", async () => {
+  let offset = 0;
+  const f = await fixture({ adminKey: "k", clock: () => Date.now() + offset, env: { BELOTE_SIGNUP_BONUS: "60000", BELOTE_LOGIN_BONUS: "0" } });
+  try {
+    const admin = (body) => fetch(f.base + "/api/admin", { method: body ? "POST" : "GET", headers: { Authorization: "Bearer k", "Content-Type": "application/json" }, body: body && JSON.stringify(body) }).then(async (r) => [r.status, r.status === 200 ? await r.json() : await r.text()]);
+    const H = 3600_000;
+    const local = (ms) => new Date(ms + 0).toISOString().slice(0, 16); // fuseau UTC pour ce test
+    const now = Date.now();
+    const data = { name: "Coupe du jeudi", timeZone: "UTC", teams: 8, minTeams: 2, minBalance: 50000, rules: { target: 500, turnSeconds: 20, flyingCounter: true }, rewards: { winner: ["tournoi-vainqueur"], participant: ["tournoi-participant"] }, regOpen: local(now + H), regClose: local(now + 2 * H), confirmBy: local(now + 3 * H - 10 * 60_000), start: local(now + 3 * H), publish: true };
+    // Les dates incohérentes sont refusées par le serveur.
+    assert.equal((await admin({ type: "tourCreate", data: { ...data, confirmBy: local(now + 4 * H) } }))[0], 400);
+    const [status, view] = await admin({ type: "tourCreate", data });
+    assert.equal(status, 200);
+    const tid = view.tournaments[0].id;
+    const ps = [];
+    for (let i = 0; i < 4; i++) ps.push(await member(f, `t${i}@exemple.fr`));
+    await ps[0].wait((c) => c.state.tournaments?.length === 1);
+    assert.equal(ps[0].state.tournaments[0].stage, "soon");
+    await ps[0].command("tourRegister", { id: tid }, "error");
+    offset = H + 1000; // ouverture programmée
+    await ps[0].wait((c) => c.state.tournaments[0].stage === "open");
+    for (const p of ps) await p.command("tourRegister", { id: tid });
+    assert.ok(ps[0].state.player.inbox.some((n) => /Inscription confirmée/.test(n.title)));
+    offset = 3 * H - 9.5 * 60_000; // fenêtre de présence (l'échéance est passée de 30 s : on teste le refus)
+    await ps[0].command("tourConfirm", { id: tid }, "error");
+    offset = 3 * H - 12 * 60_000;
+    for (const p of ps) await p.command("tourConfirm", { id: tid });
+    offset = 3 * H + 1000; // départ automatique : aucun administrateur connecté
+    for (const p of ps) await p.wait((c) => c.state.table?.game && c.state.table.tournament?.id === tid);
+    const t = ps[0].state.table;
+    assert.equal(t.seats.filter((s) => s.bot).length, 0, "aucun robot en tournoi");
+    await ps[0].wait((c) => c.state.player.inbox.some((n) => n.title === "Votre table est prête, rejoignez la partie !"));
+    // Revanche impossible, la suite se joue au tour suivant.
+    // Coupure longue d'un joueur de l'équipe impaire : forfait au-delà du délai annoncé.
+    const db = f.app.db;
+    const quitter = ps.find((p) => db.tables[t.id].seats.findIndex((s) => s.id === p.state.player.id) === 1);
+    const watcher = ps.find((p) => p !== quitter);
+    quitter.ws.close();
+    for (let i = 0; i < 100 && !db.tables[t.id].seats[1].disconnectedAt; i++) await delay(10);
+    db.tables[t.id].seats[1].disconnectedAt = Date.now() - 301_000;
+    await watcher.wait((c) => c.state.tournaments[0].status === "finished");
+    const tour = db.tournaments[tid];
+    assert.equal(tour.rounds[0].find((m) => m.tableId === t.id).status, "forfeit");
+    const champ = tour.teamsList.find((x) => x.id === tour.champion);
+    assert.ok(!champ.pids.includes(quitter.state.player.id));
+    for (const pid of champ.pids) assert.ok(db.players[pid].progress.badges["tournoi-vainqueur"]);
+    assert.ok(db.players[quitter.state.player.id].progress.badges["tournoi-participant"]);
+    assert.equal(db.tables[t.id], undefined, "table de la rencontre fermée");
+    const [, after] = await admin();
+    assert.ok(after.tournaments[0].log.some((l) => l.kind === "forfait"));
+  } finally {
+    await f.close();
+  }
+});
+test("tournoi : reconnexion dans le délai sans pénalité, abandon = forfait, notifications push enregistrées", async () => {
+  let offset = 0;
+  const f = await fixture({ adminKey: "k", clock: () => Date.now() + offset, env: { BELOTE_SIGNUP_BONUS: "60000", BELOTE_LOGIN_BONUS: "0" } });
+  try {
+    const H = 3600_000;
+    const local = (ms) => new Date(ms).toISOString().slice(0, 16);
+    const now = Date.now();
+    const data = { name: "Coupe du vendredi", timeZone: "UTC", teams: 8, minTeams: 2, minBalance: 50000, rules: { target: 500, turnSeconds: 20 }, regOpen: local(now - H), regClose: local(now + H), confirmBy: local(now + 2 * H - 10 * 60_000), start: local(now + 2 * H), publish: true };
+    await fetch(f.base + "/api/admin", { method: "POST", headers: { Authorization: "Bearer k", "Content-Type": "application/json" }, body: JSON.stringify({ type: "tourCreate", data }) });
+    const tid = Object.keys(f.app.db.tournaments)[0];
+    const ps = [];
+    for (let i = 0; i < 4; i++) ps.push(await member(f, `r${i}@exemple.fr`));
+    // Abonnement push d'un navigateur : validé et conservé côté serveur.
+    const bad = await api(f, ps[0].cookie, "/api/push/subscribe", { type: "web", subscription: { endpoint: "http://non-securise" } });
+    assert.equal(bad.status, 400);
+    const ok = await api(f, ps[0].cookie, "/api/push/subscribe", { type: "web", subscription: { endpoint: "https://push.exemple/1", keys: { p256dh: "x".repeat(87), auth: "y".repeat(22) } } });
+    assert.equal(ok.status, 200);
+    assert.equal(f.app.db.players[ps[0].state.player.id].push.web.length, 1);
+    for (const p of ps) await p.command("tourRegister", { id: tid });
+    offset = 2 * H - 12 * 60_000;
+    for (const p of ps) await p.command("tourConfirm", { id: tid });
+    offset = 2 * H + 1000;
+    for (const p of ps) await p.wait((c) => c.state.table?.game);
+    const t = f.app.db.tables[ps[0].state.table.id];
+    // Coupure courte : la place est gardée, aucun robot, pas de forfait.
+    const who = ps.find((p) => t.seats[2].id === p.state.player.id);
+    who.ws.close();
+    await delay(100);
+    t.seats[2].disconnectedAt = Date.now() - 60_000;
+    await delay(1200);
+    assert.equal(f.app.db.tournaments[tid].status, "running");
+    const back = await f.client(who.cookie);
+    assert.equal(back.state.table.id, t.id, "reconnexion : retour à la même table");
+    assert.equal(t.seats[2].bot, undefined);
+    // Abandon volontaire d'un joueur de l'équipe paire : forfait immédiat.
+    await ps.find((p) => t.seats[0].id === p.state.player.id).command("leave");
+    await back.wait((c) => c.state.tournaments[0].status === "finished");
+    const tour = f.app.db.tournaments[tid];
+    assert.match(tour.rounds[0][0].forfeit, /Abandon/);
+    assert.ok(tour.teamsList.find((x) => x.id === tour.champion).pids.includes(t.seats[1].id));
   } finally {
     await f.close();
   }
