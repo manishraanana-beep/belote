@@ -419,7 +419,7 @@ a { color: inherit; }
 /* ———————————————————————————— table de jeu : écran fixe, aucun défilement */
 body.in-game { overflow: hidden; overscroll-behavior: none; }
 .screen.game {
-  --cw: clamp(58px, min(13vw, 17.5vh), 124px);
+  --cw: clamp(62px, min(19vw, 17.5vh), 124px);
   --av: clamp(52px, min(14vw, 10vh), 92px);
   --tc: clamp(50px, min(13vw, 12vh), 100px);
   --step: min(calc(var(--cw) * 0.58), calc((100vw - var(--cw) * 1.6 - 28px) / 7));
@@ -543,21 +543,21 @@ body.in-game { overflow: hidden; overscroll-behavior: none; }
 .bs-by, .bs-turn { font-size: 14px; color: var(--muted); }
 .last-trick-btn { position: absolute; z-index: 7; left: 50%; top: calc(47% + var(--tc) * 1.55 + 4px); translate: -50% 0; display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px; border-radius: 999px; border: 1.6px solid var(--line); background: rgba(6, 26, 30, 0.9); font-weight: 600; }
 .theme-vip .last-trick-btn { background: rgba(20, 8, 50, 0.9); }
-.bid-panel { position: absolute; z-index: 15; left: 50%; top: 50%; translate: -50% -50%; width: min(94vw, 400px); display: grid; gap: 10px; padding: 14px; border-radius: 22px; background: #fff8e8; color: #2a1a06; box-shadow: 0 0 0 3px var(--gold), 0 18px 40px #000a; animation: bannerIn 0.3s cubic-bezier(0.2, 1.3, 0.4, 1); }
-.bp-title { text-align: center; font-family: var(--title); font-size: 20px; }
-.bid-suits { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.suit-btn { padding: 4px 0; border-radius: 12px; background: #fff; border: 1.5px solid #e4d6b8; font-size: 34px; line-height: 1.15; color: #111; box-shadow: 0 3px 0 #e4d6b8; }
+.bid-panel { position: absolute; z-index: 15; left: 50%; top: 50%; translate: -50% -50%; width: min(56vw, 300px); display: grid; gap: 6px; padding: 8px; border-radius: 18px; background: #fff8e8; color: #2a1a06; box-shadow: 0 0 0 3px var(--gold), 0 18px 40px #000a; animation: bannerIn 0.3s cubic-bezier(0.2, 1.3, 0.4, 1); }
+.bp-title { text-align: center; font-family: var(--title); font-size: 16px; }
+.bid-suits { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.suit-btn { padding: 2px 0; border-radius: 10px; background: #fff; border: 1.5px solid #e4d6b8; font-size: 24px; line-height: 1.2; color: #111; box-shadow: 0 3px 0 #e4d6b8; }
 .suit-btn.red { color: var(--red-suit); }
 .suit-btn.on { border-color: var(--gold-2); background: #fff1c4; box-shadow: 0 0 0 3px var(--gold), 0 3px 0 #e4d6b8; }
-.bid-amounts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-.amount { padding: 7px 0; border-radius: 10px; background: #fff; border: 1.5px solid #e4d6b8; font-weight: 700; font-size: 17px; color: #2a1a06; }
+.bid-amounts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.amount { padding: 5px 0; border-radius: 8px; background: #fff; border: 1.5px solid #e4d6b8; font-weight: 700; font-size: 14px; color: #2a1a06; }
 .amount.on { background: linear-gradient(180deg, var(--gold-1), var(--gold)); border-color: var(--gold-2); }
 .amount:disabled { opacity: 0.3; }
 .last-bid { justify-self: center; padding: 3px 14px; border-radius: 999px; background: var(--pill-contract); font-weight: 700; }
 .last-bid .suit { color: #111; }
 .last-bid .suit.red { color: var(--red-suit); }
-.bid-actions { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 8px; }
-.bid-actions .gold-btn { min-height: 44px; padding: 6px 10px; font-size: 18px; }
+.bid-actions { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 5px; }
+.bid-actions button { min-height: 38px; padding: 4px 4px; font-size: 15px; }
 .float-action { position: absolute; z-index: 15; right: max(16px, 3vw); bottom: 10px; animation: pop 0.35s cubic-bezier(0.2, 1.6, 0.4, 1); }
 .dock { position: relative; z-index: 10; padding-bottom: calc(6px + var(--safe-b)); }
 .hand { position: relative; height: calc(var(--cw) * 1.3 + 6px); }
@@ -841,7 +841,7 @@ body.in-game #toast.visible { transform: translate(-50%, 0); }
   .hcard { bottom: calc(var(--cw) * -0.38); }
   .status-row { padding-top: 2px; }
   .turn-pill.on { padding: 6px 20px; font-size: 17px; }
-  .bid-panel { width: min(96vw, 560px); gap: 6px; padding: 8px 10px; }
+  .bid-panel { width: min(66vw, 470px); gap: 5px; padding: 6px 8px; }
   .bp-title, .last-bid { display: none; }
   .bid-amounts { grid-template-columns: repeat(10, 1fr); gap: 4px; }
   .amount { font-size: 14px; padding: 4px 0; }
@@ -855,8 +855,11 @@ body.in-game #toast.visible { transform: translate(-50%, 0); }
   .score-pill { font-size: 15px; padding: 4px 12px; gap: 6px; }
   .score-pill b { font-size: 18px; }
   .contract-pill { font-size: 15px; }
-  .amount { font-size: 15px; }
-  .suit-btn { font-size: 28px; }
+  .bid-panel { width: 58vw; padding: 6px; gap: 5px; }
+  .bid-amounts { gap: 3px; }
+  .suit-btn { font-size: 20px; }
+  .amount { font-size: 12px; padding: 4px 0; }
+  .bid-actions button { font-size: 12.5px; min-height: 32px; }
   .turn-pill.on { font-size: 17px; padding: 8px 18px; }
       .slots .slot-ring { width: 60px; height: 60px; }
 }

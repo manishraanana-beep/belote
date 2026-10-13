@@ -40,7 +40,7 @@ En développement : `npm run dev`. Aucun build ni base de données externe n’e
 32 cartes, huit par joueur ; places 1 et 3 contre 2 et 4. Distribution aléatoire avec `crypto.randomInt`. Enchères de 80 à 160 par 10, capot, passe, contre et surcontre.
 
 - Fournir la couleur ; à l’atout, monter si possible même si le partenaire est maître.
-- Sans la couleur, couper et surcouper si possible lorsque l’adversaire est maître. Si aucune surcoupe n’est possible, sous-couper. Si le partenaire est maître, défausse libre.
+- Sans la couleur, couper et surcouper si possible lorsque l’adversaire est maître. Si aucune surcoupe n’est possible, aucune obligation de sous-couper : carte libre. Si le partenaire est maître, défausse libre.
 - Atout : V, 9, A, 10, R, D, 8, 7 ; valeurs 20, 14, 11, 10, 4, 3, 0, 0. Hors atout : A, 10, R, D, V, 9, 8, 7 ; valeurs 11, 10, 4, 3, 2, 0, 0, 0. Dix de der : 10 ; total des points de cartes : 162.
 - Belote puis rebelote automatiquement à la pose du roi et de la dame d’atout ; 20 points attribués après les deux cartes.
 - Par défaut, réussite : `(points preneur + contrat) × multiplicateur + belote` ; défense : points défense + belote. Chute : `(162 + contrat) × multiplicateur + belote défense` ; belote preneur conservée. La belote compte par défaut pour atteindre le contrat ; elle n’est jamais multipliée.
