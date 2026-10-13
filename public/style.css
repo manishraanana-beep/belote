@@ -1200,3 +1200,11 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .screen.game .center { top: 50%; translate: -50% -50%; }
   .screen.game .last-trick-btn { top: auto; }
 }
+/* Téléphones et tablettes en portrait : la salle et la table de la maquette en arrière-plan */
+@media (max-aspect-ratio: 4/5) {
+  .screen.game, .screen.game.theme-vip { background: url(/decor/salle-table.webp) center top / cover no-repeat, #0b2a26; background-blend-mode: normal; }
+  .screen.game .felt { display: none; }
+  .screen.game > .ambient { display: none; }
+}
+.next-auto { margin: 4px 0 0; text-align: center; font-family: var(--title); font-size: 18px; color: #ffe7a6; }
+.next-auto b { color: var(--gold); }

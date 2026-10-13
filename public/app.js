@@ -935,7 +935,7 @@ function dealResult(g, t, me) {
     ${belote}
     <p class="op-sub">Score total de la partie</p>
     <div class="total-pill"><div><small>Nous</small><b>${g.scores[me % 2]}</b></div><i></i><div class="them"><small>Eux</small><b>${g.scores[1 - (me % 2)]}</b></div></div>
-    ${btn("Donne suivante", "next", "gold-btn wide")}
+    <p class="next-auto">Donne suivante dans <b data-deadline="${t.nextAt ?? 0}"></b></p>
   </div></div>`;
 }
 // Maquette « Victoire ! » + règlement des crédits + revanche.
