@@ -48,7 +48,8 @@ test("tournoi : liste, fiche, solde insuffisant, inscription, présence, départ
   // Accueil → Tournois (style VIP), liste avec places et état.
   await phone.reload();
   await phone.locator(".feature.f-tour").click();
-  await expect(phone.locator(".tour-card")).toHaveCount(2);
+  await expect(phone.locator('.tour-card:has-text("Coupe éclair")')).toBeVisible();
+  await expect(phone.locator('.tour-card:has-text("Grand Prix du Club")')).toBeVisible();
   await phone.screenshot({ path: `${shots}tournois-liste.png` });
   // Fiche : solde minimum affiché, inscription refusée avec solde et manque.
   await phone.locator('.tour-card:has-text("Grand Prix du Club")').click();

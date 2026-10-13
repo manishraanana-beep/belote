@@ -37,8 +37,18 @@ async function inView(page, selector) {
 }
 // Touche la partie visible d'une carte (à gauche, à mi-hauteur), comme le ferait un doigt.
 async function tap(el) {
-  const b = await el.boundingBox();
-  await el.click({ position: { x: Math.max(4, b.width * 0.12), y: b.height * 0.42 } });
+  // Cherche un point réellement visible de la carte (les cartes sont inclinées et se chevauchent).
+  const pos = await el.evaluate((node) => {
+    const r = node.getBoundingClientRect();
+    for (const fy of [0.45, 0.3, 0.6, 0.2])
+      for (const fx of [0.15, 0.3, 0.5, 0.7, 0.85, 0.08]) {
+        const x = r.left + r.width * fx,
+          y = r.top + r.height * fy;
+        if (node.contains(document.elementFromPoint(x, y))) return { x: x - r.left, y: y - r.top };
+      }
+    return { x: r.width * 0.15, y: r.height * 0.45 };
+  });
+  await el.click({ position: pos });
 }
 async function playLegal(page) {
   const g = await game(page);
@@ -64,8 +74,13 @@ async function createVip(page, name) {
   await page.locator(".feature.f-vip").click();
   await page.locator('[data-page="vipCreate"]').click();
   await page.locator('#create-form [name="name"]').fill(name);
-  await page.$eval('#create-form [name="target"][value="500"]', (el) => { el.value = "100"; el.checked = true; });
-  await page.locator('#create-form button.gold-btn').click();
+  // Partie courte (100 points) : réglage et envoi dans le même instant, sans rafraîchissement entre les deux.
+  await page.$eval("#create-form", (form) => {
+    const r = form.querySelector('[name="target"][value="500"]');
+    r.value = "100";
+    r.checked = true;
+    form.requestSubmit(form.querySelector("button.gold-btn"));
+  });
   await expect(page.locator(".page-room .page-title")).toHaveText(name);
 }
 

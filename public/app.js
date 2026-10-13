@@ -1477,12 +1477,12 @@ document.addEventListener("click", async (ev) => {
       break;
     case "tourPostpone": {
       const t = adminData.tournaments.find((x) => x.id === el.dataset.id);
-      $("#admin-tours").innerHTML = `<form id="tour-postpone-form" class="form"><input type="hidden" name="id" value="${t.id}"><p><b>${e(t.name)}</b> · départ actuel ${e(t.local.start.replace("T", " "))} (${e(t.timeZone)})</p><label>Nouveau départ (${e(t.timeZone)})<input type="datetime-local" name="start" value="${t.local.start}" required></label><p class="muted small">Toutes les dates sont décalées d’autant ; rappels reprogrammés et inscrits informés.</p><div class="row"><button class="pill small">Reporter</button>${btn("Retour", "tourAdminBack", "chip-btn ghost")}</div></form>`;
+      $("#admin-tours").innerHTML = `<form id="tour-postpone-form" class="form"><input type="hidden" name="tid" value="${t.id}"><p><b>${e(t.name)}</b> · départ actuel ${e(t.local.start.replace("T", " "))} (${e(t.timeZone)})</p><label>Nouveau départ (${e(t.timeZone)})<input type="datetime-local" name="start" value="${t.local.start}" required></label><p class="muted small">Toutes les dates sont décalées d’autant ; rappels reprogrammés et inscrits informés.</p><div class="row"><button class="pill small">Reporter</button>${btn("Retour", "tourAdminBack", "chip-btn ghost")}</div></form>`;
       break;
     }
     case "tourCancel": {
       const t = adminData.tournaments.find((x) => x.id === el.dataset.id);
-      $("#admin-tours").innerHTML = `<form id="tour-cancel-form" class="form"><input type="hidden" name="id" value="${t.id}"><p>Annuler <b>${e(t.name)}</b> ? Les ${t.places.used} inscrits seront prévenus.</p><label>Motif<input name="reason" maxlength="200" value="Annulé par l’organisateur"></label><div class="row"><button class="pill small danger">Annuler le tournoi</button>${btn("Retour", "tourAdminBack", "chip-btn ghost")}</div></form>`;
+      $("#admin-tours").innerHTML = `<form id="tour-cancel-form" class="form"><input type="hidden" name="tid" value="${t.id}"><p>Annuler <b>${e(t.name)}</b> ? Les ${t.places.used} inscrits seront prévenus.</p><label>Motif<input name="reason" maxlength="200" value="Annulé par l’organisateur"></label><div class="row"><button class="pill small danger">Annuler le tournoi</button>${btn("Retour", "tourAdminBack", "chip-btn ghost")}</div></form>`;
       break;
     }
     case "tourDetails": {
@@ -1938,7 +1938,7 @@ function tourForm(t) {
   const sel = (name, opts, cur) => `<select name="${name}">${opts.map(([val, label]) => `<option value="${val}" ${String(val) === String(cur) ? "selected" : ""}>${label}</option>`).join("")}</select>`;
   const rw = (kind, label) => `<fieldset><legend>${label}</legend>${d.rewards.map((r) => `<label class="check-line"><input type="checkbox" name="rw-${kind}" value="${r.id}" ${v.rewards[kind].includes(r.id) ? "checked" : ""}>${e(r.name)}</label>`).join("")}</fieldset>`;
   $("#admin-tours").innerHTML = `<form id="tour-form" class="form">
-    <input type="hidden" name="id" value="${t?.id ?? ""}">
+    <input type="hidden" name="tid" value="${t?.id ?? ""}">
     <label>Nom<input name="name" value="${e(v.name)}" minlength="3" maxlength="60" required></label>
     <label>Description<input name="description" value="${e(v.description ?? "")}" maxlength="400"></label>
     <label>Fuseau de référence<input name="timeZone" value="${e(v.timeZone)}" list="tz-list" required></label>
@@ -1989,8 +1989,10 @@ async function adminRequest(data) {
       ${open.map((r) => `<div class="admin-card"><b>${e(r.reason)}${r.targetName ? ` · ${e(r.targetName)}` : ""}</b><small>${when(r.at)} · par ${e(r.byName ?? r.by)}${r.gameId ? ` · partie ${e(r.gameId.slice(0, 8))}, donne ${r.deal ?? "—"}` : ""}</small>${r.comment ? `<p>${e(r.comment)}</p>` : ""}${r.context?.chat?.length ? `<p class="muted small">Messages : ${r.context.chat.map((m) => e(m.text)).join(" · ")}</p>` : ""}${r.context?.reactions?.length ? `<p class="muted small">${r.context.reactions.length} réaction(s) récente(s)</p>` : ""}${btn("Traiter", "resolveReport", "chip-btn", `data-id="${r.id}"`)}</div>`).join("") || "<p>Aucun signalement ouvert.</p>"}
       <h3>Tables</h3>${d.tables.map((t) => row(`${e(t.name)} · ${e(t.status)}${t.stake ? ` · 🪙 ${t.stake}` : ""}`, t.engaged ? btn("Annuler (incident)", "cancelGame", "chip-btn danger", `data-id="${t.id}"`) : btn("Supprimer", "deleteTable", "chip-btn", `data-id="${t.id}"`, t.status === "Partie en cours"))).join("")}
       <h3>Joueurs</h3>${d.players.map((p) => row(`${e(p.name)} · ${e(p.tag ?? "")} · ${p.stats.games} parties`, btn(p.banned ? "Réactiver" : "Suspendre", "suspendPlayer", "chip-btn", `data-id="${p.id}" data-enabled="${!p.banned}"`))).join("")}`;
+    return true;
   } catch (err) {
     toast(err.message);
+    return false;
   }
 }
 document.addEventListener("submit", async (ev) => {
@@ -2066,21 +2068,22 @@ document.addEventListener("submit", async (ev) => {
           rewards: { winner: f2.getAll("rw-winner"), finalist: f2.getAll("rw-finalist"), participant: f2.getAll("rw-participant") },
           publish: d.publish === "1",
         };
-        await adminRequest(d.id ? { type: "tourUpdate", id: d.id, data } : { type: "tourCreate", data });
-        toast(data.publish ? "Tournoi publié" : "Brouillon enregistré");
+        // (champ « tid » : un champ nommé « id » masquerait l'identifiant du formulaire)
+        if (await adminRequest(d.tid ? { type: "tourUpdate", id: d.tid, data } : { type: "tourCreate", data }))
+          toast(data.publish ? "Tournoi publié" : "Brouillon enregistré");
         return;
       }
       case "tour-postpone-form":
-        await adminRequest({ type: "tourPostpone", id: d.id, start: d.start });
-        toast("Tournoi reporté, inscrits prévenus");
+        if (await adminRequest({ type: "tourPostpone", id: d.tid, start: d.start }))
+          toast("Tournoi reporté, inscrits prévenus");
         return;
       case "tour-cancel-form":
-        await adminRequest({ type: "tourCancel", id: d.id, reason: d.reason });
-        toast("Tournoi annulé, inscrits prévenus");
+        if (await adminRequest({ type: "tourCancel", id: d.tid, reason: d.reason }))
+          toast("Tournoi annulé, inscrits prévenus");
         return;
       case "bonus-form":
-        await adminRequest({ type: "loginBonus", amount: Number(d.amount) });
-        toast("Montant du bonus de connexion enregistré");
+        if (await adminRequest({ type: "loginBonus", amount: Number(d.amount) }))
+          toast("Montant du bonus de connexion enregistré");
         return;
       case "admin-form":
         adminToken = d.key;
