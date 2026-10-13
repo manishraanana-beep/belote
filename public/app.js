@@ -814,14 +814,34 @@ function contractInfo(g, t, me) {
   return { name: s?.name ?? "?", avatar: s?.avatar, ours, team: ours ? "Votre équipe" : "Équipe adverse", short: ours ? "Nous" : "Eux", amount: amountLabel(g.contract.amount), suit: g.contract.suit, mult: g.multiplier };
 }
 const multLabel = (m) => (m === 4 ? "Surcontré" : m === 2 ? "Contré" : "");
+function tableLabel(t) {
+  const kind = t.tournament ? e(t.tournament.name) : t.practice ? "Entraînement" : t.vip ? "Table VIP" : "Table classique";
+  return t.stake ? `${kind} • ${fmt(t.stake)} jetons` : kind;
+}
+// Bandeau du haut (maquette « Votre annonce ») : logo, solde, table, menu, puis le score Nous / Eux.
 function topBar(g, t, me) {
   const c = contractInfo(g, t, me);
   return `<header class="game-top">
-    ${btn(icon("back"), "quitGame", "round-btn", 'aria-label="Quitter la partie"')}
-    <div class="gt-center">${logo()}<div class="score-pill" aria-label="Scores"><span class="us">Nous <b>${g.scores[me % 2]}</b></span><i>•</i><span class="them">Eux <b>${g.scores[1 - (me % 2)]}</b></span></div></div>
-    ${btn(icon("menu"), "menu", "round-btn", 'aria-label="Menu de la partie"')}
+    <div class="gt-logo">${logo()}</div>
+    <div class="gt-chips"><span class="gt-chip wallet">${coins(state.player.wallet.available / 2)}</span><span class="gt-chip table"><i class="poker-chip" aria-hidden="true"></i><span>${tableLabel(t)}</span></span></div>
+    ${btn(icon("menu"), "menu", "square-btn", 'aria-label="Menu de la partie"')}
   </header>
-  <div class="contract-row">${c ? `<span class="contract-pill ${c.ours ? "us" : "them"}">${e(c.name)} • ${c.short} • ${c.amount} ${suitHtml(c.suit)}${c.mult > 1 ? ` <em>×${c.mult}</em>` : ""}</span>` : `<span class="contract-pill pending">Enchères • donne ${g.deal}</span>`}</div>`;
+  <div class="scoreboard" aria-label="Scores"><div class="us"><small>Nous</small><b>${fmt(g.scores[me % 2])}</b></div><i></i><div class="them"><small>Eux</small><b>${fmt(g.scores[1 - (me % 2)])}</b></div></div>
+  ${c && g.phase !== "bidding" ? `<div class="contract-row"><span class="contract-pill ${c.ours ? "us" : "them"}">${e(c.name)} • ${c.short} • ${c.amount} ${suitHtml(c.suit)}${c.mult > 1 ? ` <em>×${c.mult}</em>` : ""}</span></div>` : ""}`;
+}
+// Enchères de la donne : dernière parole de chaque autre joueur, puis meilleure enchère.
+function auctionStrip(g, t, me) {
+  const chips = [1, 2, 3]
+    .map((r) => (me + r) % 4)
+    .map((i) => {
+      const a = (g.auction ?? []).filter((x) => x.seat === i).at(-1);
+      const text = !a ? "…" : a.type === "bid" ? `${amountLabel(a.amount)} ${suitHtml(a.suit)}` : a.type === "pass" ? "Passe" : a.type === "counter" ? "Contre !" : "Surcontre !";
+      return `<span class="a-chip ${a?.type ?? "wait"}"><small>${e(t.seats[i]?.name ?? "")} :</small><b>${text}</b></span>`;
+    })
+    .join("");
+  const last = (g.auction ?? []).filter((a) => a.type === "bid").at(-1);
+  return `<div class="auction-strip">${chips}</div>
+    <div class="last-bid-pill">${last ? `Dernière enchère : <b>${e(t.seats[last.seat]?.name)} • ${amountLabel(last.amount)} ${suitHtml(last.suit)}</b>` : "Aucune enchère pour l’instant"}</div>`;
 }
 function reactionBubble(t, s) {
   if (!s || state.player.hidden.includes(s.id)) return "";
@@ -830,7 +850,7 @@ function reactionBubble(t, s) {
   return def ? `<span class="reaction-pop"><b>${def.emoji}</b>${def.text ? `<small>${e(def.text)}</small>` : ""}</span>` : "";
 }
 function seatBubble(g, i) {
-  if (!["bidding", "counter"].includes(g.phase)) return "";
+  if (g.phase !== "counter") return ""; // pendant les enchères, la bande « Sophie : Passe » les affiche
   const a = (g.auction ?? []).filter((x) => x.seat === i).at(-1);
   if (!a) return "";
   const text = a.type === "bid" ? `${amountLabel(a.amount)} ${suitHtml(a.suit)}` : a.type === "pass" ? "Passe" : a.type === "counter" ? "Contre !" : "Surcontre !";
@@ -884,7 +904,7 @@ function centerView(g, t, me) {
   }
   if (["summary", "finished"].includes(g.phase)) return "";
   if (g.turn === me) return "";
-  return `<div class="bid-status">${c ? `<span class="bs-best">${c.amount} ${suitHtml(c.suit)}</span><span class="bs-by">${e(c.name)} · ${c.team}</span>` : `<span class="bs-best none">Pas encore d’annonce</span>`}<span class="bs-turn">${e(t.seats[g.turn]?.name)} réfléchit…</span></div>`;
+  return `<div class="bid-zone watching">${auctionStrip(g, t, me)}</div>`;
 }
 // Maquette « Résultat de la donne ».
 function dealResult(g, t, me) {
@@ -938,19 +958,25 @@ function moneyLines(r) {
   return `<div class="money lose"><b>Perte : ${signed(r.delta)} crédits</b><small>${kind} · ${fmt(r.engaged)} étaient engagés</small><span>Nouveau solde ${coins(r.balance)}</span></div>`;
 }
 // Maquette « Choisir votre contrat ».
+// Maquette « Votre annonce ».
 function bidPanel(g, me, t) {
   const options = BIDS.filter((n) => !g.contract || n > g.contract.amount);
   if (!options.includes(bidAmount)) bidAmount = options[0] ?? null;
   const canCounter = g.contract && g.contract.seat % 2 !== me % 2;
-  const last = (g.auction ?? []).filter((a) => a.type === "bid").at(-1);
-  return `<form id="bid-form" class="bid-panel" aria-label="Votre enchère">
-    <b class="bp-title">Choisir votre contrat</b>
+  return `<div class="bid-zone">${auctionStrip(g, t, me)}
+  <form id="bid-form" class="bid-panel" aria-label="Votre annonce">
+    <b class="bp-title"><i>⟡</i>Votre annonce<i>⟡</i></b>
     <input type="hidden" name="amount" value="${bidAmount ?? ""}"><input type="hidden" name="suit" value="${bidSuit ?? ""}">
     <div class="bid-suits">${HAND_ORDER.map((s) => `<button type="button" class="suit-btn ${isRed(s) ? "red" : ""} ${s === bidSuit ? "on" : ""}" data-action="pickSuit" data-suit="${s}" aria-label="Atout ${SUIT_NAMES[s]}" aria-pressed="${s === bidSuit}">${SUITS[s]}</button>`).join("")}</div>
     <div class="bid-amounts">${BIDS.map((n) => `<button type="button" class="amount ${n === bidAmount ? "on" : ""}" data-action="pickAmount" data-amount="${n}" ${options.includes(n) ? "" : "disabled"}>${amountLabel(n)}</button>`).join("")}</div>
-    ${last ? `<span class="last-bid">${e(t.seats[last.seat]?.name)} : ${amountLabel(last.amount)} ${suitHtml(last.suit)}</span>` : ""}
-    <div class="bid-actions">${btn("Passer", "pass", "teal-btn")}<button class="gold-btn" name="go" value="1" ${options.length && bidSuit ? "" : "disabled"}>Enchérir</button>${btn("Contrer", "counter", "teal-btn", "", !canCounter)}</div>
-  </form>`;
+    <span class="bp-sep" aria-hidden="true">◆</span>
+    <div class="bid-actions">${btn("Passer", "pass", "teal-btn")}<button class="gold-btn announce" name="go" value="1" ${options.length && bidSuit ? "" : "disabled"}><span>Annoncer</span><b>${bidAmount ? amountLabel(bidAmount) : ""} ${bidSuit ? suitHtml(bidSuit) : ""}</b></button>${btn(g.rules.flyingCounter ? "Contrer<br>à la volée" : "Contrer", "counter", "red-btn", "", !canCounter)}</div>
+  </form></div>`;
+}
+// Le bouton « Annoncer 90 ♠ » suit le choix sans redessiner toute la table.
+function announceLabel(form) {
+  const b = form.querySelector(".announce b");
+  if (b) b.innerHTML = `${bidAmount ? amountLabel(bidAmount) : ""} ${bidSuit ? suitHtml(bidSuit) : ""}`;
 }
 function floatingAction(g, me) {
   const flying = g.phase === "bidding" && g.contract && g.contract.seat % 2 !== me % 2 && g.turn !== me && g.rules.flyingCounter;
@@ -966,18 +992,20 @@ function handView(g, me, t) {
   const status = myTurn
     ? `<span class="turn-pill on">À vous de jouer</span>`
     : glow
-      ? `<span class="turn-pill on">À vous d’enchérir</span>`
-      : ["bidding", "playing"].includes(g.phase)
-        ? `<span class="turn-pill">Au tour de ${e(t.seats[g.turn]?.name)}</span>`
+      ? `<span class="turn-pill">À vous d’annoncer</span>`
+      : g.phase === "bidding"
+        ? `<span class="turn-pill">À ${e(t.seats[g.turn]?.name)} d’annoncer</span>`
+        : g.phase === "playing"
+          ? `<span class="turn-pill">Au tour de ${e(t.seats[g.turn]?.name)}</span>`
         : "";
   const mine = t.money?.seats.find((x) => x.seat === me);
   return `<div class="hand n${hand.length} ${dealing ? "dealing" : ""} ${glow ? "glow" : ""} ${myTurn ? "my-turn" : ""}" aria-label="Votre main">
     ${hand.map((c, i) => `<button type="button" class="hcard c${i} ${c === selected ? "selected" : ""}" data-action="pick" data-card="${c}" aria-label="${cardName(c)}" aria-pressed="${c === selected}"><img src="${cardImage(c)}" alt="" draggable="false"></button>`).join("")}
   </div>
   <div class="status-row">
-    <span class="me-mini">${avatar(state.player.avatar)}${t.money ? `<small>${coins(t.money.stake)} · ${fmt(mine?.engaged ?? 0)} engagés</small>` : ""}</span>
+    <span class="me-mini"><span class="me-seat">${avatar(state.player.avatar)}<b>${e(state.player.name)}</b></span>${t.money ? `<small>${fmt(mine?.engaged ?? 0)} engagés</small>` : ""}</span>
     ${status}
-    <span class="status-btns">${btn("😊", "react", "round-btn", 'aria-label="Réactions"')}${btn(`${icon("chat")}${t.chat.length > seenChat && sheet !== "chat" ? '<i class="dot"></i>' : ""}`, "chat", "round-btn", 'aria-label="Discussion"')}</span>
+    <span class="status-btns">${btn("😊", "react", "round-btn", 'aria-label="Réactions"')}${btn(`${icon("chat")}${t.chat.length > seenChat && sheet !== "chat" ? '<i class="dot"></i>' : ""}`, "chat", "round-btn gold-round", 'aria-label="Discussion"')}</span>
   </div>`;
 }
 function gameView() {
@@ -1631,6 +1659,7 @@ document.addEventListener("click", async (ev) => {
       el.form.suit.value = bidSuit;
       el.form.querySelectorAll(".suit-btn").forEach((b) => b.classList.toggle("on", b === el));
       el.form.querySelector('button[name="go"]').disabled = false;
+      announceLabel(el.form);
       break;
     case "oidc":
       oidc(el.dataset.provider);
@@ -1832,6 +1861,7 @@ document.addEventListener("click", async (ev) => {
       bidAmount = Number(el.dataset.amount);
       el.form.amount.value = bidAmount;
       el.form.querySelectorAll(".amount").forEach((b) => b.classList.toggle("on", b === el));
+      announceLabel(el.form);
       break;
     case "pass":
     case "counter":

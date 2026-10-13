@@ -139,7 +139,7 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   // Lancement : réservations visibles, aucun défilement.
   await A.locator('[data-action="start"]').click();
   await expect(A.locator(".hand .hcard")).toHaveCount(8);
-  await expect(A.locator(".me-mini small")).toContainText("200");
+  await expect(A.locator(".gt-chip.table")).toContainText("200 jetons");
   // Réactions : sélecteur, apparition près de l'avatar de l'auteur chez les autres.
   await B.locator('[data-action="react"]').click();
   await B.screenshot({ path: `${shots}reactions.png` });
@@ -203,7 +203,8 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   void rubicon;
 
   // Défis, niveau et badges, collection.
-  await A.locator('[data-action="quitGame"]').click();
+  await A.locator('[data-action="menu"]').click();
+  await A.locator('.sheet [data-action="quitGame"]').click();
   await expect(A.locator("#modal")).toContainText("Un robot prendra votre place");
   await A.locator('[data-action="confirmLeave"]').click();
   await A.locator('.tabbar [data-page="home"]').click();
