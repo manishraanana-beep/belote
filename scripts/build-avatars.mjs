@@ -1,112 +1,121 @@
-// Génère la collection d'avatars illustrés : node scripts/build-avatars.mjs
-// Style commun : médaillon rond, dégradé doux, personnages en buste, traits épais et arrondis.
-import { mkdirSync, writeFileSync } from "node:fs";
+// Génère la collection d'avatars : node scripts/build-avatars.mjs
+// Style des maquettes « Contrée » : portraits chaleureux, médaillon teal, ombres douces.
+import { mkdirSync, writeFileSync, readdirSync, unlinkSync } from "node:fs";
 
 const out = new URL("../public/avatars/", import.meta.url);
 mkdirSync(out, { recursive: true });
-const INK = "#2b2140";
+for (const f of readdirSync(out)) unlinkSync(new URL(f, out));
+const INK = "#2a1a14";
 
-function frame(id, bg1, bg2, body) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><defs><radialGradient id="g" cx="50%" cy="35%" r="70%"><stop offset="0" stop-color="${bg1}"/><stop offset="1" stop-color="${bg2}"/></radialGradient><clipPath id="c"><circle cx="60" cy="60" r="60"/></clipPath></defs><g clip-path="url(#c)"><rect width="120" height="120" fill="url(#g)"/><circle cx="22" cy="24" r="10" fill="#fff" opacity=".18"/><circle cx="98" cy="30" r="5" fill="#fff" opacity=".18"/>${body}</g></svg>`;
+function frame(body, bg = ["#2f8f86", "#14524f"]) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><defs><radialGradient id="bg" cx="50%" cy="35%" r="75%"><stop offset="0" stop-color="${bg[0]}"/><stop offset="1" stop-color="${bg[1]}"/></radialGradient><radialGradient id="glow" cx="30%" cy="20%" r="40%"><stop offset="0" stop-color="#ffd98a" stop-opacity=".35"/><stop offset="1" stop-color="#ffd98a" stop-opacity="0"/></radialGradient><clipPath id="c"><circle cx="60" cy="60" r="60"/></clipPath></defs><g clip-path="url(#c)"><rect width="120" height="120" fill="url(#bg)"/><rect width="120" height="120" fill="url(#glow)"/><g transform="translate(-10 -6) scale(1.17)">${body}</g></g></svg>`;
 }
-const eyes = (y = 60, dx = 11, cx = 60, r = 4.2) =>
-  `<g fill="${INK}"><ellipse cx="${cx - dx}" cy="${y}" rx="${r}" ry="${r * 1.15}"/><ellipse cx="${cx + dx}" cy="${y}" rx="${r}" ry="${r * 1.15}"/></g><g fill="#fff"><circle cx="${cx - dx + 1.4}" cy="${y - 1.6}" r="1.4"/><circle cx="${cx + dx + 1.4}" cy="${y - 1.6}" r="1.4"/></g>`;
-const cheeks = (y = 70, dx = 18, cx = 60) =>
-  `<g fill="#ff7d8a" opacity=".45"><ellipse cx="${cx - dx}" cy="${y}" rx="5.5" ry="3.5"/><ellipse cx="${cx + dx}" cy="${y}" rx="5.5" ry="3.5"/></g>`;
-const smile = (y = 74, w = 8, cx = 60) =>
-  `<path d="M${cx - w} ${y} Q${cx} ${y + w * 0.9} ${cx + w} ${y}" fill="none" stroke="${INK}" stroke-width="3" stroke-linecap="round"/>`;
-const shoulders = (color, collar = "#fff") =>
-  `<path d="M14 124 Q16 94 44 90 L76 90 Q104 94 106 124 Z" fill="${color}"/><path d="M48 90 L60 103 L72 90 Z" fill="${collar}"/>`;
-const neck = (skin) => `<rect x="52" y="78" width="16" height="16" rx="6" fill="${skin}"/>`;
-const head = (skin, rx = 25, ry = 28, cy = 60) =>
-  `<ellipse cx="34" cy="${cy + 2}" rx="5" ry="7" fill="${skin}"/><ellipse cx="86" cy="${cy + 2}" rx="5" ry="7" fill="${skin}"/><ellipse cx="60" cy="${cy}" rx="${rx}" ry="${ry}" fill="${skin}"/>`;
+const shade = (hex, k) => {
+  const n = parseInt(hex.slice(1), 16);
+  const c = [n >> 16, (n >> 8) & 255, n & 255].map((v) => Math.max(0, Math.min(255, Math.round(v * k))));
+  return "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("");
+};
 
-function person({ skin, hairBack = "", hairFront, shirt, collar, extra = "", mouth = smile() }) {
-  return `${hairBack}${shoulders(shirt, collar)}${neck(skin)}${head(skin)}${eyes()}${cheeks()}${mouth}${hairFront}${extra}`;
+function person(o) {
+  const { skin, hair, shirt, collar = shade(shirt, 0.75) } = o;
+  const sk2 = shade(skin, 0.86),
+    hr2 = shade(hair, 0.7),
+    hr3 = shade(hair, 1.25);
+  const eyeY = 63;
+  const eyes = `
+    <g><ellipse cx="49" cy="${eyeY}" rx="4.6" ry="4" fill="#fff"/><ellipse cx="71" cy="${eyeY}" rx="4.6" ry="4" fill="#fff"/>
+    <circle cx="49.6" cy="${eyeY + 0.4}" r="3" fill="${o.iris ?? "#5a3a1e"}"/><circle cx="71.6" cy="${eyeY + 0.4}" r="3" fill="${o.iris ?? "#5a3a1e"}"/>
+    <circle cx="49.8" cy="${eyeY + 0.6}" r="1.5" fill="${INK}"/><circle cx="71.8" cy="${eyeY + 0.6}" r="1.5" fill="${INK}"/>
+    <circle cx="50.8" cy="${eyeY - 0.8}" r="0.9" fill="#fff"/><circle cx="72.8" cy="${eyeY - 0.8}" r="0.9" fill="#fff"/>
+    <path d="M44 ${eyeY - 3.5} Q49 ${eyeY - 6.5} 54 ${eyeY - 3.6}" stroke="${INK}" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+    <path d="M66 ${eyeY - 3.6} Q71 ${eyeY - 6.5} 76 ${eyeY - 3.5}" stroke="${INK}" stroke-width="1.4" fill="none" stroke-linecap="round"/></g>
+    <path d="M43 ${eyeY - 9} Q49 ${eyeY - 12.5} 55 ${eyeY - 9.5}" stroke="${o.brow ?? hr2}" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+    <path d="M65 ${eyeY - 9.5} Q71 ${eyeY - 12.5} 77 ${eyeY - 9}" stroke="${o.brow ?? hr2}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
+  const mouth = o.beard
+    ? `<path d="M51 80 Q60 88 69 80 Q60 84 51 80 Z" fill="#fff" stroke="${INK}" stroke-width="1.2"/>`
+    : `<path d="M50 79 Q60 89 70 79 Q60 83.5 50 79 Z" fill="#fff" stroke="#8a3a2a" stroke-width="1.3"/><path d="M54 84 Q60 87 66 84" stroke="#e07a6a" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+  const face = `
+    <path d="M14 126 Q16 96 42 91 L78 91 Q104 96 106 126 Z" fill="${shirt}"/>
+    <path d="M44 91 L60 106 L76 91 Z" fill="${collar}"/>
+    <path d="M51 80 L51 95 Q60 101 69 95 L69 80 Z" fill="${sk2}"/>
+    <ellipse cx="34.5" cy="66" rx="5" ry="7.5" fill="${sk2}"/><ellipse cx="85.5" cy="66" rx="5" ry="7.5" fill="${sk2}"/>
+    <path d="M36 58 Q36 34 60 33 Q84 34 84 58 Q84 84 60 90 Q36 84 36 58 Z" fill="${skin}"/>
+    <path d="M38 72 Q46 86 60 90 Q48 88 40 78 Z" fill="${sk2}" opacity=".6"/>
+    ${eyes}
+    <path d="M60 66 Q57.5 73 59.5 74.5 Q61.5 75.3 63 74" stroke="${sk2}" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    <ellipse cx="44" cy="74" rx="5" ry="3" fill="#ff8a7a" opacity=".35"/><ellipse cx="76" cy="74" rx="5" ry="3" fill="#ff8a7a" opacity=".35"/>
+    ${o.beard ? `<path d="M37 64 Q38 92 60 96 Q82 92 83 64 Q80 78 72 80 Q66 76 60 77 Q54 76 48 80 Q40 78 37 64 Z" fill="${o.beard}"/><path d="M50 79 Q60 74 70 79" stroke="${shade(o.beard, 0.7)}" stroke-width="3" fill="none" stroke-linecap="round"/>` : ""}
+    ${mouth}`;
+  return `${o.back ?? ""}${face}${o.front ?? ""}${o.glasses ? `<g fill="none" stroke="${o.glasses}" stroke-width="2.2"><rect x="41" y="57" width="16" height="12" rx="5"/><rect x="63" y="57" width="16" height="12" rx="5"/><path d="M57 62 L63 62 M41 61 L36 59 M79 61 L84 59"/></g>` : ""}${o.extra ?? ""}`.replaceAll("HR", hair).replaceAll("H2", hr2).replaceAll("H3", hr3);
 }
 
 const avatars = {
-  // — Personnages —
-  lea: frame("lea", "#ffd9a8", "#ff9e7a", person({
-    skin: "#f6c9a4",
-    hairBack: `<path d="M30 58 Q28 26 60 24 Q92 26 90 58 L94 100 Q78 92 76 70 L44 70 Q42 92 26 100 Z" fill="#7a3b1e"/>`,
-    hairFront: `<path d="M34 54 Q36 30 60 30 Q84 30 86 54 Q74 40 58 44 Q44 46 34 54 Z" fill="#8c4524"/>`,
-    shirt: "#4f7cff",
-    extra: `<circle cx="80" cy="36" r="6" fill="#ffcf3d"/><circle cx="80" cy="36" r="2.5" fill="#ff6f61"/>`,
+  jacques: frame(person({
+    skin: "#e9b48e", hair: "#4a2c1a", shirt: "#2f6b4f", beard: "#4a2c1a",
+    front: `<path d="M34 56 Q30 30 50 26 Q56 18 66 22 Q86 20 87 44 Q88 54 84 58 Q82 44 74 40 Q70 46 60 42 Q50 46 44 40 Q38 46 36 58 Z" fill="HR"/>
+      <g fill="H3" opacity=".7"><circle cx="48" cy="30" r="4"/><circle cx="62" cy="26" r="4"/><circle cx="76" cy="31" r="4"/></g>
+      <g fill="H2"><circle cx="40" cy="38" r="5"/><circle cx="54" cy="31" r="5"/><circle cx="69" cy="30" r="5"/><circle cx="81" cy="39" r="5"/></g>`,
   })),
-  hugo: frame("hugo", "#bfe8ff", "#5ab4f0", person({
-    skin: "#f1c39a",
-    hairFront: `<path d="M33 54 Q30 28 58 27 Q88 26 87 52 Q80 38 66 42 Q52 34 33 54 Z" fill="#3b2a20"/>`,
-    shirt: "#ff6f61",
-    extra: `<path d="M30 40 Q58 14 90 38 L92 44 Q60 30 28 46 Z" fill="#2b2140"/><circle cx="60" cy="22" r="3.5" fill="#2b2140"/>`,
+  sophie: frame(person({
+    skin: "#f2c4a2", hair: "#a24a22", shirt: "#d9733f", iris: "#3f6b3a",
+    back: `<path d="M28 60 Q24 24 60 22 Q96 24 92 60 Q98 86 90 104 L30 104 Q22 86 28 60 Z" fill="HR"/>
+      <g fill="H2"><circle cx="28" cy="80" r="9"/><circle cx="92" cy="80" r="9"/><circle cx="30" cy="96" r="9"/><circle cx="90" cy="96" r="9"/></g>`,
+    front: `<path d="M36 58 Q34 30 60 28 Q86 30 84 56 Q78 40 64 42 Q62 34 54 38 Q42 40 36 58 Z" fill="HR"/>
+      <g fill="H3" opacity=".7"><circle cx="46" cy="34" r="5"/><circle cx="60" cy="29" r="5"/><circle cx="74" cy="34" r="5"/></g>`,
+    extra: `<circle cx="34" cy="76" r="2.4" fill="#ffd36a"/><circle cx="86" cy="76" r="2.4" fill="#ffd36a"/>`,
+  }), ["#3a9a8e", "#14524f"]),
+  camille: frame(person({
+    skin: "#f4cfb2", hair: "#e9c77a", shirt: "#3d8f8a", iris: "#3a6a9a", brow: "#b8924a",
+    back: `<path d="M26 62 Q22 22 60 20 Q98 22 94 62 Q100 92 88 108 L32 108 Q20 92 26 62 Z" fill="HR"/>
+      <path d="M28 70 Q22 86 32 100 M92 70 Q98 86 88 100" stroke="H2" stroke-width="5" fill="none"/>`,
+    front: `<path d="M35 60 Q32 28 60 26 Q88 28 85 58 Q76 36 58 40 Q46 42 35 60 Z" fill="HR"/><path d="M44 34 Q56 28 70 33" stroke="H3" stroke-width="4" fill="none" stroke-linecap="round" opacity=".8"/>`,
+    extra: `<circle cx="34" cy="76" r="2.4" fill="#ffd36a"/><circle cx="86" cy="76" r="2.4" fill="#ffd36a"/>`,
+  }), ["#3a9a8e", "#14524f"]),
+  emma: frame(person({
+    skin: "#e2a982", hair: "#1c1424", shirt: "#7a3fb0", iris: "#3a2614",
+    back: `<path d="M27 64 Q24 24 60 22 Q96 24 93 64 Q96 96 86 110 L34 110 Q24 96 27 64 Z" fill="HR"/>`,
+    front: `<path d="M35 60 Q33 28 60 26 Q87 28 85 60 Q80 40 66 38 Q52 36 44 44 Q38 50 35 60 Z" fill="HR"/><path d="M48 32 Q60 27 72 32" stroke="#4a3a5a" stroke-width="3" fill="none" stroke-linecap="round"/>`,
+    extra: `<circle cx="34" cy="77" r="3.6" fill="none" stroke="#ffcf5a" stroke-width="2"/><circle cx="86" cy="77" r="3.6" fill="none" stroke="#ffcf5a" stroke-width="2"/>`,
+  }), ["#6a4fb0", "#2a1a5a"]),
+  malik: frame(person({
+    skin: "#a8714d", hair: "#1a120c", shirt: "#c99a3a", beard: "#1a120c", glasses: "#2a1a14",
+    front: `<path d="M35 54 Q32 28 60 26 Q88 28 85 54 Q80 40 60 38 Q42 38 35 54 Z" fill="HR"/><g fill="#2a1e16"><circle cx="44" cy="32" r="4"/><circle cx="56" cy="27" r="4"/><circle cx="68" cy="27" r="4"/><circle cx="79" cy="33" r="4"/></g>`,
   })),
-  nadia: frame("nadia", "#e7d4ff", "#a67cf2", person({
-    skin: "#a8714d",
-    hairBack: `<circle cx="60" cy="50" r="38" fill="#24170f"/><circle cx="28" cy="70" r="14" fill="#24170f"/><circle cx="92" cy="70" r="14" fill="#24170f"/>`,
-    hairFront: `<path d="M34 52 Q40 30 60 30 Q80 30 86 52 Q72 40 60 42 Q46 40 34 52 Z" fill="#2d1d13"/>`,
-    shirt: "#ffcf3d",
-    collar: "#ff6f61",
-    extra: `<circle cx="35" cy="72" r="3" fill="#ffcf3d"/><circle cx="85" cy="72" r="3" fill="#ffcf3d"/>`,
+  henri: frame(person({
+    skin: "#efc4a4", hair: "#d8d6dc", shirt: "#5a4a8a", beard: "#dcdade", glasses: "#3a2a20", brow: "#a8a6ac",
+    front: `<path d="M35 58 Q34 46 38 40 Q42 50 40 60 Z M85 58 Q86 46 82 40 Q78 50 80 60 Z" fill="HR"/><path d="M40 40 Q50 30 60 31 Q70 30 80 40 Q70 35 60 36 Q50 35 40 40 Z" fill="HR"/>`,
+  }), ["#3a9a8e", "#14524f"]),
+  leo: frame(person({
+    skin: "#f0bf98", hair: "#6a3a1a", shirt: "#e0563f",
+    front: `<path d="M36 56 Q34 38 44 36 L76 36 Q86 38 84 56 Q78 46 60 46 Q42 46 36 56 Z" fill="HR"/>
+      <path d="M33 44 Q34 20 60 20 Q86 20 87 44 Z" fill="#f2b01e"/><path d="M33 44 Q60 38 87 44 L92 48 Q60 41 30 48 Z" fill="#c98a0e"/><path d="M60 44 Q94 42 104 50 Q90 54 60 50 Z" fill="#e0a114"/><circle cx="60" cy="21" r="3" fill="#c98a0e"/>`,
   })),
-  karim: frame("karim", "#c8f5e2", "#3fc79a", person({
-    skin: "#c98d62",
-    hairFront: `<path d="M34 52 Q32 30 60 28 Q88 30 86 52 L82 46 Q60 36 38 46 Z" fill="#1d1410"/>`,
-    shirt: "#2b2140",
-    collar: "#5ee0b5",
-    mouth: `<path d="M44 76 Q60 92 76 76 Q60 84 44 76 Z" fill="#1d1410"/>${smile(73, 7)}`,
-  })),
-  mamie: frame("mamie", "#ffe3ef", "#ff9cc0", person({
-    skin: "#f4d2b8",
-    hairFront: `<path d="M32 58 Q30 30 60 28 Q90 30 88 58 Q84 40 60 40 Q36 40 32 58 Z" fill="#e8e6f0"/><circle cx="60" cy="24" r="12" fill="#e8e6f0"/>`,
-    shirt: "#8a5cf6",
-    extra: `<g fill="none" stroke="${INK}" stroke-width="2.5"><circle cx="49" cy="60" r="8"/><circle cx="71" cy="60" r="8"/><path d="M57 60 L63 60"/></g>`,
-  })),
-  papi: frame("papi", "#ffeab3", "#ffb84d", person({
-    skin: "#f0c7a3",
-    hairFront: `<path d="M34 50 Q36 40 42 40 L42 52 Z M86 50 Q84 40 78 40 L78 52 Z" fill="#d9d6e3"/>`,
-    shirt: "#3a8f5c",
-    mouth: `<path d="M42 72 Q50 66 60 72 Q70 66 78 72 Q72 80 60 76 Q48 80 42 72 Z" fill="#d9d6e3"/>`,
-    extra: `<path d="M30 42 Q60 22 90 42 Q92 34 84 30 Q60 18 36 30 Q28 34 30 42 Z" fill="#ff6f61"/><circle cx="60" cy="22" r="3" fill="#ff6f61"/>`,
-  })),
-  lou: frame("lou", "#fff2b3", "#ffd23d", person({
-    skin: "#ffd8bf",
-    hairBack: `<circle cx="30" cy="56" r="12" fill="#ff8c3a"/><circle cx="90" cy="56" r="12" fill="#ff8c3a"/>`,
-    hairFront: `<path d="M33 56 Q30 28 60 26 Q90 28 87 56 Q80 42 70 44 Q64 34 56 40 Q44 38 33 56 Z" fill="#ff8c3a"/>`,
-    shirt: "#5ee0b5",
-    extra: `<g fill="#c26a2a" opacity=".6"><circle cx="44" cy="68" r="1.2"/><circle cx="48" cy="70" r="1.2"/><circle cx="72" cy="70" r="1.2"/><circle cx="76" cy="68" r="1.2"/></g>`,
-  })),
-  sacha: frame("sacha", "#d6f0ff", "#7cc3ff", person({
-    skin: "#e0a77f",
-    hairFront: `<path d="M34 54 Q32 34 60 32 Q88 34 86 54 Q74 46 60 46 Q46 46 34 54 Z" fill="#5a3a26"/>`,
-    shirt: "#ff9e2c",
-    extra: `<path d="M32 46 Q34 22 60 22 Q86 22 88 46 Z" fill="#ff4f6d"/><path d="M60 44 Q94 42 104 50 Q90 54 60 50 Z" fill="#e23b59"/><circle cx="60" cy="23" r="3.5" fill="#fff"/>`,
-  })),
-  // — Animaux —
-  renard: frame("renard", "#ffe0c2", "#ff9d5c",
-    `${shoulders("#2b2140", "#ffcf3d")}<path d="M30 30 L44 58 L24 56 Z M90 30 L76 58 L96 56 Z" fill="#ff7a2f"/><path d="M33 36 L42 54 L30 53 Z M87 36 L78 54 L90 53 Z" fill="#2b2140"/><path d="M60 92 Q24 86 26 56 Q34 44 60 44 Q86 44 94 56 Q96 86 60 92 Z" fill="#ff7a2f"/><path d="M60 92 Q36 86 34 70 Q46 66 60 78 Q74 66 86 70 Q84 86 60 92 Z" fill="#fff6ea"/>${eyes(62, 13)}<ellipse cx="60" cy="78" rx="5" ry="3.6" fill="${INK}"/>${cheeks(72, 22)}`),
-  chat: frame("chat", "#e5e8ff", "#9aa6f5",
-    `${shoulders("#ff6f61", "#fff")}<path d="M30 28 L46 50 L28 58 Z M90 28 L74 50 L92 58 Z" fill="#8b8fa8"/><path d="M34 36 L43 50 L33 54 Z M86 36 L77 50 L87 54 Z" fill="#ffb3c1"/><ellipse cx="60" cy="64" rx="32" ry="28" fill="#9b9fb8"/><path d="M50 38 L54 48 M60 36 L60 47 M70 38 L66 48" stroke="#7d8198" stroke-width="3" stroke-linecap="round"/><ellipse cx="60" cy="76" rx="14" ry="10" fill="#f1f1f6"/>${eyes(62, 13)}<path d="M57 72 L63 72 L60 75 Z" fill="#ff7d8a"/>${smile(76, 5)}<g stroke="${INK}" stroke-width="1.6" stroke-linecap="round"><path d="M44 74 L28 70 M44 78 L28 80 M76 74 L92 70 M76 78 L92 80"/></g>`),
-  hibou: frame("hibou", "#d9f2e6", "#6cc9a0",
-    `${shoulders("#2b2140", "#ffcf3d")}<path d="M28 34 L42 46 L30 52 Z M92 34 L78 46 L90 52 Z" fill="#8a5a3c"/><ellipse cx="60" cy="66" rx="34" ry="32" fill="#a26b47"/><path d="M60 98 Q38 94 38 76 Q48 84 60 84 Q72 84 82 76 Q82 94 60 98 Z" fill="#e8c9a0"/><circle cx="46" cy="58" r="13" fill="#fff6e0"/><circle cx="74" cy="58" r="13" fill="#fff6e0"/>${eyes(58, 14, 60, 6)}<path d="M54 68 L66 68 L60 78 Z" fill="#ffb21f"/>`),
-  panda: frame("panda", "#e9f7d9", "#9fd96b",
-    `${shoulders("#4f7cff", "#fff")}<circle cx="34" cy="38" r="11" fill="${INK}"/><circle cx="86" cy="38" r="11" fill="${INK}"/><ellipse cx="60" cy="64" rx="32" ry="29" fill="#fff"/><ellipse cx="47" cy="61" rx="9" ry="11" transform="rotate(-20 47 61)" fill="${INK}"/><ellipse cx="73" cy="61" rx="9" ry="11" transform="rotate(20 73 61)" fill="${INK}"/><circle cx="48" cy="60" r="3.5" fill="#fff"/><circle cx="72" cy="60" r="3.5" fill="#fff"/><ellipse cx="60" cy="74" rx="5" ry="3.5" fill="${INK}"/>${smile(79, 6)}${cheeks(74, 20)}`),
-  ours: frame("ours", "#ffe9c7", "#f2b766",
-    `${shoulders("#3fc79a", "#fff")}<circle cx="34" cy="38" r="12" fill="#8c5a33"/><circle cx="86" cy="38" r="12" fill="#8c5a33"/><circle cx="34" cy="38" r="6" fill="#d9a074"/><circle cx="86" cy="38" r="6" fill="#d9a074"/><ellipse cx="60" cy="64" rx="32" ry="29" fill="#9c6a40"/><ellipse cx="60" cy="76" rx="15" ry="11" fill="#e4bb8f"/>${eyes(60, 13)}<ellipse cx="60" cy="72" rx="6" ry="4.2" fill="${INK}"/>${smile(78, 5)}${cheeks(70, 22)}`),
-  lapin: frame("lapin", "#ffe1ea", "#ff9fbb",
-    `${shoulders("#8a5cf6", "#fff")}<ellipse cx="46" cy="22" rx="9" ry="24" fill="#f7f3f8"/><ellipse cx="74" cy="22" rx="9" ry="24" fill="#f7f3f8"/><ellipse cx="46" cy="22" rx="4.5" ry="17" fill="#ffb3c8"/><ellipse cx="74" cy="22" rx="4.5" ry="17" fill="#ffb3c8"/><ellipse cx="60" cy="66" rx="30" ry="28" fill="#f7f3f8"/>${eyes(62, 12)}<path d="M57 71 L63 71 L60 74 Z" fill="#ff7d8a"/><rect x="56" y="76" width="8" height="7" rx="2" fill="#fff" stroke="${INK}" stroke-width="1.5"/>${cheeks(72, 19)}`),
-  grenouille: frame("grenouille", "#e3f9c9", "#8fd94f",
-    `${shoulders("#ffcf3d", "#ff6f61")}<ellipse cx="60" cy="70" rx="36" ry="26" fill="#58c24a"/><circle cx="40" cy="46" r="14" fill="#58c24a"/><circle cx="80" cy="46" r="14" fill="#58c24a"/><circle cx="40" cy="46" r="9" fill="#fff"/><circle cx="80" cy="46" r="9" fill="#fff"/><circle cx="41" cy="47" r="5" fill="${INK}"/><circle cx="81" cy="47" r="5" fill="${INK}"/><circle cx="42.5" cy="45" r="1.6" fill="#fff"/><circle cx="82.5" cy="45" r="1.6" fill="#fff"/><path d="M36 74 Q60 94 84 74" fill="none" stroke="${INK}" stroke-width="3.2" stroke-linecap="round"/>${cheeks(76, 26)}`),
-  chien: frame("chien", "#fff1d6", "#ffc76b",
-    `${shoulders("#ff6f61", "#fff")}<ellipse cx="60" cy="64" rx="30" ry="29" fill="#e9c08f"/><path d="M32 40 Q20 46 24 74 Q34 76 38 56 Z M88 40 Q100 46 96 74 Q86 76 82 56 Z" fill="#8c5a33"/><ellipse cx="72" cy="56" rx="10" ry="9" fill="#c99566"/><ellipse cx="60" cy="78" rx="14" ry="10" fill="#fff4e4"/>${eyes(60, 12)}<ellipse cx="60" cy="72" rx="6" ry="4.4" fill="${INK}"/><path d="M60 80 Q60 90 66 88" fill="#ff7d8a" stroke="#ff7d8a" stroke-width="4" stroke-linecap="round"/>`),
-  // — Robots (réservés aux joueurs automatiques) —
+  chat: frame(`<path d="M14 126 Q16 98 42 93 L78 93 Q104 98 106 126 Z" fill="#2f6b6f"/>
+    <path d="M30 24 L48 48 L26 56 Z M90 24 L72 48 L94 56 Z" fill="#f08a2e"/><path d="M33 32 L45 48 L32 52 Z M87 32 L75 48 L88 52 Z" fill="#ffd0c0"/>
+    <ellipse cx="60" cy="64" rx="34" ry="29" fill="#f59a3c"/><path d="M50 36 L54 48 M60 34 L60 47 M70 36 L66 48" stroke="#c96a1e" stroke-width="3.5" stroke-linecap="round"/>
+    <ellipse cx="60" cy="78" rx="17" ry="12" fill="#fff4e8"/>
+    <g><ellipse cx="47" cy="62" rx="6.5" ry="7" fill="#fff"/><ellipse cx="73" cy="62" rx="6.5" ry="7" fill="#fff"/><ellipse cx="47.5" cy="63" rx="4" ry="5.5" fill="#5aa04a"/><ellipse cx="73.5" cy="63" rx="4" ry="5.5" fill="#5aa04a"/><ellipse cx="47.5" cy="63" rx="1.8" ry="4.4" fill="${INK}"/><ellipse cx="73.5" cy="63" rx="1.8" ry="4.4" fill="${INK}"/><circle cx="49" cy="60" r="1.3" fill="#fff"/><circle cx="75" cy="60" r="1.3" fill="#fff"/></g>
+    <path d="M56.5 72 L63.5 72 L60 76 Z" fill="#ff8a9a"/><path d="M53 78 Q60 84 67 78" stroke="${INK}" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <g stroke="#fff" stroke-width="1.5" stroke-linecap="round" opacity=".9"><path d="M42 76 L24 72 M42 80 L24 82 M78 76 L96 72 M78 80 L96 82"/></g>`),
+  chien: frame(`<path d="M14 126 Q16 98 42 93 L78 93 Q104 98 106 126 Z" fill="#c9433a"/>
+    <path d="M30 40 Q16 50 22 82 Q32 86 38 64 Z M90 40 Q104 50 98 82 Q88 86 82 64 Z" fill="#a8641e"/>
+    <ellipse cx="60" cy="62" rx="31" ry="30" fill="#e8a24a"/><ellipse cx="60" cy="80" rx="18" ry="13" fill="#fbe2bc"/>
+    <g><ellipse cx="48" cy="60" rx="5.5" ry="6" fill="#fff"/><ellipse cx="72" cy="60" rx="5.5" ry="6" fill="#fff"/><circle cx="48.5" cy="61" r="3.8" fill="#4a2a10"/><circle cx="72.5" cy="61" r="3.8" fill="#4a2a10"/><circle cx="50" cy="59.5" r="1.3" fill="#fff"/><circle cx="74" cy="59.5" r="1.3" fill="#fff"/></g>
+    <ellipse cx="60" cy="73" rx="6.5" ry="4.6" fill="${INK}"/><path d="M60 77 L60 82 M52 82 Q60 88 68 82" stroke="${INK}" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M58 84 Q60 93 65 90 Q66 86 63 84 Z" fill="#ff7a8a"/>`),
+  renard: frame(`<path d="M14 126 Q16 98 42 93 L78 93 Q104 98 106 126 Z" fill="#2a3a5a"/><path d="M28 28 L46 56 L24 56 Z M92 28 L74 56 L96 56 Z" fill="#e8642a"/><path d="M32 36 L42 54 L30 53 Z M88 36 L78 54 L90 53 Z" fill="#3a1e10"/>
+    <path d="M60 94 Q24 88 26 58 Q34 46 60 46 Q86 46 94 58 Q96 88 60 94 Z" fill="#ee7432"/><path d="M60 94 Q34 88 33 70 Q46 66 60 80 Q74 66 87 70 Q86 88 60 94 Z" fill="#fff6ea"/>
+    <g><ellipse cx="47" cy="64" rx="4.5" ry="5" fill="${INK}"/><ellipse cx="73" cy="64" rx="4.5" ry="5" fill="${INK}"/><circle cx="48.5" cy="62.5" r="1.4" fill="#fff"/><circle cx="74.5" cy="62.5" r="1.4" fill="#fff"/></g><ellipse cx="60" cy="80" rx="5" ry="3.6" fill="${INK}"/>`),
+  hibou: frame(`<path d="M14 126 Q16 98 42 93 L78 93 Q104 98 106 126 Z" fill="#3d6b4a"/><path d="M28 34 L42 46 L30 52 Z M92 34 L78 46 L90 52 Z" fill="#7a4a2a"/><ellipse cx="60" cy="66" rx="34" ry="32" fill="#9a6440"/><path d="M60 98 Q38 94 38 76 Q48 84 60 84 Q72 84 82 76 Q82 94 60 98 Z" fill="#e8c9a0"/>
+    <circle cx="46" cy="58" r="13" fill="#fff6e0"/><circle cx="74" cy="58" r="13" fill="#fff6e0"/><circle cx="46" cy="59" r="7" fill="#f2a01e"/><circle cx="74" cy="59" r="7" fill="#f2a01e"/><circle cx="46" cy="59" r="4" fill="${INK}"/><circle cx="74" cy="59" r="4" fill="${INK}"/><circle cx="47.5" cy="57" r="1.5" fill="#fff"/><circle cx="75.5" cy="57" r="1.5" fill="#fff"/><path d="M54 68 L66 68 L60 78 Z" fill="#ffb21f"/>`),
+  panda: frame(`<path d="M14 126 Q16 98 42 93 L78 93 Q104 98 106 126 Z" fill="#c9433a"/><circle cx="34" cy="38" r="11" fill="${INK}"/><circle cx="86" cy="38" r="11" fill="${INK}"/><ellipse cx="60" cy="64" rx="32" ry="29" fill="#fff"/><ellipse cx="47" cy="61" rx="9" ry="11" transform="rotate(-20 47 61)" fill="${INK}"/><ellipse cx="73" cy="61" rx="9" ry="11" transform="rotate(20 73 61)" fill="${INK}"/><circle cx="48" cy="60" r="3.5" fill="#fff"/><circle cx="72" cy="60" r="3.5" fill="#fff"/><ellipse cx="60" cy="74" rx="5" ry="3.5" fill="${INK}"/><path d="M54 79 Q60 84 66 79" stroke="${INK}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`, ["#6a4fb0", "#2a1a5a"]),
 };
-const robot = (bg1, bg2, body, accent) =>
-  frame("robot", bg1, bg2,
-    `${shoulders(body, accent)}<rect x="56" y="18" width="8" height="14" rx="3" fill="#9aa3b5"/><circle cx="60" cy="16" r="6" fill="${accent}"/><rect x="26" y="52" width="10" height="20" rx="4" fill="#9aa3b5"/><rect x="84" y="52" width="10" height="20" rx="4" fill="#9aa3b5"/><rect x="32" y="30" width="56" height="56" rx="16" fill="${body}"/><rect x="38" y="40" width="44" height="32" rx="10" fill="#1f2a44"/><g fill="${accent}"><rect x="46" y="49" width="9" height="11" rx="4.5"/><rect x="65" y="49" width="9" height="11" rx="4.5"/></g><path d="M50 66 Q60 71 70 66" fill="none" stroke="${accent}" stroke-width="2.6" stroke-linecap="round"/><circle cx="40" cy="80" r="2.4" fill="#fff" opacity=".7"/><circle cx="80" cy="80" r="2.4" fill="#fff" opacity=".7"/>`);
-avatars["robot-bleu"] = robot("#dbe7ff", "#7c9cf5", "#c7d3ec", "#4fd1ff");
-avatars["robot-corail"] = robot("#ffe1dc", "#ff9a8a", "#efd0cb", "#ff6f61");
-avatars["robot-menthe"] = robot("#d9f7ec", "#6fd6b0", "#cde9de", "#3fc79a");
-avatars["robot-soleil"] = robot("#fff2c4", "#ffd04d", "#efe2b8", "#ffb21f");
-
+const robot = (bg, body, accent) =>
+  frame(`<path d="M14 126 Q16 98 42 93 L78 93 Q104 98 106 126 Z" fill="${body}"/><rect x="56" y="16" width="8" height="14" rx="3" fill="#9aa3b5"/><circle cx="60" cy="14" r="6" fill="${accent}"/><rect x="24" y="52" width="10" height="22" rx="4" fill="#9aa3b5"/><rect x="86" y="52" width="10" height="22" rx="4" fill="#9aa3b5"/>
+    <rect x="30" y="28" width="60" height="60" rx="20" fill="#eef2f8"/><rect x="30" y="28" width="60" height="60" rx="20" fill="none" stroke="#c9d2e2" stroke-width="2"/><rect x="38" y="40" width="44" height="32" rx="12" fill="#14213d"/>
+    <g fill="${accent}"><rect x="46" y="49" width="9" height="12" rx="4.5"/><rect x="65" y="49" width="9" height="12" rx="4.5"/></g><path d="M50 66 Q60 71 70 66" fill="none" stroke="${accent}" stroke-width="2.6" stroke-linecap="round"/>`, bg);
+avatars["robot-bleu"] = robot(["#3a6aa8", "#14284a"], "#3d6fd8", "#4fd1ff");
+avatars["robot-corail"] = robot(["#a85a4a", "#4a1e18"], "#e0563f", "#ff8a6b");
+avatars["robot-menthe"] = robot(["#2f8f86", "#14524f"], "#2fae86", "#5ee0b5");
+avatars["robot-soleil"] = robot(["#a8843a", "#4a3410"], "#e0a114", "#ffd23d");
 for (const [name, svg] of Object.entries(avatars)) writeFileSync(new URL(name + ".svg", out), svg + "\n");
-console.log(Object.keys(avatars).length, "avatars générés");
+console.log(Object.keys(avatars).length, "avatars");

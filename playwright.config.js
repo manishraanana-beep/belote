@@ -7,9 +7,11 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:3100",
     headless: true,
-    launchOptions: process.env.BELOTE_CHROMIUM_PATH
-      ? { executablePath: process.env.BELOTE_CHROMIUM_PATH }
-      : {},
+    // Plusieurs joueurs dans des fenêtres simultanées : aucune ne doit être mise en veille.
+    launchOptions: {
+      args: ["--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding", "--disable-background-timer-throttling"],
+      ...(process.env.BELOTE_CHROMIUM_PATH ? { executablePath: process.env.BELOTE_CHROMIUM_PATH } : {}),
+    },
   },
   webServer: {
     command: "node src/server.js",

@@ -5,6 +5,7 @@ test.setTimeout(240000);
 
 async function spy(page) {
   await page.addInitScript(() => {
+    localStorage.setItem("welcomed", "1");
     const Native = window.WebSocket;
     window.WebSocket = class extends Native {
       constructor(...args) {
@@ -23,7 +24,7 @@ const send = (page, type, data = {}) =>
   page.evaluate(([type, data]) => window.__ws.send(JSON.stringify({ id: crypto.randomUUID(), type, data })), [type, data]);
 async function register(page, email) {
   await page.goto("/");
-  await expect(page.locator(".hero")).toBeVisible();
+  await expect(page.locator(".page-home")).toBeVisible();
   const ok = await page.evaluate(async (email) => (await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "motdepasse" }) })).ok, email);
   expect(ok).toBe(true);
   await page.reload();
@@ -58,7 +59,8 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   await A.screenshot({ path: `${shots}portefeuille.png` });
   await A.locator('#modal [data-action="daily"]').click();
   await expect(A.locator(".wallet-chip")).toContainText("800");
-  await A.locator(".nav-row [data-action='shop']").click();
+  await A.keyboard.press("Escape");
+  await A.locator(".quick-row [data-action='shop']").click();
   await expect(A.locator(".pack")).toHaveCount(4);
   await A.screenshot({ path: `${shots}boutique.png` });
   await A.locator('.pack [data-pack="pack-1000"]').click();
@@ -71,15 +73,15 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
 
   // Amis : recherche par identifiant, demande, acceptation.
   const bTag = (await st(B)).player.tag;
-  await A.locator(".nav-row [data-action='friends']").click();
+  await A.locator(".quick-row [data-action='friends']").click();
   await A.locator('#modal [data-tab="search"]').click();
   await A.locator('#search-form [name="q"]').fill(bTag);
   await A.locator("#search-form .pill").click();
   await A.locator('#search-results [data-action="friendRequest"]').click();
   await A.waitForTimeout(400);
   await A.keyboard.press("Escape");
-  await expect(B.locator(".nav-row .count-dot").first()).toHaveText("1");
-  await B.locator(".nav-row [data-action='friends']").click();
+  await expect(B.locator(".quick-row .badge-n").first()).toHaveText("1");
+  await B.locator(".quick-row [data-action='friends']").click();
   await B.locator('#modal [data-tab="requests"]').click();
   await B.screenshot({ path: `${shots}amis-demandes.png` });
   await B.locator('#modal [data-action="friendAccept"]').click();
@@ -87,18 +89,18 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   await B.keyboard.press("Escape");
 
   // Création d'une table publique à 200 crédits.
-  await A.locator('.tiles [data-action="create"]').click();
+  await A.locator('.tabbar [data-page="tables"]').click();
+  await A.locator('[data-action="createPublic"]').click();
   await A.locator('#create-form [name="name"]').fill("Table des amis");
-  await A.locator('#create-form label:has(input[value="false"])').click();
   await A.locator('#create-form label:has(input[name="stake"][value="200"])').click();
   await A.locator(".advanced summary").click();
   await A.locator('#create-form [name="target"]').fill("100");
   await A.screenshot({ path: `${shots}choix-mise.png` });
   await A.locator("#create-form .cta").click();
-  await expect(A.locator(".room-title")).toHaveText("Table des amis");
+  await expect(A.locator(".page-room .page-title")).toHaveText("Table des amis");
 
   // Invitation d'un ami : détails, aucun engagement avant acceptation.
-  await A.locator('.room-seat [data-action="friends"]').first().click();
+  await A.locator('.slot [data-action="friends"]').first().click();
   await expect(A.locator(".friend")).toHaveCount(1);
   await A.screenshot({ path: `${shots}amis-inviter.png` });
   await A.locator('#modal [data-action="inviteFriend"]').click();
@@ -110,24 +112,26 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   await expect(B.locator(".stake-warning")).toContainText("En rubicon, vous risquez jusqu’à 600 crédits");
   await B.screenshot({ path: `${shots}avertissement-mise.png` });
   await B.locator('#modal [data-action="inviteAccept"]').click();
-  await expect(B.locator(".room-title")).toHaveText("Table des amis");
+  await expect(B.locator(".page-room .page-title")).toHaveText("Table des amis");
 
   // C et D rejoignent depuis la liste publique, après l'avertissement de mise.
   for (const p of [C, D]) {
     await p.reload();
+    await p.locator('.tabbar [data-page="tables"]').click();
     await p.locator('.table-card:has-text("Table des amis") [data-action="join"]').click();
     await expect(p.locator(".stake-warning")).toBeVisible();
     await p.locator('#modal [data-action="confirmJoin"]').click();
-    await expect(p.locator(".room-title")).toHaveText("Table des amis");
+    await expect(p.locator(".page-room .page-title")).toHaveText("Table des amis");
   }
-  await expect(A.locator(".room-seat .engaged")).toHaveCount(4);
+  await expect(A.locator(".slot .engaged")).toHaveCount(4);
   await A.screenshot({ path: `${shots}credits-engages-salon.png` });
 
   // Solde insuffisant : Emma (600) face à une table à 1 000.
-  await E.locator('.tiles [data-action="create"]').click();
+  await E.locator('.feature.f-vip').click();
+  await E.locator('[data-page="vipCreate"]').click();
   await E.locator('#create-form [name="name"]').fill("Grosse table");
   await E.locator('#create-form label:has(input[name="stake"][value="1000"])').click();
-  await E.locator("#create-form .cta").click();
+  await E.locator("#create-form button.gold-btn").click();
   await expect(E.locator("#modal")).toContainText("Solde insuffisant");
   await E.screenshot({ path: `${shots}solde-insuffisant.png` });
   await E.keyboard.press("Escape");
@@ -135,7 +139,7 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   // Lancement : réservations visibles, aucun défilement.
   await A.locator('[data-action="start"]').click();
   await expect(A.locator(".hand .hcard")).toHaveCount(8);
-  await expect(A.locator(".stake-chip")).toContainText("200");
+  await expect(A.locator(".me-mini small")).toContainText("200");
   // Réactions : sélecteur, apparition près de l'avatar de l'auteur chez les autres.
   await B.locator('[data-action="react"]').click();
   await B.screenshot({ path: `${shots}reactions.png` });
@@ -171,9 +175,9 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
     }
     await A.waitForTimeout(40);
   }
-  await expect(A.locator(".summary .money")).toBeVisible({ timeout: 20000 });
-  await expect(A.locator(".summary .money")).toContainText(/Bénéfice|Perte/);
-  await expect(A.locator(".summary .money")).toContainText("Nouveau solde");
+  await expect(A.locator(".overlay-page.final .money")).toBeVisible({ timeout: 20000 });
+  await expect(A.locator(".overlay-page.final .money")).toContainText(/Bénéfice|Perte/);
+  await expect(A.locator(".overlay-page.final .money")).toContainText("Nouveau solde");
   await A.screenshot({ path: `${shots}resultat-credits.png` });
   await B.screenshot({ path: `${shots}resultat-credits-telephone.png` });
   // Revanche : chacun confirme, lancement automatique quand les quatre ont accepté.
@@ -199,26 +203,27 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   void rubicon;
 
   // Défis, niveau et badges, collection.
-  await A.locator('[data-action="menu"]').click();
-  await A.locator('.sheet [data-action="quitGame"]').click();
+  await A.locator('[data-action="quitGame"]').click();
   await expect(A.locator("#modal")).toContainText("Un robot prendra votre place");
   await A.locator('[data-action="confirmLeave"]').click();
-  await expect(A.locator(".hero")).toBeVisible();
-  await A.locator(".nav-row [data-action='challenges']").click();
+  await A.locator('.tabbar [data-page="home"]').click();
+  await A.locator(".quick-row [data-action='challenges']").click();
   await expect(A.locator(".challenges li")).toHaveCount(3);
   await A.screenshot({ path: `${shots}defis.png` });
   await A.keyboard.press("Escape");
-  await A.locator(".nav-row [data-action='progress']").click();
+  await A.locator('.tabbar [data-page="profile"]').click();
+  await A.locator(".menu-card [data-action='progress']").click();
   await expect(A.locator(".badge.on").first()).toBeVisible();
   await A.screenshot({ path: `${shots}niveau-badges.png` });
   await A.keyboard.press("Escape");
-  await A.locator(".nav-row [data-action='collection']").click();
+  await A.locator(".menu-card [data-action='collection']").click();
   await A.locator('#modal [data-kind="felt"]').first().click();
   await A.screenshot({ path: `${shots}collection.png` });
   await A.keyboard.press("Escape");
 
   // Administration : signalements avec contexte de partie.
-  await A.locator('.footnote [data-action="admin"]').click();
+  await A.locator('.round-btn[data-page="settings"]').click();
+  await A.locator('[data-action="admin"]').click();
   await A.locator('#admin-form [name="key"]').fill("cle-e2e");
   await A.locator("#admin-form .pill").click();
   await expect(A.locator("#admin-result")).toContainText("Spam");

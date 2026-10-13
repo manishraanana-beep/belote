@@ -13,8 +13,8 @@ const HAND_ORDER = ["S", "H", "C", "D"];
 const RANKS = ["7", "8", "9", "10", "J", "Q", "K", "A"];
 const RANK_NAMES = { J: "Valet", Q: "Dame", K: "Roi", A: "As" };
 const AVATARS = [
-  "renard", "chat", "hibou", "panda", "ours", "lapin", "grenouille", "chien",
-  "lea", "hugo", "nadia", "karim", "mamie", "papi", "lou", "sacha",
+  "jacques", "sophie", "camille", "emma", "malik", "henri", "leo",
+  "chat", "chien", "renard", "hibou", "panda",
 ];
 const BIDS = [80, 90, 100, 110, 120, 130, 140, 150, 160, 250];
 const STAKES = [100, 200, 500, 1000];
@@ -84,10 +84,12 @@ let state = null,
   seenChat = 0,
   pendingInvite = null,
   cropper = null,
+  bidSuit = null,
   resetToken = null,
   shopConfig = null,
   seenInvites = 0,
-  lastReactionSeen = null;
+  lastReactionSeen = null,
+  pendingName = null; // pseudo choisi à l'inscription, envoyé dès la nouvelle session ouverte
 try {
   const raw = decodeURIComponent(location.hash.slice(1));
   if (raw.startsWith("{")) pendingInvite = JSON.parse(raw);
@@ -170,29 +172,6 @@ function rulesModal(r = DEFAULT_RULES, action = "") {
 }
 
 // ———————————————————————————————————————————————————————————— lobby
-function topNav() {
-  const p = state.player;
-  return `<header class="topnav">
-    <a class="logo" href="/" aria-label="Maison Belote"><span class="logo-mark">♠</span><span class="logo-text">Maison <b>Belote</b></span></a>
-    <div class="nav-actions">
-      <button type="button" class="wallet-chip" data-action="wallet" aria-label="Mon portefeuille">${coins(p.wallet.available / 2)}${p.wallet.dailyReady && p.account ? '<span class="gift" title="Bonus du jour">🎁</span>' : ""}</button>
-      ${p.account ? "" : btn("Se connecter", "auth", "chip-btn ghost hide-xs")}
-      <button type="button" class="profile-chip" data-action="profile" aria-label="Mon profil">${avatar(p.avatar)}<span><b>${e(p.name)}</b><small>${p.account ? (p.account.verified ? "Compte vérifié" : "E-mail à confirmer") : "Invité"}</small></span></button>
-    </div>
-  </header>`;
-}
-function navRow() {
-  const p = state.player;
-  const pending = p.friendIn.length + p.invites.length;
-  const todo = p.progress.challenges.filter((c) => !c.done).length;
-  return `<nav class="nav-row" aria-label="Raccourcis">
-    ${btn(`👥 <span>Amis</span>${pending ? `<i class="count-dot">${pending}</i>` : ""}`, "friends", "nav-pill")}
-    ${btn(`🎯 <span>Défis</span>${todo ? `<i class="count-dot soft">${todo}</i>` : ""}`, "challenges", "nav-pill")}
-    ${btn(`🏅 <span>Niveau ${p.progress.level.index + 1}</span>`, "progress", "nav-pill")}
-    ${btn("🎨 <span>Collection</span>", "collection", "nav-pill")}
-    ${btn("🪙 <span>Boutique</span>", "shop", "nav-pill")}
-  </nav>`;
-}
 function invitesBlock() {
   const inv = state.player.invites;
   if (!inv.length) return "";
@@ -202,298 +181,8 @@ function invitesBlock() {
     ${btn("Voir", "inviteOpen", "pill small", `data-id="${i.id}"`)}${btn("✕", "inviteDecline", "chip-btn ghost", `data-id="${i.id}" aria-label="Refuser"`)}
   </article>`).join("")}</section>`;
 }
-function tableCard(t) {
-  const taken = 4 - t.available;
-  const seats = Array.from({ length: 4 }, (_, i) => `<i class="${i < t.humans ? "on" : i < taken ? "bot" : ""}"></i>`).join("");
-  const busy = t.status === "Partie en cours";
-  return `<article class="table-card ${busy ? "busy" : ""}">
-    <div class="table-card-top"><span class="tag ${t.quick ? "tag-quick" : "tag-public"}">${t.quick ? "⚡ Rapide" : "🌍 Publique"}</span>${t.stake ? coins(t.stake, "stake") : '<span class="tag tag-free">Gratuite</span>'}<span class="table-status ${busy ? "" : "open"}">${busy ? "En jeu" : "Ouverte"}</span></div>
-    <h3>${e(t.name)}</h3>
-    <p>${t.rules.target} points · contre ${t.rules.flyingCounter ? "à la volée" : "à son tour"}</p>
-    <div class="table-card-bottom"><span class="seat-dots" aria-label="${taken} places occupées sur 4">${seats}</span>
-    ${btn(busy ? "En jeu" : "Rejoindre", "join", "pill small", `data-table="${t.id}"`, busy || !t.available)}</div>
-  </article>`;
-}
-function lobby() {
-  const p = state.player;
-  const rate = p.stats.games ? Math.round((100 * p.stats.wins) / p.stats.games) : 0;
-  return `<div class="screen lobby">${topNav()}
-  <main class="lobby-main">
-    ${navRow()}
-    ${invitesBlock()}
-    <section class="hero">
-      <div class="hero-copy">
-        <span class="kicker">Belote contrée · 4 joueurs · 2 équipes</span>
-        <h1>La contrée,<br><em>comme au café.</em></h1>
-        <p>Un partenaire, du bluff, des belotes et des contres à la volée. Jouez entre amis ou contre nos robots facétieux.</p>
-        <div class="hero-cta">
-          ${btn('<span class="play-icon">▶</span> Jouer maintenant', "quick", "cta")}
-          <small>On cherche des joueurs ; des robots complètent la table en quelques secondes.</small>
-        </div>
-      </div>
-      <div class="hero-art" aria-hidden="true">
-        <div class="hero-fan">${["AS", "KH", "JC", "QD", "10S"].map((c, i) => `<img class="fan-card f${i}" src="${cardImage(c)}" alt="">`).join("")}</div>
-        <img class="hero-av a1" src="/avatars/renard.svg" alt=""><img class="hero-av a2" src="/avatars/mamie.svg" alt=""><img class="hero-av a3" src="/avatars/hugo.svg" alt="">
-        <span class="hero-bubble">Belote !</span>
-      </div>
-    </section>
-    <section class="tiles">
-      <button type="button" class="tile tile-vip" data-action="create"><span class="tile-icon">👑</span><b>Table VIP</b><small>Privée, sur invitation, vos règles</small></button>
-      <button type="button" class="tile tile-bots" data-action="practice"><span class="tile-icon">🤖</span><b>Entraînement</b><small>Vous contre trois robots</small></button>
-      <button type="button" class="tile tile-code" data-action="joinCode"><span class="tile-icon">🔑</span><b>Rejoindre</b><small>Avec un lien ou un code</small></button>
-      <button type="button" class="tile tile-rules" data-action="rulesInfo"><span class="tile-icon">📜</span><b>Les règles</b><small>Contrée, belote, capot</small></button>
-    </section>
-    ${state.requests.length ? `<div class="notice">⏳ Demande envoyée à <b>${state.requests.map((r) => e(r.name)).join(", ")}</b>. L’hôte doit l’accepter.</div>` : ""}
-    <section class="lobby-grid">
-      <div class="panel">
-        <div class="panel-head"><h2>Tables publiques</h2><span class="count">${state.tables.length}</span></div>
-        <div class="table-list">${state.tables.map(tableCard).join("") || '<p class="empty">Aucune table ouverte : lancez « Jouer maintenant » !</p>'}</div>
-      </div>
-      <div class="panel me-panel">
-        <div class="me-head">${avatar(p.avatar, "xl")}<div><h2>${e(p.name)}</h2>${btn("Modifier mon profil", "profile", "link")}</div></div>
-        <div class="stat-row"><div><b>${p.stats.games}</b><small>parties</small></div><div><b>${p.stats.wins}</b><small>victoires</small></div><div><b>${rate}%</b><small>réussite</small></div></div>
-        ${levelBar(p.progress.level)}
-        <button type="button" class="wallet-card" data-action="wallet">${coins(p.wallet.available / 2, "big")}<small>${p.wallet.reserved ? `dont ${fmt(p.wallet.reserved / 2)} engagés en partie · ` : ""}crédits de jeu</small></button>
-        ${p.account ? "" : `<div class="account-hint"><b>Créez votre compte</b><p>Retrouvez avatar, statistiques et tables VIP sur le site et dans l’application.</p>${btn("Créer un compte", "auth", "pill small", 'data-mode="register"')}</div>`}
-      </div>
-    </section>
-  </main>
-  <footer class="footnote"><span>Maison Belote · contrée française</span>${btn("Règles", "rulesInfo", "link")}${btn("Administration", "admin", "link")}<a class="link" href="/cards-LICENSE.txt">Crédits des cartes</a></footer>
-  </div>`;
-}
-
 // ———————————————————————————————————————————————————————————— salon d'attente
-function roomView() {
-  const t = state.table,
-    me = t.seats.findIndex((s) => s?.id === state.player.id),
-    owner = t.owner === state.player.id;
-  const base = me < 0 ? 0 : me;
-  const slot = (i) => {
-    const s = t.seats[i],
-      rel = (i - base + 4) % 4,
-      team = i % 2 === base % 2 ? "us" : "them";
-    if (!s)
-      return `<div class="room-seat r${rel} empty ${team}">
-        <div class="seat-ring searching"><span class="dots"><i></i><i></i><i></i></span></div>
-        <b>${t.quick ? "Recherche…" : "Place libre"}</b>
-        <div class="room-seat-actions">${me < 0 || t.quick ? "" : btn("S’asseoir", "seat", "chip-btn", `data-seat="${i}"`)}${owner && !t.quick && !t.stake ? btn("+ Robot", "bot", "chip-btn", `data-seat="${i}"`) : ""}${me >= 0 ? btn("+ Ami", "friends", "chip-btn", 'data-tab="friends"') : ""}</div>
-      </div>`;
-    return `<div class="room-seat r${rel} ${team} ${s.bot ? "is-bot" : ""}">
-      <div class="seat-ring">${avatar(s.avatar)}${s.bot ? '<span class="bot-badge" title="Robot">🤖</span>' : ""}</div>
-      <b>${e(s.name)}${i === me ? " (vous)" : ""}</b>
-      <small>${s.bot ? "Robot" : s.connected ? (t.owner === s.id ? "Hôte" : "Prêt") : "Reconnexion…"}</small>
-      ${t.stake && t.engagedPreview?.[i] ? `<span class="engaged ${t.engagedPreview[i].enough && t.engagedPreview[i].account ? "" : "short"}">${t.engagedPreview[i].account ? (t.engagedPreview[i].enough ? `${coins(t.engagedPreview[i].engaged)} engagés` : "Solde insuffisant") : "Compte requis"}</span>` : ""}
-      ${owner && i !== me && !t.quick ? btn("Retirer", "kick", "chip-btn ghost", `data-seat="${i}"`) : ""}
-    </div>`;
-  };
-  const free = t.seats.filter((s) => !s).length;
-  const center = t.quick
-    ? `<div class="room-center"><span class="room-kicker">⚡ Partie rapide</span><h2>${free ? "On cherche des joueurs" : "C’est parti !"}</h2>
-       ${free ? `<p>${t.humans} joueur${t.humans > 1 ? "s" : ""} · ${free} place${free > 1 ? "s" : ""} en recherche</p><div class="fill-timer">🤖 Robots dans <b data-deadline="${t.fillAt ?? 0}"></b></div>` : ""}</div>`
-    : `<div class="room-center"><span class="room-kicker">${t.vip ? "👑 Table VIP" : "🌍 Table publique"}</span><h2>${e(t.name)}</h2><p>${e(ruleText(t.rules))}</p>
-       ${t.stake ? `<div class="stake-banner">${coins(t.stake)} <span>par joueur · rubicon jusqu’à ${fmt(3 * t.stake)}</span></div><p class="muted small">Engagé au lancement : le plus petit entre votre solde et ${fmt(3 * t.stake)}.</p>` : '<span class="tag tag-free">Partie gratuite</span>'}
-       ${owner ? btn("▶ Lancer la partie", "start", "cta small", "", t.seats.some((s) => !s)) : '<p class="muted">L’hôte lancera la partie.</p>'}
-       ${owner && free ? `<p class="muted small">${t.stake ? "Les parties avec crédits se jouent à quatre joueurs : invitez vos amis." : "Complétez les places libres avec des robots."}</p>` : ""}</div>`;
-  const vip =
-    t.vip && owner
-      ? `<div class="room-invite"><b>Inviter des amis</b>
-        <div class="invite-row">${btn("🔗 Copier le lien", "copyInvite", "pill small")}<span class="muted small">Code : <code>${e(t.invite)}</code></span></div>
-        ${t.pending.map((p) => `<div class="request"><span>✋ <b>${e(p.name)}</b> veut jouer</span>${btn("Accepter", "admit", "pill small", `data-player="${p.id}"`)}${btn("Refuser", "reject", "chip-btn ghost", `data-player="${p.id}"`)}</div>`).join("")}
-      </div>`
-      : "";
-  return `<div class="screen room">
-    <header class="room-bar">${btn("← Quitter", "leave", "chip-btn ghost")}<span class="room-title">${e(t.name)}</span>
-      <div class="room-bar-actions">${btn("📜", "rulesInfo", "icon-btn", 'aria-label="Règles"')}${owner && !t.quick ? btn("⚙️", "editRules", "icon-btn", 'aria-label="Modifier les règles"') : ""}</div></header>
-    <div class="room-felt">${[0, 1, 2, 3].map(slot).join("")}${center}</div>
-    ${vip}
-    <p class="room-teams"><span class="team-dot us"></span> Votre équipe : vous et la place en face <span class="team-dot them"></span> Adversaires à gauche et à droite</p>
-  </div>`;
-}
-
 // ———————————————————————————————————————————————————————————— table de jeu
-function contractInfo(g, t, me) {
-  if (!g.contract) return null;
-  const s = t.seats[g.contract.seat];
-  const ours = g.contract.seat % 2 === me % 2;
-  return {
-    name: s?.name ?? "?",
-    avatar: s?.avatar,
-    ours,
-    team: ours ? "Votre équipe" : "Équipe adverse",
-    amount: amountLabel(g.contract.amount),
-    suit: g.contract.suit,
-    mult: g.multiplier,
-  };
-}
-const multLabel = (m) => (m === 4 ? "Surcontré" : m === 2 ? "Contré" : "");
-function topBar(g, t, me) {
-  const c = contractInfo(g, t, me);
-  const unread = t.chat.length > seenChat && sheet !== "chat";
-  return `<header class="game-bar">
-    ${btn('<span class="burger"><i></i><i></i><i></i></span>', "menu", "icon-btn", 'aria-label="Menu de la partie"')}
-    <div class="scoreboard" aria-label="Scores">
-      <div class="score us"><small>Nous</small><b>${g.scores[me % 2]}</b></div>
-      <div class="score-target" title="Objectif">${t.rules.target}</div>
-      <div class="score them"><small>Eux</small><b>${g.scores[1 - (me % 2)]}</b></div>
-    </div>
-    ${
-      c
-        ? `<div class="contract-badge ${c.ours ? "us" : "them"}" aria-label="Contrat">${avatar(c.avatar)}<div><b>${c.amount} ${suitHtml(c.suit)}</b><small>${e(c.name)} · ${c.ours ? "Nous" : "Eux"}</small></div>${c.mult > 1 ? `<span class="mult">×${c.mult}</span>` : ""}</div>`
-        : `<div class="contract-badge pending"><div><b>${g.phase === "bidding" ? "Enchères" : "—"}</b><small>Donne ${g.deal}</small></div></div>`
-    }
-    <div class="bar-right">
-      ${btn("😊", "react", "icon-btn hide-xxs", 'aria-label="Réactions"')}
-      ${btn("🃏", "lastTrick", "icon-btn", `aria-label="Dernier pli"${g.tricks.length ? "" : " disabled"}`)}
-      ${btn(`💬${unread ? '<i class="dot"></i>' : ""}`, "chat", "icon-btn", 'aria-label="Discussion"')}
-    </div>
-  </header>`;
-}
-function reactionBubble(t, s) {
-  if (!s || state.player.hidden.includes(s.id)) return "";
-  const r = (t.reactions ?? []).filter((x) => x.pid === s.id && Date.now() - x.at < 3500).at(-1);
-  const def = r && REACTIONS.find((x) => x.id === r.reaction);
-  return def ? `<span class="reaction-pop" aria-label="${e(def.text || def.emoji)}"><b>${def.emoji}</b>${def.text ? `<small>${e(def.text)}</small>` : ""}</span>` : "";
-}
-function seatBubble(g, i) {
-  if (!["bidding", "counter"].includes(g.phase)) return "";
-  const a = (g.auction ?? []).filter((x) => x.seat === i).at(-1);
-  if (!a) return "";
-  const text =
-    a.type === "bid"
-      ? `${amountLabel(a.amount)} ${suitHtml(a.suit)}`
-      : a.type === "pass"
-        ? "Passe"
-        : a.type === "counter"
-          ? "Contre !"
-          : "Surcontre !";
-  return `<span class="bubble ${a.type}">${text}</span>`;
-}
-function chatBubble(t, s) {
-  const m = t.chat.at(-1);
-  if (!m || !s || m.pid !== s.id || Date.now() - m.at > 5000 || state.player.hidden.includes(s.id)) return "";
-  return `<span class="bubble chat-bubble">${e(m.text)}</span>`;
-}
-function seatView(g, t, me, i) {
-  const s = t.seats[i],
-    rel = (i - me + 4) % 4,
-    team = i % 2 === me % 2 ? "us" : "them",
-    active = ["bidding", "playing"].includes(g.phase) && g.turn === i,
-    offline = s && !s.bot && !s.connected;
-  const status = active
-    ? `<span class="seat-timer" data-deadline="${t.deadline ?? 0}"></span>`
-    : offline
-      ? `<span class="seat-off">${Date.now() - (s.disconnectedAt ?? 0) < t.rules.reconnectSeconds * 1000 ? "Reconnexion…" : "Robot en relais"}</span>`
-      : s?.replaced
-        ? `<span class="seat-off">remplace ${e(s.replaced)}</span>`
-        : "";
-  const human = s && !s.bot && s.id !== state.player.id;
-  return `<div class="seat p${rel} ${team} ${active ? "active" : ""} ${offline ? "offline" : ""} ${s?.frame ?? ""}">
-    <div class="seat-avatar ${human ? "tappable" : ""}" ${human ? `data-action="player" data-id="${s.id}" role="button" aria-label="Profil de ${e(s.name)}"` : ""}>${avatar(s?.avatar)}${s?.bot ? '<span class="bot-badge" title="Robot">🤖</span>' : ""}${g.dealer === i ? '<span class="dealer" title="Donneur">D</span>' : ""}${g.contract?.seat === i ? '<span class="taker" title="Preneur">★</span>' : ""}</div>
-    <div class="seat-label"><b>${e(s?.name ?? "—")}</b>${status}</div>
-    ${rel !== 0 ? `<div class="backs">${Array.from({ length: Math.min(8, g.handCounts[i]) }, () => "<i></i>").join("")}</div>` : ""}
-    ${seatBubble(g, i)}${chatBubble(t, s)}${reactionBubble(t, s)}
-  </div>`;
-}
-function trickCards(cards, me, cls = "") {
-  return `<div class="trick ${cls}">${cards.map((p) => `<div class="tcard p${(p.seat - me + 4) % 4}"><img src="${cardImage(p.card)}" alt="${cardName(p.card)}"></div>`).join("")}</div>`;
-}
-function contractBanner(c, g) {
-  return `<div class="contract-banner ${c.ours ? "us" : "them"}" role="status">
-    ${avatar(c.avatar, "lg")}
-    <div class="cb-text"><span class="cb-who"><b>${e(c.name)}</b> a pris</span>
-    <span class="cb-bid">${c.amount} ${suitHtml(c.suit)}</span>
-    <span class="cb-team">${c.team}${c.mult > 1 ? ` · <b>${multLabel(c.mult)}</b>` : ""}</span>
-    ${g.phase === "counter" ? `<span class="cb-counter">Surcontre possible · <b data-deadline="${g.counterDeadline ?? 0}"></b></span>` : ""}</div>
-    ${c.mult > 1 ? `<span class="stamp">${multLabel(c.mult).toUpperCase()} !</span>` : ""}
-  </div>`;
-}
-function centerView(g, t, me) {
-  if (collection) return trickCards(collection.cards, me, `collecting to${(collection.winner - me + 4) % 4}`);
-  if (["summary", "finished"].includes(g.phase)) return summaryView(g, t, me);
-  const c = contractInfo(g, t, me);
-  if (g.phase === "counter") return contractBanner(c, g);
-  if (g.phase === "playing") {
-    // L'annonce du preneur occupe le centre jusqu'à la première carte.
-    if (!g.tricks.length && !g.trick.length) return contractBanner(c, g);
-    return trickCards(g.trick, me);
-  }
-  return `<div class="bid-status">
-    <span class="bs-kicker">Donne ${g.deal} · enchères</span>
-    ${c ? `<span class="bs-best">${c.amount} ${suitHtml(c.suit)}</span><span class="bs-by">${e(c.name)} · ${c.team}</span>` : `<span class="bs-best none">Pas encore d’annonce</span>`}
-    <span class="bs-turn">${g.turn === me ? "À vous de parler" : `${e(t.seats[g.turn]?.name)} réfléchit…`}</span>
-  </div>`;
-}
-function summaryView(g, t, me) {
-  const h = g.history.at(-1);
-  if (!h) return "";
-  const ours = h.contract.seat % 2 === me % 2;
-  const good = ours === h.made;
-  const finished = g.phase === "finished";
-  const won = g.scores[me % 2] > g.scores[1 - (me % 2)];
-  const owner = t.owner === state.player.id;
-  return `<div class="summary ${(finished ? won : good) ? "win" : "lose"}">
-    <span class="sum-emoji">${finished ? (won ? "🏆" : "🤝") : good ? "🎉" : "😬"}</span>
-    <h2>${finished ? (won ? "Victoire !" : "Défaite… revanche ?") : h.made ? "Contrat réussi" : "Dedans !"}</h2>
-    <p>${e(t.seats[h.contract.seat]?.name)} · ${amountLabel(h.contract.amount)} ${suitHtml(h.contract.suit)} · ${ours ? "Votre équipe" : "Équipe adverse"}${h.multiplier > 1 ? ` · ${multLabel(h.multiplier)}` : ""}</p>
-    <div class="sum-scores"><div class="us"><small>Nous</small><b>+${h.score[me % 2]}</b><span>${g.scores[me % 2]}</span></div><div class="them"><small>Eux</small><b>+${h.score[1 - (me % 2)]}</b><span>${g.scores[1 - (me % 2)]}</span></div></div>
-    <p class="muted small">Points ${h.points[me % 2]} / ${h.points[1 - (me % 2)]}${h.belote[0] + h.belote[1] ? ` · belote ${h.belote[me % 2]} / ${h.belote[1 - (me % 2)]}` : ""}</p>
-    ${finished ? resultBlock(t.result) + rematchBlock(t, me) : `<div class="row">${btn("Donne suivante", "next", "cta small")}</div>`}
-  </div>`;
-}
-function moneyLines(r) {
-  if (!r || !r.stake) return "";
-  const kind = r.rubicon ? "Rubicon" : "Victoire simple";
-  if (r.delta > 0)
-    return `<div class="money win"><b>Bénéfice : ${signed(r.delta)} crédits</b><small>${fmt(r.stake + r.delta)} récupérés, dont ${fmt(r.stake)} de mise — bénéfice ${signed(r.delta)} · ${kind}</small>${r.adjusted ? "<small class=\"adjusted\">Gain ajusté aux crédits engagés par les adversaires.</small>" : ""}<span>Nouveau solde ${coins(r.balance)}</span></div>`;
-  return `<div class="money lose"><b>Perte : ${signed(r.delta)} crédits</b><small>${kind} · ${fmt(r.engaged)} étaient engagés</small><span>Nouveau solde ${coins(r.balance)}</span></div>`;
-}
-function resultBlock(r) {
-  if (!r) return "";
-  return `${moneyLines(r)}<div class="xp-line">✨ +${r.xp} XP ${r.level ? `· ${e(r.level.name)}` : ""}${r.badges?.length ? ` · ${r.badges.map((b) => `${b.icon} ${e(b.name)}`).join(", ")}` : ""}${r.challenges?.length ? ` · 🎯 ${r.challenges.map(e).join(", ")}` : ""}</div>`;
-}
-function rematchBlock(t, me) {
-  const votes = t.rematch?.votes ?? {};
-  const mine = votes[state.player.id];
-  const blocked = t.rematch?.blocked ?? [];
-  return `<div class="rematch">
-    <div class="votes">${t.seats.map((s) => `<span class="vote ${s && votes[s.id] ? "ok" : ""}" title="${e(s?.name ?? "")}">${avatar(s?.avatar)}<i>${s && votes[s.id] ? "✓" : "…"}</i></span>`).join("")}</div>
-    ${t.stake ? `<p class="muted small">${e(stakeRisk(t.stake))}</p>` : ""}
-    ${blocked.length ? `<p class="warn">Solde insuffisant pour ${blocked.map(e).join(", ")}. ${btn("Boutique", "shop", "link")} · ${btn("Tables moins chères", "cheaper", "link")}</p>` : ""}
-    <div class="row">${mine ? '<span class="waiting-vote">En attente des autres joueurs…</span>' : btn("Revanche", "rematchYes", "cta small")}${btn("Quitter", "rematchNo", "chip-btn ghost")}</div>
-  </div>`;
-}
-function bidPanel(g, me) {
-  const options = BIDS.filter((n) => !g.contract || n > g.contract.amount);
-  if (!options.includes(bidAmount)) bidAmount = options[0] ?? null;
-  const canCounter = g.contract && g.contract.seat % 2 !== me % 2;
-  return `<form id="bid-form" class="bid-panel" aria-label="Votre enchère">
-    <input type="hidden" name="amount" value="${bidAmount ?? ""}">
-    <div class="bid-amounts">${BIDS.map((n) => `<button type="button" class="amount ${n === bidAmount ? "on" : ""}" data-action="pickAmount" data-amount="${n}" ${options.includes(n) ? "" : "disabled"}>${amountLabel(n)}</button>`).join("")}</div>
-    <div class="bid-suits">${HAND_ORDER.map((s) => `<button class="suit-btn ${isRed(s) ? "red" : ""}" name="suit" value="${s}" aria-label="Annoncer ${SUIT_NAMES[s]}" ${options.length ? "" : "disabled"}>${SUITS[s]}</button>`).join("")}</div>
-    <div class="bid-actions">${canCounter ? btn("Contrer !", "counter", "danger-btn") : ""}${btn("Passer", "pass", "pass-btn")}</div>
-  </form>`;
-}
-function floatingAction(g, me) {
-  const flying = g.phase === "bidding" && g.contract && g.contract.seat % 2 !== me % 2 && g.turn !== me && g.rules.flyingCounter;
-  if (flying) return `<div class="float-action">${btn("Contrer !", "counter", "danger-btn big")}</div>`;
-  if (g.phase === "counter" && g.contract.seat % 2 === me % 2)
-    return `<div class="float-action">${btn(`Surcontrer ! <small data-deadline="${g.counterDeadline ?? 0}"></small>`, "surcounter", "danger-btn big")}</div>`;
-  return "";
-}
-function handView(g, me) {
-  const hand = [...g.hand].sort(
-    (a, b) =>
-      HAND_ORDER.indexOf(a.slice(-1)) - HAND_ORDER.indexOf(b.slice(-1)) ||
-      RANKS.indexOf(a.slice(0, -1)) - RANKS.indexOf(b.slice(0, -1)),
-  );
-  if (selected && !hand.includes(selected)) selected = null;
-  const myTurn = g.phase === "playing" && g.turn === me && !collection;
-  const glow = g.phase === "bidding" && g.turn === me;
-  return `<div class="hand n${hand.length} ${dealing ? "dealing" : ""} ${glow ? "glow" : ""} ${myTurn ? "my-turn" : ""}" aria-label="Votre main">
-    ${hand.map((c, i) => `<button type="button" class="hcard c${i} ${c === selected ? "selected" : ""}" data-action="pick" data-card="${c}" aria-label="${cardName(c)}" aria-pressed="${c === selected}"><img src="${cardImage(c)}" alt="" draggable="false"></button>`).join("")}
-  </div>
-  <div class="hand-hint">${myTurn ? (selected ? `Touchez encore pour jouer : <b>${cardName(selected)}</b>` : "À vous de jouer !") : ""}</div>`;
-}
 function sheetView(g, t, me) {
   if (!sheet) return "";
   const close = btn("✕", "closeSheet", "sheet-close", 'aria-label="Fermer"');
@@ -551,23 +240,569 @@ function playerSheet(id) {
       ${btn("🚩 Signaler", "reportPlayer", "menu-item danger", `data-id="${id}" data-name="${e(name)}"`)}
     </div><p class="muted small">Bloquer n’interrompt pas la partie en cours et ne change rien aux crédits engagés.</p>`;
 }
+// ———————————————————————————————————————————————————————————— pages (maquettes « Contrée »)
+const ICONS = {
+  home: '<path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  cards: '<rect x="3" y="5" width="11" height="15" rx="2" transform="rotate(-10 8 12)"/><rect x="10" y="4" width="11" height="15" rx="2" transform="rotate(8 15 11)"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.5-6.5 8-6.5s7 2 8 6.5"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.8 3.5-5.5 6.5-5.5s5.7 1.7 6.5 5.5"/><circle cx="17" cy="9" r="2.8"/><path d="M16.5 14.5c2.6.2 4.4 1.8 5 4.5"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  lock: '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m14 6 4 4"/>',
+  camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.6 6.8-4M8.6 13.4l6.8 4"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+  sound: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>',
+  star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/>',
+  doc: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
+  logout: '<path d="M10 4H5v16h5"/><path d="m15 8 4 4-4 4M19 12H9"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+  chevron: '<path d="m9 5 7 7-7 7"/>',
+  back: '<path d="M15 5 8 12l7 7"/>',
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  chat: '<path d="M4 5h16v11H9l-5 4z"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+  bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  crown: '<path d="m3 8 4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>',
+  robot: '<rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9 16h6"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  refresh: '<path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/>',
+  trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H4v1a4 4 0 0 0 4 4M16 6h4v1a4 4 0 0 1-4 4M12 13v4M8 21h8M9 17h6"/>',
+  chart: '<path d="M5 20V12M10 20V8M15 20V4M20 20v-6"/>',
+  shield: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/>',
+  check: '<path d="m5 12 5 5 9-10"/>',
+  gift: '<rect x="4" y="9" width="16" height="11" rx="1"/><path d="M3 9h18v-3H3zM12 6v14M12 6c-2-3-6-3-6 0M12 6c2-3 6-3 6 0"/>',
+  coin: '<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4"/>',
+};
+const icon = (name, cls = "") => `<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] ?? ""}</svg>`;
+const logo = (sub = "") => `<div class="logo" aria-label="Contrée"><b>CONTRÉE</b><span class="orn"><i></i>♥ ◆ ♣<i></i></span>${sub ? `<em>${sub}</em>` : ""}</div>`;
+let page = { name: null, params: {} },
+  pageStack = [];
+function go(name, params = {}) {
+  if (page.name && page.name !== name) pageStack.push(page);
+  page = { name, params };
+  closeModal();
+  render();
+  scrollTo(0, 0);
+}
+function back() {
+  page = pageStack.pop() ?? { name: "home", params: {} };
+  render();
+}
+function shell(body, { backBtn = true, tabs = false, vip = false, cls = "", right = "", sub = "" } = {}) {
+  return `<div class="page ${vip ? "theme-vip" : "theme-club"} ${cls}">
+    <div class="ambient" aria-hidden="true"><i class="lamp l1"></i><i class="lamp l2"></i><i class="leaf f1"></i><i class="leaf f2"></i></div>
+    <header class="page-top">${backBtn ? btn(icon("back"), "back", "round-btn", 'aria-label="Retour"') : '<span class="round-spacer"></span>'}${logo(sub || (vip ? "Club VIP" : ""))}${right || '<span class="round-spacer"></span>'}</header>
+    <main class="page-body">${body}</main>
+    ${tabs ? tabBar() : ""}
+  </div>`;
+}
+function tabBar() {
+  const t = (name, label, ic) => `<button type="button" class="tab ${page.name === name || (name === "home" && ["home", "vip"].includes(page.name)) ? "on" : ""}" data-action="go" data-page="${name}">${icon(ic)}<span>${label}</span></button>`;
+  return `<nav class="tabbar" aria-label="Navigation">${t("home", "Accueil", "home")}${t("tables", "Tables", "cards")}${t("profile", "Profil", "user")}</nav>`;
+}
+const field = (ic, name, type, label, extra = "") =>
+  `<label class="field">${icon(ic)}<input name="${name}" type="${type}" placeholder="${label}" aria-label="${label}" ${extra}>${type === "password" ? `<button type="button" class="eye" data-action="peek" aria-label="Afficher le mot de passe">${icon("eye")}</button>` : ""}</label>`;
+function socialButtons() {
+  const b = (p, label, logoHtml) =>
+    `<button type="button" class="social ${p}" data-action="oidc" data-provider="${p}" ${authConfig[p] ? "" : "disabled"}>${logoHtml}<span>${label}</span>${authConfig[p] ? "" : "<small>bientôt</small>"}</button>`;
+  return `<div class="or"><span>Ou continuer avec</span></div><div class="socials">${b("apple", "Continuer avec Apple", '<span class="s-apple"></span>')}${b("google", "Continuer avec Google", '<span class="s-google">G</span>')}</div>`;
+}
+const levelTitle = () => {
+  const l = state.player.progress.level;
+  return ["Joueur débutant", "Joueur habitué", "Joueur confirmé", "Joueur expert", "Pilier du salon"][l.index] ?? "Joueur passionné";
+};
+
+function welcomePage() {
+  return shell(
+    `<div class="welcome">
+      <div class="welcome-art">${avatar("camille", "w1")}${avatar("sophie", "w2")}${avatar("jacques", "w3")}</div>
+      <h1 class="script">À vous de jouer !</h1><div class="orn-line">✦</div>
+      <div class="mini-fan">${["7S", "8H", "9D", "JC", "QS", "10H", "AC", "KD"].map((c, i) => `<img class="mf${i}" src="${cardImage(c)}" alt="">`).join("")}</div>
+      <div class="stack">${btn("Créer un compte", "go", "gold-btn wide", 'data-page="register"')}${btn("Se connecter", "go", "line-btn wide", 'data-page="login"')}${btn(`${icon("cards")} Découvrir le jeu`, "discover", "text-link")}</div>
+    </div>`,
+    { backBtn: false, cls: "page-welcome" },
+  );
+}
+function registerPage() {
+  return shell(
+    `<h1 class="page-title">Créer mon compte</h1>
+    <form id="register-form" class="stack">
+      ${field("user", "name", "text", "Pseudo", 'minlength="2" maxlength="24" autocomplete="nickname" required')}
+      ${field("mail", "email", "email", "E-mail", 'autocomplete="email" required')}
+      ${field("lock", "password", "password", "Mot de passe", 'minlength="8" autocomplete="new-password" required')}
+      <label class="check"><input type="checkbox" name="terms" required><span></span>J’accepte les ${btn("conditions d’utilisation", "go", "inline-link", 'data-page="legal"')} et la ${btn("politique de confidentialité", "go", "inline-link", 'data-page="legal"')}.</label>
+      <button class="gold-btn wide">Créer mon compte</button>
+    </form>
+    ${socialButtons()}
+    <p class="foot-link">Déjà inscrit ? ${btn("Se connecter", "go", "inline-link", 'data-page="login"')}</p>`,
+  );
+}
+function loginPage() {
+  const last = localStorage.getItem("lastAvatar") || "jacques";
+  return shell(
+    `<h1 class="page-title">Heureux de vous revoir !</h1>
+    <div class="hero-avatar">${avatar(last, "xxl")}</div>
+    <form id="login-form" class="stack">
+      ${field("mail", "email", "email", "E-mail", 'autocomplete="email" required')}
+      ${field("lock", "password", "password", "Mot de passe", 'minlength="8" autocomplete="current-password" required')}
+      <div class="right">${btn("Mot de passe oublié ?", "go", "inline-link", 'data-page="forgot"')}</div>
+      <button class="gold-btn wide">Se connecter</button>
+    </form>
+    ${socialButtons()}`,
+  );
+}
+function forgotPage() {
+  return shell(
+    `<div class="illus key" aria-hidden="true"><span>🗝️</span></div>
+    <h1 class="page-title">Retrouver mon compte</h1>
+    <p class="lead">Entrez votre adresse e-mail pour recevoir un lien de réinitialisation.</p>
+    <form id="forgot-form" class="stack">${field("mail", "email", "email", "E-mail", 'autocomplete="email" required')}<button class="gold-btn wide">Envoyer le lien</button></form>
+    ${page.params.sent ? `<div class="ok-box">${icon("check", "ok-ico")}<div><b>Lien envoyé !</b><small>Si un compte existe, un e-mail vient de vous être envoyé.</small></div></div>` : ""}
+    <hr class="sep">${btn(`${icon("back")} Retour à la connexion`, "go", "text-link", 'data-page="login"')}`,
+  );
+}
+function resetPage() {
+  return shell(
+    `<div class="illus key" aria-hidden="true"><span>🗝️</span></div><h1 class="page-title">Nouveau mot de passe</h1>
+    <form id="reset-form" class="stack">${field("lock", "password", "password", "Nouveau mot de passe", 'minlength="8" autocomplete="new-password" required')}<button class="gold-btn wide">Enregistrer</button></form>`,
+  );
+}
+function verifyPage() {
+  const a = state.player.account;
+  return shell(
+    `<div class="illus envelope" aria-hidden="true"><span class="env"></span><span class="env-card">♣</span></div>
+    <h1 class="page-title">Vérifiez votre e-mail</h1>
+    <p class="lead">Un lien vous attend dans votre boîte mail${a?.email ? ` <b>${e(a.email)}</b>` : ""}.</p>
+    <div class="stack">${btn("J’ai vérifié mon e-mail", "checkVerified", "gold-btn wide")}${btn(`${icon("refresh")} Renvoyer le lien`, "resend", "line-btn wide")}${btn(`${icon("pen")} Changer d’adresse e-mail`, "changeEmail", "text-link")}</div>`,
+  );
+}
+function featureCard(action, data, cls, title, sub, art) {
+  return `<button type="button" class="feature ${cls}" data-action="${action}" ${data}><span class="f-art">${art}</span><span class="f-text"><b>${title}</b><small>${sub}</small></span><span class="f-go">${icon("chevron")}</span></button>`;
+}
+function homePage() {
+  const p = state.player;
+  const pending = p.friendIn.length;
+  return shell(
+    `<div class="me-row">
+      <button type="button" class="me" data-action="go" data-page="profile">${avatar(p.avatar, "lg ring")}<span><b>${e(p.name)} ${icon("chevron", "tiny")}</b><small>${levelTitle()}</small></span></button>
+      <button type="button" class="wallet-chip" data-action="wallet" aria-label="Portefeuille">${coins(p.wallet.available / 2)}${p.wallet.dailyReady && p.account ? '<span class="gift">🎁</span>' : ""}</button>
+    </div>
+    ${p.account && !p.account.verified ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
+    ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 crédits offerts ${icon("chevron", "tiny")}</button>`}
+    ${btn(`${icon("cards")} Jouer maintenant`, "quick", "gold-btn wide big")}
+    ${invitesBlock()}
+    <div class="features">
+      ${featureCard("go", 'data-page="tables"', "f-public", "Tables publiques", "Jouez avec d’autres joueurs", `${avatar("sophie", "fa1")}${avatar("jacques", "fa2")}${avatar("camille", "fa3")}`)}
+      ${featureCard("go", 'data-page="vip"', "f-vip", "Tables VIP", "Une expérience exclusive", `<span class="crown">♛</span>${avatar("emma", "fa2")}`)}
+      ${featureCard("practice", "", "f-bots", "Entraînement", "Progressez à votre rythme", `${avatar("robot-bleu", "fa2")}`)}
+    </div>
+    <div class="quick-row">
+      ${btn(`${icon("target")} Défis${p.progress.challenges.some((c) => !c.done) ? '<i class="dot"></i>' : ""}`, "challenges", "chip")}
+      ${btn(`${icon("users")} Amis${pending ? `<i class="badge-n">${pending}</i>` : ""}`, "friends", "chip")}
+      ${btn(`${icon("coin")} Boutique`, "shop", "chip")}
+    </div>
+    <div class="stat-strip"><div>${icon("trophy")}<b>${p.stats.wins}</b><small>Victoires</small></div><div>${icon("chart")}<b>${p.stats.games}</b><small>Parties</small></div></div>`,
+    { backBtn: false, tabs: true, cls: "page-home", right: btn(icon("menu"), "go", "round-btn", 'data-page="settings" aria-label="Menu"') },
+  );
+}
+function tablesPage() {
+  return shell(
+    `<h1 class="page-title">Tables publiques</h1>
+    <div class="list">${state.tables.map(tableCard).join("") || '<p class="empty">Aucune table ouverte : lancez « Jouer maintenant » !</p>'}</div>
+    <div class="stack">${btn("Créer une table publique", "createPublic", "gold-btn wide")}${btn(`${icon("link")} Rejoindre avec un code`, "joinCode", "line-btn wide")}</div>`,
+    { tabs: true, backBtn: false },
+  );
+}
+function tableCard(t) {
+  const busy = t.status === "Partie en cours";
+  const taken = 4 - t.available;
+  return `<article class="table-card ${busy ? "busy" : ""}">
+    <div class="tc-main"><b>${e(t.name)}</b><small>${t.quick ? "Partie rapide · " : ""}${t.rules.target} points · ${t.stake ? `mise ${fmt(t.stake)}` : "gratuite"}</small></div>
+    <span class="tc-count">${icon("users")} ${taken}/4</span>
+    ${btn(busy ? "En jeu" : "Rejoindre", "join", "gold-btn small", `data-table="${t.id}"`, busy || !t.available)}
+  </article>`;
+}
+function profilePage() {
+  const p = state.player;
+  const rate = p.stats.games ? Math.round((100 * p.stats.wins) / p.stats.games) : 0;
+  return shell(
+    `<div class="profile-hero"><div class="ph-avatar">${avatar(p.avatar, "xxl ring")}<label class="cam" aria-label="Ajouter une photo">${icon("camera")}<input type="file" accept="image/*" id="photo-input" hidden></label></div>
+      <h1>${e(p.name)}</h1><small>${levelTitle()} · ${e(p.tag)}</small></div>
+    <div class="stack tight">${btn(`${icon("pen")} Modifier mon pseudo`, "editName", "line-btn wide")}${btn(`${icon("users")} Choisir un avatar`, "go", "line-btn wide", 'data-page="avatar"')}<label class="line-btn wide">${icon("camera")} Ajouter une photo<input type="file" accept="image/*" id="photo-input-2" hidden></label></div>
+    <div class="stat-card"><div>${icon("trophy")}<b>${p.stats.games}</b><small>Parties</small></div><div>${icon("crown")}<b>${p.stats.wins}</b><small>Victoires</small></div><div>${icon("chart")}<b>${rate} %</b><small>Réussite</small></div></div>
+    ${levelBar(p.progress.level)}
+    <h2 class="section">Mes dernières parties</h2>
+    <div class="list">${p.history.slice(0, 3).map(gameRow).join("") || '<p class="empty">Votre première partie vous attend.</p>'}</div>
+    ${p.history.length > 3 ? btn("Voir tout l’historique", "go", "text-link", 'data-page="history"') : ""}
+    <div class="menu-card">
+      ${menuLink("coin", "Portefeuille", "wallet")}${menuLink("users", "Amis", "friends")}${menuLink("target", "Défis du jour", "challenges")}${menuLink("trophy", "Niveau et badges", "progress")}${menuLink("star", "Collection", "collection")}${menuLink("chart", "Mes parties", "go", 'data-page="history"')}
+    </div>`,
+    { tabs: true, backBtn: false, right: btn(icon("menu"), "go", "round-btn", 'data-page="settings" aria-label="Réglages"') },
+  );
+}
+const menuLink = (ic, label, action, data = "", right = "") => `<button type="button" class="menu-link" data-action="${action}" ${data}>${icon(ic)}<span>${label}</span>${right}${icon("chevron", "tiny")}</button>`;
+function gameRow(h) {
+  return `<div class="game-row ${h.won ? "won" : "lost"}">${avatar(state.player.avatar)}<div><b>${h.won ? "Victoire" : "Défaite"}${h.rubicon ? " · rubicon" : ""}</b><small>${when(h.date)} · ${e(h.table)}</small></div>
+    <span class="gr-score">${h.scores.join(" / ")}${h.stake ? `<small class="${h.delta >= 0 ? "plus" : "minus"}">${coins(Math.abs(h.delta))} ${h.delta >= 0 ? "+" : "−"}</small>` : ""}</span></div>`;
+}
+function avatarPage() {
+  const p = state.player;
+  const pick = page.params.pick ?? p.avatar;
+  const tab = page.params.tab ?? "illus";
+  return shell(
+    `<h1 class="page-title">Choisir mon avatar</h1>
+    <div class="seg">${btn("Avatars illustrés", "avatarTab", tab === "illus" ? "on" : "", 'data-tab="illus"')}${btn("Ma photo", "avatarTab", tab === "photo" ? "on" : "", 'data-tab="photo"')}</div>
+    ${
+      tab === "illus"
+        ? `<div class="avatar-grid big">${AVATARS.map((a) => `<button type="button" class="av-pick ${a === pick ? "on" : ""}" data-action="pickAvatar" data-avatar="${a}" aria-label="Avatar ${a}">${avatar(a)}${a === pick ? `<i class="tick">${icon("check")}</i>` : ""}</button>`).join("")}</div>
+          ${btn("Utiliser cet avatar", "useAvatar", "gold-btn wide", `data-avatar="${pick}"`)}`
+        : `<div class="photo-zone">${p.photo ? avatar(p.photo, "xxl ring") : '<span class="ph-empty">📷</span>'}</div>${p.photo ? btn("Utiliser ma photo", "useAvatar", "gold-btn wide", `data-avatar="${p.photo}"`) : ""}`
+    }
+    <div class="or"><span>Ou</span></div>
+    <label class="line-btn wide">${icon("camera")} Ajouter ma photo<input type="file" accept="image/*" id="photo-input-3" hidden></label>
+    ${page.params.onboarding ? btn("Plus tard", "afterAvatar", "text-link") : ""}`,
+  );
+}
+function historyPage() {
+  const tab = page.params.tab ?? "all";
+  const list = state.player.history.filter((h) => tab === "all" || h.won);
+  return shell(
+    `<h1 class="page-title">Mes parties</h1>
+    <div class="seg">${btn("Toutes", "historyTab", tab === "all" ? "on" : "", 'data-tab="all"')}${btn("Victoires", "historyTab", tab === "wins" ? "on" : "", 'data-tab="wins"')}</div>
+    <div class="list">${list.map(gameRow).join("") || '<p class="empty">Aucune partie pour l’instant.</p>'}</div>`,
+    { tabs: true },
+  );
+}
+function rulesPage(r = state.table?.rules ?? DEFAULT_RULES) {
+  const item = (ic, title, text) => `<div class="rule-item">${icon(ic, "big")}<div><b>${title}</b><small>${text}</small></div></div>`;
+  return shell(
+    `<h1 class="page-title">Règles de la table</h1><p class="lead">Un rappel des règles pour bien jouer ensemble.</p>
+    ${item("target", `Objectif : <em>${fmt(r.target)} points</em>`, `La première équipe à ${fmt(r.target)} points remporte la partie.`)}
+    ${item("bolt", `Contrée à la volée : <em>${r.flyingCounter ? "activée" : "désactivée"}</em>`, r.flyingCounter ? "Les adversaires du dernier enchérisseur peuvent contrer à tout moment des enchères." : "On ne contre qu’à son tour de parole.")}
+    ${item("cards", "Enchères : <em>80 à 160 + capot</em>", `Les annonces se font par paliers de 10, avec la possibilité de capot (${r.capotValue}).`)}
+    ${item("star", "Belote / rebelote : <em>20 points</em>", "Roi et dame d’atout : 20 points, annoncés automatiquement.")}
+    <details class="rule-more">${'<summary>' + icon("cards") + " Jouer les cartes" + icon("chevron", "tiny") + "</summary>"}<p>Fournissez la couleur demandée. À l’atout, montez si possible. Sans la couleur, coupez et surcoupez, sauf si votre partenaire est maître. Ordre à l’atout : V, 9, A, 10, R, D, 8, 7 ; hors atout : A, 10, R, D, V, 9, 8, 7.</p></details>
+    <details class="rule-more"><summary>${icon("chart")} Compter les points ${icon("chevron", "tiny")}</summary><p>Atout : V 20, 9 14, A 11, 10 10, R 4, D 3. Hors atout : A 11, 10 10, R 4, D 3, V 2. Dix de der : 10. Réussite : ${r.scoring === "added" ? "points réalisés + contrat" : "contrat seul"}, multiplié par la contre. Chute : 162 + contrat pour la défense.</p></details>
+    <details class="rule-more"><summary>${icon("shield")} Contrer et surcontrer ${icon("chevron", "tiny")}</summary><p>Contre ×2, surcontre ×4. Après une contre, l’équipe preneuse a ${r.counterWindowSeconds} s pour surcontrer. La belote n’est jamais multipliée.</p></details>
+    ${btn("Fermer", "back", "gold-btn wide")}`,
+  );
+}
+function settingsPage() {
+  const p = state.player,
+    s = p.settings;
+  const toggle = (k, ic, label, on) => `<label class="toggle-row">${icon(ic)}<span>${label}</span><input type="checkbox" data-setting="${k}" ${on ? "checked" : ""}><i class="sw"></i></label>`;
+  return shell(
+    `<h1 class="page-title">Réglages du compte</h1>
+    <button type="button" class="profile-row" data-action="go" data-page="profile">${avatar(p.avatar, "lg ring")}<span><b>${e(p.name)}</b><small>${levelTitle()}</small></span>${icon("chevron", "tiny")}</button>
+    <div class="menu-card">
+      ${toggle("sounds", "sound", "Sons", s.sounds)}
+      ${toggle("animations", "star", "Animations", s.animations)}
+      <label class="toggle-row">${icon("bell")}<span>Notifications</span><input type="checkbox" data-local="notifications" ${localStorage.getItem("notifications") !== "off" ? "checked" : ""}><i class="sw"></i></label>
+      <div class="menu-link static">${icon("globe")}<span>Langue</span><em>Français</em></div>
+    </div>
+    <div class="menu-card">
+      ${p.account?.hasPassword ? menuLink("lock", "Modifier mon mot de passe", "changePassword") : ""}
+      ${menuLink("users", "Amis et confidentialité", "friends", 'data-tab="settings"')}
+      ${menuLink("help", "Aide & contact", "help")}
+      ${menuLink("doc", "Confidentialité", "go", 'data-page="legal"')}
+    </div>
+    ${p.account ? `${btn(`${icon("logout")} Se déconnecter`, "logout", "line-btn wide")}${btn(`${icon("trash")} Supprimer mon compte`, "deleteAccount", "danger-line wide")}` : btn("Créer un compte", "go", "gold-btn wide", 'data-page="register"')}
+    <p class="foot-link">${btn("Administration", "admin", "inline-link")} · <a class="inline-link" href="/cards-LICENSE.txt">Crédits des cartes</a></p>`,
+  );
+}
+function legalPage() {
+  return shell(
+    `<h1 class="page-title">Conditions et confidentialité</h1>
+    <div class="text-card"><h3>Ce que nous conservons</h3><p>Votre pseudo, votre avatar ou photo, votre adresse e-mail si vous créez un compte, vos statistiques, votre historique de parties et de crédits. Aucune donnée n’est revendue.</p>
+    <h3>Crédits de jeu</h3><p>Les crédits servent uniquement à jouer. Ils ne peuvent être ni retirés, ni transférés, ni convertis en argent. Les parties avec crédits sont réservées aux personnes majeures.</p>
+    <h3>Vos droits</h3><p>Vous pouvez modifier votre profil et supprimer votre compte à tout moment depuis les réglages : toutes vos données sont alors effacées.</p>
+    <h3>Bonne conduite</h3><p>Respect, pas de triche ni d’arrangement entre comptes. Les signalements sont examinés par la modération.</p></div>
+    ${btn("Fermer", "back", "gold-btn wide")}`,
+  );
+}
+function vipPage() {
+  const p = state.player;
+  return shell(
+    `<div class="vip-hero"><div class="vh-art">${avatar("jacques", "v1")}${avatar("sophie", "v2")}${avatar("henri", "v3")}${avatar("emma", "v4")}<span class="vh-table"><span>♛</span></span></div>
+      <p class="vh-title"><b>${e(p.name)}</b> vous accueille au Club VIP !</p></div>
+    <div class="stack">${btn(`${icon("crown")} Créer une table privée`, "go", "gold-btn wide", 'data-page="vipCreate"')}${btn(`${icon("link")} Rejoindre avec un code`, "joinCode", "line-btn wide")}</div>
+    <h2 class="section orn-title">Mes tables privées</h2>
+    <div class="list">${p.myTables.map((t) => `<button type="button" class="vip-row" data-action="enterTable" data-id="${t.id}">${avatar(p.avatar, "lg ring")}<span class="vr-main"><b>${e(t.name)}</b><span class="mini-avs">${t.avatars.map((a) => avatar(a)).join("")}${t.players < 4 ? '<i class="plus">+</i>' : ""}</span></span><span class="vr-count">${icon("users")} ${t.players}/4</span>${icon("chevron", "tiny")}</button>`).join("") || '<p class="empty">Créez votre première table privée et invitez vos amis.</p>'}</div>`,
+    { vip: true, tabs: true, right: btn(icon("menu"), "go", "round-btn", 'data-page="settings" aria-label="Menu"') },
+  );
+}
+function vipCreatePage() {
+  const r = DEFAULT_RULES;
+  return shell(
+    `<h1 class="page-title">Créer une table VIP</h1><p class="lead">Personnalisez votre table selon vos envies.</p>
+    <form id="create-form" class="form-card">
+      <input type="hidden" name="vip" value="true">
+      <label class="lbl">Nom de la table<input name="name" value="La table de ${e(state.player.name)}" maxlength="40" required></label>
+      <label class="lbl">Mot de passe · <em>facultatif</em><input name="password" type="password" placeholder="Aucun mot de passe" maxlength="128" autocomplete="new-password"></label>
+      <div class="lbl">Score de la partie<div class="seg radio">${[500, 1000, 1500].map((n) => `<label><input type="radio" name="target" value="${n}" ${n === 1000 ? "checked" : ""}><span>${fmt(n)}</span></label>`).join("")}</div></div>
+      <label class="toggle-row">${icon("bolt")}<span>Contrée à la volée</span><input type="checkbox" name="flyingCounter" checked><i class="sw"></i></label>
+      <label class="toggle-row">${icon("robot")}<span>Compléter avec des robots</span><input type="checkbox" name="fillBots" checked><i class="sw"></i></label>
+      <label class="toggle-row">${icon("clock")}<span>Temps de réflexion par tour</span><select name="turnSeconds">${[15, 20, 30, 45, 60].map((n) => `<option value="${n}" ${n === 30 ? "selected" : ""}>${n} s</option>`).join("")}</select></label>
+      <div class="lbl">Mise par joueur<div class="seg radio">${[0, ...STAKES].map((n) => `<label><input type="radio" name="stake" value="${n}" ${n ? "" : "checked"}><span>${n ? fmt(n) : "Gratuit"}</span></label>`).join("")}</div><small class="hint">Avec crédits : quatre joueurs humains, rubicon jusqu’à 3 × la mise.</small></div>
+      <input type="hidden" name="counterWindowSeconds" value="${r.counterWindowSeconds}"><input type="hidden" name="reconnectSeconds" value="${r.reconnectSeconds}"><input type="hidden" name="capotValue" value="${r.capotValue}"><input type="hidden" name="scoring" value="${r.scoring}"><input type="hidden" name="allPass" value="${r.allPass}"><input type="hidden" name="beloteRetained" value="on"><input type="hidden" name="beloteCountsContract" value="on">
+      <button class="gold-btn wide">${icon("crown")} Créer ma table</button>
+    </form>
+    ${btn(`${icon("back")} Retour`, "back", "line-btn wide")}`,
+    { vip: true },
+  );
+}
+function pageView() {
+  const guest = !state.player.account;
+  if (!page.name) page = { name: guest && !localStorage.getItem("welcomed") ? "welcome" : "home", params: {} };
+  const views = { welcome: welcomePage, register: registerPage, login: loginPage, forgot: forgotPage, reset: resetPage, verify: verifyPage, home: homePage, tables: tablesPage, profile: profilePage, avatar: avatarPage, history: historyPage, rules: () => rulesPage(), settings: settingsPage, legal: legalPage, vip: vipPage, vipCreate: vipCreatePage };
+  return (views[page.name] ?? homePage)();
+}
+
+// ———————————————————————————————————————————————————————————— salon d'attente (maquette « Salon privé »)
+function roomView() {
+  const t = state.table,
+    me = t.seats.findIndex((s) => s?.id === state.player.id),
+    owner = t.owner === state.player.id;
+  const vip = t.vip && !t.practice;
+  const free = t.seats.filter((s) => !s).length;
+  const players = t.seats.filter(Boolean).length;
+  const slot = (s, i) => {
+    if (!s)
+      return `<div class="slot empty"><button type="button" class="slot-ring" data-action="${owner && !t.stake && !t.quick ? "bot" : "friends"}" data-seat="${i}" aria-label="Place libre">+</button><b>Place libre</b>${me >= 0 && !t.quick ? btn("S’asseoir", "seat", "mini-btn", `data-seat="${i}"`) : ""}</div>`;
+    const pv = t.engagedPreview?.[i];
+    return `<div class="slot ${i % 2 === (me < 0 ? 0 : me) % 2 ? "us" : "them"}">
+      <div class="slot-ring">${t.owner === s.id ? '<span class="crown-top">♛</span>' : ""}${avatar(s.avatar)}</div>
+      <b>${e(s.name)}</b>${s.bot ? '<span class="robot-tag">ROBOT</span>' : ""}
+      ${t.stake && pv ? `<span class="engaged ${pv.enough && pv.account ? "" : "short"}">${pv.account ? (pv.enough ? `${coins(pv.engaged)}` : "Solde insuffisant") : "Compte requis"}</span>` : ""}
+      ${owner && i !== me && !t.quick ? btn("Retirer", "kick", "mini-btn ghost", `data-seat="${i}"`) : ""}
+    </div>`;
+  };
+  const top = t.quick
+    ? `<h1 class="page-title">${free ? "On cherche des joueurs" : "C’est parti !"}</h1><p class="lead">${t.humans} joueur${t.humans > 1 ? "s" : ""} présent${t.humans > 1 ? "s" : ""}${free ? ` · ${free} place${free > 1 ? "s" : ""} en recherche` : ""}</p>${free ? `<div class="fill-timer">${icon("robot")} Robots dans <b data-deadline="${t.fillAt ?? 0}"></b></div>` : ""}`
+    : `<h1 class="page-title">${e(t.name)}</h1><p class="lead">${vip ? "Invitez vos amis pour commencer la partie." : `${fmt(t.rules.target)} points · contre ${t.rules.flyingCounter ? "à la volée" : "à son tour"}`}</p>`;
+  const code =
+    vip && t.code && owner
+      ? `<div class="code-card"><small>Code d’invitation</small><div class="code"><b>${e(t.code)}</b>${btn(icon("copy"), "copyCode", "round-btn small", 'aria-label="Copier le code"')}</div>
+        <div class="row2">${btn(`${icon("link")} Copier le lien`, "copyInvite", "line-btn")}${btn(`${icon("share")} Partager`, "shareInvite", "line-btn")}</div></div>`
+      : "";
+  const stake = t.stake
+    ? `<div class="stake-card">${coins(t.stake, "big")}<div><b>Mise par joueur</b><small>Engagé au lancement : votre solde, au plus ${fmt(3 * t.stake)} (rubicon).</small></div></div>`
+    : `<p class="free-line">${icon("check")} Partie gratuite</p>`;
+  const pending = owner
+    ? t.pending.map((p) => `<div class="request">${icon("user")}<span><b>${e(p.name)}</b> demande une place</span>${btn("Accepter", "admit", "gold-btn small", `data-player="${p.id}"`)}${btn("Refuser", "reject", "mini-btn ghost", `data-player="${p.id}"`)}</div>`).join("")
+    : "";
+  const actions = t.quick
+    ? ""
+    : `${owner && free && !t.stake ? btn(`${icon("robot")} Ajouter un robot`, "bot", "gold-btn wide", `data-seat="${t.seats.indexOf(null)}"`) : ""}
+      ${owner ? btn(`${icon("users")} Vous choisissez les équipes.`, "teams", "text-link") : ""}
+      ${me >= 0 ? btn(`${icon("users")} Inviter un ami`, "friends", "line-btn wide") : ""}
+      ${owner ? btn(`<span class="play">▶</span> Lancer la partie`, "start", "gold-btn wide", "", !!free && !(t.fillBots && !t.stake)) : '<p class="lead">L’hôte lancera la partie.</p>'}`;
+  return shell(
+    `${top}${code}${pending}
+    <h2 class="section">Joueurs (${players}/4)</h2>
+    <div class="slots">${t.seats.map(slot).join("")}</div>
+    ${stake}
+    <div class="stack">${actions}</div>
+    <p class="foot-link">${btn(`${icon("doc")} Règles de la table`, "rulesInfo", "inline-link")}${owner && !t.quick ? ` · ${btn("Modifier", "editRules", "inline-link")}` : ""}</p>`,
+    { vip, cls: "page-room", right: btn(icon("menu"), "roomMenu", "round-btn", 'aria-label="Menu"'), sub: vip ? "VIP" : "" },
+  );
+}
+
+// ———————————————————————————————————————————————————————————— table de jeu (maquettes « Club Pop » / « Night VIP »)
+function contractInfo(g, t, me) {
+  if (!g.contract) return null;
+  const s = t.seats[g.contract.seat];
+  const ours = g.contract.seat % 2 === me % 2;
+  return { name: s?.name ?? "?", avatar: s?.avatar, ours, team: ours ? "Votre équipe" : "Équipe adverse", short: ours ? "Nous" : "Eux", amount: amountLabel(g.contract.amount), suit: g.contract.suit, mult: g.multiplier };
+}
+const multLabel = (m) => (m === 4 ? "Surcontré" : m === 2 ? "Contré" : "");
+function topBar(g, t, me) {
+  const c = contractInfo(g, t, me);
+  return `<header class="game-top">
+    ${btn(icon("back"), "quitGame", "round-btn", 'aria-label="Quitter la partie"')}
+    <div class="gt-center">${logo()}<div class="score-pill" aria-label="Scores"><span class="us">Nous <b>${g.scores[me % 2]}</b></span><i>•</i><span class="them">Eux <b>${g.scores[1 - (me % 2)]}</b></span></div></div>
+    ${btn(icon("menu"), "menu", "round-btn", 'aria-label="Menu de la partie"')}
+  </header>
+  <div class="contract-row">${c ? `<span class="contract-pill ${c.ours ? "us" : "them"}">${e(c.name)} • ${c.short} • ${c.amount} ${suitHtml(c.suit)}${c.mult > 1 ? ` <em>×${c.mult}</em>` : ""}</span>` : `<span class="contract-pill pending">Enchères • donne ${g.deal}</span>`}</div>`;
+}
+function reactionBubble(t, s) {
+  if (!s || state.player.hidden.includes(s.id)) return "";
+  const r = (t.reactions ?? []).filter((x) => x.pid === s.id && Date.now() - x.at < 3500).at(-1);
+  const def = r && REACTIONS.find((x) => x.id === r.reaction);
+  return def ? `<span class="reaction-pop"><b>${def.emoji}</b>${def.text ? `<small>${e(def.text)}</small>` : ""}</span>` : "";
+}
+function seatBubble(g, i) {
+  if (!["bidding", "counter"].includes(g.phase)) return "";
+  const a = (g.auction ?? []).filter((x) => x.seat === i).at(-1);
+  if (!a) return "";
+  const text = a.type === "bid" ? `${amountLabel(a.amount)} ${suitHtml(a.suit)}` : a.type === "pass" ? "Passe" : a.type === "counter" ? "Contre !" : "Surcontre !";
+  return `<span class="bubble ${a.type}">${text}</span>`;
+}
+function chatBubble(t, s) {
+  const m = t.chat.at(-1);
+  if (!m || !s || m.pid !== s.id || Date.now() - m.at > 5000 || state.player.hidden.includes(s.id)) return "";
+  return `<span class="bubble chat-bubble">${e(m.text)}</span>`;
+}
+function seatView(g, t, me, i) {
+  const s = t.seats[i],
+    rel = (i - me + 4) % 4,
+    team = i % 2 === me % 2 ? "us" : "them",
+    active = ["bidding", "playing"].includes(g.phase) && g.turn === i,
+    offline = s && !s.bot && !s.connected;
+  const human = s && !s.bot && s.id !== state.player.id;
+  const status = active
+    ? `<span class="seat-timer" data-deadline="${t.deadline ?? 0}"></span>`
+    : offline
+      ? `<span class="seat-off">${Date.now() - (s.disconnectedAt ?? 0) < t.rules.reconnectSeconds * 1000 ? "Reconnexion…" : "Robot en relais"}</span>`
+      : s?.replaced
+        ? `<span class="seat-off">remplace ${e(s.replaced)}</span>`
+        : "";
+  return `<div class="seat p${rel} ${team} ${active ? "active" : ""} ${offline ? "offline" : ""} ${s?.frame ?? ""}">
+    ${g.contract?.seat === i ? '<span class="crown-top" title="Preneur">♛</span>' : ""}
+    <div class="seat-avatar ${human ? "tappable" : ""}" ${human ? `data-action="player" data-id="${s.id}" role="button" aria-label="Profil de ${e(s.name)}"` : ""}>${avatar(s?.avatar)}${g.dealer === i ? '<span class="dealer" title="Donneur">D</span>' : ""}</div>
+    <div class="name-pill"><b>${e(s?.name ?? "—")}</b></div>${s?.bot ? '<span class="robot-tag">ROBOT</span>' : ""}${status}
+    ${rel !== 0 ? `<div class="backs">${Array.from({ length: Math.min(8, g.handCounts[i]) }, () => "<i></i>").join("")}</div>` : ""}
+    ${seatBubble(g, i)}${chatBubble(t, s)}${reactionBubble(t, s)}
+  </div>`;
+}
+function trickCards(cards, me, cls = "") {
+  return `<div class="trick ${cls}">${cards.map((p) => `<div class="tcard p${(p.seat - me + 4) % 4}"><img src="${cardImage(p.card)}" alt="${cardName(p.card)}"></div>`).join("")}</div>`;
+}
+function contractBanner(c, g) {
+  return `<div class="contract-banner ${c.ours ? "us" : "them"}" role="status">
+    ${avatar(c.avatar, "lg")}
+    <div class="cb-text"><span class="cb-who"><b>${e(c.name)}</b> a pris</span><span class="cb-bid">${c.amount} ${suitHtml(c.suit)}</span><span class="cb-team">${c.team}${c.mult > 1 ? ` · <b>${multLabel(c.mult)}</b>` : ""}</span>
+    ${g.phase === "counter" ? `<span class="cb-counter">Surcontre possible · <b data-deadline="${g.counterDeadline ?? 0}"></b></span>` : ""}</div>
+    ${c.mult > 1 ? `<span class="stamp">${multLabel(c.mult).toUpperCase()} !</span>` : ""}
+  </div>`;
+}
+function centerView(g, t, me) {
+  if (collection) return trickCards(collection.cards, me, `collecting to${(collection.winner - me + 4) % 4}`);
+  const c = contractInfo(g, t, me);
+  if (g.phase === "counter") return contractBanner(c, g);
+  if (g.phase === "playing") {
+    if (!g.tricks.length && !g.trick.length) return contractBanner(c, g);
+    return trickCards(g.trick, me);
+  }
+  if (["summary", "finished"].includes(g.phase)) return "";
+  if (g.turn === me) return "";
+  return `<div class="bid-status">${c ? `<span class="bs-best">${c.amount} ${suitHtml(c.suit)}</span><span class="bs-by">${e(c.name)} · ${c.team}</span>` : `<span class="bs-best none">Pas encore d’annonce</span>`}<span class="bs-turn">${e(t.seats[g.turn]?.name)} réfléchit…</span></div>`;
+}
+// Maquette « Résultat de la donne ».
+function dealResult(g, t, me) {
+  const h = g.history.at(-1);
+  if (!h) return "";
+  const ours = h.contract.seat % 2 === me % 2;
+  const taker = t.seats[h.contract.seat];
+  const belote = h.belote[me % 2] ? `<div class="res-line">${icon("cards", "big")}<div><b>Belote : +${h.belote[me % 2]} points</b><small>Pour votre équipe</small></div></div>` : h.belote[1 - (me % 2)] ? `<div class="res-line">${icon("cards", "big")}<div><b>Belote : +${h.belote[1 - (me % 2)]} points</b><small>Pour l’équipe adverse</small></div></div>` : "";
+  return `<div class="overlay-page"><div class="op-inner">
+    <h2 class="op-title">Résultat de la donne</h2>
+    <div class="taker-pill">${avatar(taker?.avatar, "lg")}<span>${e(taker?.name)} • ${ours ? "Nous" : "Eux"} • ${amountLabel(h.contract.amount)} ${suitHtml(h.contract.suit)}${h.multiplier > 1 ? ` • ${multLabel(h.multiplier)}` : ""}</span></div>
+    <div class="res-box ${h.made ? "ok" : "ko"}">${h.made ? icon("check", "res-ico") : '<span class="res-ico x">✕</span>'}<div><b>${h.made ? "Contrat réussi" : "Contrat chuté"}</b><small>${h.made ? `${ours ? "Bravo" : "Ils ont"} atteint ${amountLabel(h.contract.amount)} !` : `${ours ? "Dommage" : "Bien défendu"} : ${amountLabel(h.contract.amount)} non atteint.`}</small></div></div>
+    <div class="duo"><div class="${h.score[me % 2] >= h.score[1 - (me % 2)] ? "lead" : ""}">${h.score[me % 2] >= h.score[1 - (me % 2)] ? icon("crown") : ""}<small>Nous</small><b>${h.score[me % 2]}</b></div><div class="${h.score[1 - (me % 2)] > h.score[me % 2] ? "lead" : ""}"><small>Eux</small><b>${h.score[1 - (me % 2)]}</b></div></div>
+    ${belote}
+    <p class="op-sub">Score total de la partie</p>
+    <div class="total-pill"><div><small>Nous</small><b>${g.scores[me % 2]}</b></div><i></i><div class="them"><small>Eux</small><b>${g.scores[1 - (me % 2)]}</b></div></div>
+    ${btn("Donne suivante", "next", "gold-btn wide")}
+  </div></div>`;
+}
+// Maquette « Victoire ! » + règlement des crédits + revanche.
+function finalResult(g, t, me) {
+  const won = g.scores[me % 2] > g.scores[1 - (me % 2)];
+  const r = t.result;
+  const votes = t.rematch?.votes ?? {};
+  const mine = votes[state.player.id];
+  const blocked = t.rematch?.blocked ?? [];
+  return `<div class="overlay-page final ${won ? "win" : "lose"}"><div class="op-inner">
+    ${won ? '<div class="confetti" aria-hidden="true">' + "<i></i>".repeat(14) + "</div>" : ""}
+    <div class="final-art">${avatar(t.seats[me]?.avatar, "xl")}${avatar(t.seats[(me + 2) % 4]?.avatar, "xl")}</div>
+    <div class="ribbon">${won ? "Victoire !" : "Défaite…"}</div>
+    <div class="final-scores"><div><small>Votre équipe</small><b>${won ? icon("crown") : ""}${fmt(g.scores[me % 2])}</b></div><i></i><div class="them"><small>Équipe adverse</small><b>${fmt(g.scores[1 - (me % 2)])}</b></div></div>
+    ${r ? moneyLines(r) + `<div class="xp-line">✨ +${r.xp} XP${r.badges?.length ? ` · ${r.badges.map((b) => `${b.icon} ${e(b.name)}`).join(", ")}` : ""}${r.challenges?.length ? ` · 🎯 ${r.challenges.map(e).join(", ")}` : ""}</div>` : ""}
+    <div class="votes">${t.seats.map((s) => `<span class="vote ${s && votes[s.id] ? "ok" : ""}" title="${e(s?.name ?? "")}">${avatar(s?.avatar)}<i>${s && votes[s.id] ? "✓" : "…"}</i></span>`).join("")}</div>
+    ${t.stake ? `<p class="op-note">${e(stakeRisk(t.stake))}</p>` : ""}
+    ${blocked.length ? `<p class="warn">Solde insuffisant pour ${blocked.map(e).join(", ")}. ${btn("Boutique", "shop", "inline-link")} · ${btn("Tables moins chères", "cheaper", "inline-link")}</p>` : ""}
+    ${mine ? '<p class="waiting-vote">En attente des autres joueurs…</p>' : btn(`${icon("refresh")} Rejouer avec cette table`, "rematchYes", "gold-btn wide")}
+    ${btn(`${icon("home")} Retour au salon${t.vip ? " VIP" : ""}`, "rematchNo", "line-btn wide")}
+    ${btn(`${icon("logout")} Quitter la table`, "leave", "line-btn wide small")}
+  </div></div>`;
+}
+function moneyLines(r) {
+  if (!r || !r.stake) return "";
+  const kind = r.rubicon ? "Rubicon" : "Victoire simple";
+  if (r.delta > 0)
+    return `<div class="money win"><b>Bénéfice : ${signed(r.delta)} crédits</b><small>${fmt(r.stake + r.delta)} récupérés, dont ${fmt(r.stake)} de mise — bénéfice ${signed(r.delta)} · ${kind}</small>${r.adjusted ? '<small class="adjusted">Gain ajusté aux crédits engagés par les adversaires.</small>' : ""}<span>Nouveau solde ${coins(r.balance)}</span></div>`;
+  return `<div class="money lose"><b>Perte : ${signed(r.delta)} crédits</b><small>${kind} · ${fmt(r.engaged)} étaient engagés</small><span>Nouveau solde ${coins(r.balance)}</span></div>`;
+}
+// Maquette « Choisir votre contrat ».
+function bidPanel(g, me, t) {
+  const options = BIDS.filter((n) => !g.contract || n > g.contract.amount);
+  if (!options.includes(bidAmount)) bidAmount = options[0] ?? null;
+  const canCounter = g.contract && g.contract.seat % 2 !== me % 2;
+  const last = (g.auction ?? []).filter((a) => a.type === "bid").at(-1);
+  return `<form id="bid-form" class="bid-panel" aria-label="Votre enchère">
+    <b class="bp-title">Choisir votre contrat</b>
+    <input type="hidden" name="amount" value="${bidAmount ?? ""}"><input type="hidden" name="suit" value="${bidSuit ?? ""}">
+    <div class="bid-suits">${HAND_ORDER.map((s) => `<button type="button" class="suit-btn ${isRed(s) ? "red" : ""} ${s === bidSuit ? "on" : ""}" data-action="pickSuit" data-suit="${s}" aria-label="Atout ${SUIT_NAMES[s]}" aria-pressed="${s === bidSuit}">${SUITS[s]}</button>`).join("")}</div>
+    <div class="bid-amounts">${BIDS.map((n) => `<button type="button" class="amount ${n === bidAmount ? "on" : ""}" data-action="pickAmount" data-amount="${n}" ${options.includes(n) ? "" : "disabled"}>${amountLabel(n)}</button>`).join("")}</div>
+    ${last ? `<span class="last-bid">${e(t.seats[last.seat]?.name)} : ${amountLabel(last.amount)} ${suitHtml(last.suit)}</span>` : ""}
+    <div class="bid-actions">${btn("Passer", "pass", "teal-btn")}<button class="gold-btn" name="go" value="1" ${options.length && bidSuit ? "" : "disabled"}>Enchérir</button>${btn("Contrer", "counter", "teal-btn", "", !canCounter)}</div>
+  </form>`;
+}
+function floatingAction(g, me) {
+  const flying = g.phase === "bidding" && g.contract && g.contract.seat % 2 !== me % 2 && g.turn !== me && g.rules.flyingCounter;
+  if (flying) return `<div class="float-action">${btn("Contrer !", "counter", "danger-btn big")}</div>`;
+  if (g.phase === "counter" && g.contract.seat % 2 === me % 2) return `<div class="float-action">${btn(`Surcontrer ! <small data-deadline="${g.counterDeadline ?? 0}"></small>`, "surcounter", "danger-btn big")}</div>`;
+  return "";
+}
+function handView(g, me, t) {
+  const hand = [...g.hand].sort((a, b) => HAND_ORDER.indexOf(a.slice(-1)) - HAND_ORDER.indexOf(b.slice(-1)) || RANKS.indexOf(a.slice(0, -1)) - RANKS.indexOf(b.slice(0, -1)));
+  if (selected && !hand.includes(selected)) selected = null;
+  const myTurn = g.phase === "playing" && g.turn === me && !collection;
+  const glow = g.phase === "bidding" && g.turn === me;
+  const status = myTurn
+    ? `<span class="turn-pill on">${selected ? `Touchez encore : ${cardName(selected)}` : "À vous de jouer"}</span>`
+    : glow
+      ? `<span class="turn-pill on">À vous d’enchérir</span>`
+      : ["bidding", "playing"].includes(g.phase)
+        ? `<span class="turn-pill">Au tour de ${e(t.seats[g.turn]?.name)}</span>`
+        : "";
+  const mine = t.money?.seats.find((x) => x.seat === me);
+  return `<div class="hand n${hand.length} ${dealing ? "dealing" : ""} ${glow ? "glow" : ""} ${myTurn ? "my-turn" : ""}" aria-label="Votre main">
+    ${hand.map((c, i) => `<button type="button" class="hcard c${i} ${c === selected ? "selected" : ""}" data-action="pick" data-card="${c}" aria-label="${cardName(c)}" aria-pressed="${c === selected}"><img src="${cardImage(c)}" alt="" draggable="false"></button>`).join("")}
+  </div>
+  <div class="status-row">
+    <span class="me-mini">${avatar(state.player.avatar)}${t.money ? `<small>${coins(t.money.stake)} · ${fmt(mine?.engaged ?? 0)} engagés</small>` : ""}</span>
+    ${status}
+    <span class="status-btns">${btn("😊", "react", "round-btn", 'aria-label="Réactions"')}${btn(`${icon("chat")}${t.chat.length > seenChat && sheet !== "chat" ? '<i class="dot"></i>' : ""}`, "chat", "round-btn", 'aria-label="Discussion"')}</span>
+  </div>`;
+}
 function gameView() {
   const t = state.table,
     g = t.game,
     me = Math.max(0, t.seats.findIndex((s) => s?.id === state.player.id));
   const myBid = g.phase === "bidding" && g.turn === me;
   const eq = state.player.progress.equipped;
-  const mine = t.money?.seats.find((x) => x.seat === me);
-  return `<div class="screen game ${myBid ? "bidding-me" : ""} ${eq.back} ${t.vip ? "" : eq.felt}">
+  const vip = t.vip && !t.practice;
+  return `<div class="screen game ${vip ? "theme-vip" : "theme-club"} ${myBid ? "bidding-me" : ""} ${eq.back} ${vip ? "" : eq.felt}">
+    <div class="ambient" aria-hidden="true"><i class="lamp l1"></i><i class="lamp l2"></i><i class="leaf f1"></i><i class="leaf f2"></i></div>
     ${topBar(g, t, me)}
     <main class="arena">
       <div class="felt"></div>
-      ${t.money ? `<div class="stake-chip" title="Mise et crédits engagés">${coins(t.money.stake)}<small>engagé ${fmt(mine?.engaged ?? 0)}</small></div>` : ""}
-      ${[1, 2, 3, 0].map((r) => seatView(g, t, me, (me + r) % 4)).join("")}
+      ${[1, 2, 3].map((r) => seatView(g, t, me, (me + r) % 4)).join("")}
       <div class="center">${centerView(g, t, me)}</div>
-      ${myBid ? bidPanel(g, me) : floatingAction(g, me)}
+      ${g.tricks.length && g.phase === "playing" ? btn(`${icon("cards")} Dernier pli`, "lastTrick", "last-trick-btn") : ""}
+      ${myBid ? bidPanel(g, me, t) : floatingAction(g, me)}
+      ${seatBubble(g, me) || reactionBubble(t, t.seats[me]) ? `<div class="my-bubble">${seatBubble(g, me)}${reactionBubble(t, t.seats[me])}</div>` : ""}
     </main>
-    <footer class="dock">${handView(g, me)}</footer>
+    <footer class="dock">${handView(g, me, t)}</footer>
+    ${g.phase === "summary" ? dealResult(g, t, me) : g.phase === "finished" ? finalResult(g, t, me) : ""}
     ${sheetView(g, t, me)}
   </div>`;
 }
@@ -595,7 +830,8 @@ function render() {
   }
   const t = state.table,
     g = t?.game;
-  document.body.className = `${g ? "in-game" : t ? "in-room" : "in-lobby"} ${t?.vip && !t.practice ? "night-vip" : "club-pop"} ${state.player.settings.animations ? "" : "calm"}`;
+  const vipTheme = (t?.vip && !t.practice) || (!t && ["vip", "vipCreate"].includes(page.name));
+  document.body.className = `${g ? "in-game" : t ? "in-room" : "in-lobby"} ${vipTheme ? "night-vip" : "club-pop"} ${state.player.settings.animations ? "" : "calm"}`;
   sound = state.player.settings.sounds;
   const dealKey = g ? t.gameId + ":" + g.deal : null;
   const trickKey = dealKey + ":" + (g?.tricks.length ?? 0);
@@ -622,11 +858,14 @@ function render() {
     focusForm = focus?.closest("form")?.id,
     focusName = focus?.name,
     fields = {};
-  document.querySelectorAll("#app form[id] input:not([type=hidden])").forEach((el) => (fields[el.closest("form").id + ":" + el.name] = el.value));
-  $("#app").innerHTML = g ? gameView() : t ? roomView() : lobby();
+  const key = (el) => el.closest("form").id + ":" + el.name + (el.type === "radio" ? ":" + el.value : "");
+  const box = (el) => el.type === "checkbox" || el.type === "radio";
+  document.querySelectorAll("#app form[id] input:not([type=hidden])").forEach((el) => (fields[key(el)] = box(el) ? el.checked : el.value));
+  $("#app").innerHTML = g ? gameView() : t ? roomView() : pageView();
+  if (state.player.avatar) localStorage.setItem("lastAvatar", state.player.avatar);
   document.querySelectorAll("#app form[id] input:not([type=hidden])").forEach((el) => {
-    const v = fields[el.closest("form").id + ":" + el.name];
-    if (v !== undefined) el.value = v;
+    const v = fields[key(el)];
+    if (v !== undefined) box(el) ? (el.checked = v) : (el.value = v);
   });
   if (focusForm && focusName) document.querySelector(`#app #${focusForm} [name="${focusName}"]`)?.focus();
   const log = $(".chat-log");
@@ -655,50 +894,6 @@ async function loadAuthConfig() {
     authConfig = await (await fetch("/api/auth/config")).json();
   } catch {}
 }
-function socialButtons() {
-  const b = (p, label, icon) =>
-    `<button type="button" class="social ${p}" data-action="oidc" data-provider="${p}" ${authConfig[p] ? "" : "disabled"}>${icon}<span>${label}</span>${authConfig[p] ? "" : "<small>bientôt</small>"}</button>`;
-  return `<div class="socials">${b("apple", "Continuer avec Apple", '<span class="s-icon"></span>')}${b("google", "Continuer avec Google", '<span class="s-icon g">G</span>')}</div><div class="or"><span>ou par e-mail</span></div>`;
-}
-function authModal(mode = "login") {
-  const tabs = `<div class="seg tabs">${btn("Connexion", "auth", mode === "login" ? "on" : "", 'data-mode="login"')}${btn("Inscription", "auth", mode === "register" ? "on" : "", 'data-mode="register"')}</div>`;
-  const forms = {
-    login: `${tabs}${socialButtons()}<form id="login-form" class="form"><label>Adresse e-mail<input name="email" type="email" autocomplete="email" required></label><label>Mot de passe<input name="password" type="password" autocomplete="current-password" required minlength="8"></label><button class="cta small wide">Se connecter</button></form>${btn("Mot de passe oublié ?", "auth", "link center", 'data-mode="forgot"')}`,
-    register: `${tabs}${socialButtons()}<form id="register-form" class="form"><label>Adresse e-mail<input name="email" type="email" autocomplete="email" required></label><label>Mot de passe <small>8 caractères minimum</small><input name="password" type="password" autocomplete="new-password" required minlength="8"></label><button class="cta small wide">Créer mon compte</button></form><p class="muted small center">Votre profil invité, vos statistiques et vos tables sont conservés.</p>`,
-    forgot: `<form id="forgot-form" class="form"><p class="muted">Indiquez votre adresse : nous vous envoyons un lien pour choisir un nouveau mot de passe.</p><label>Adresse e-mail<input name="email" type="email" autocomplete="email" required></label><button class="cta small wide">Envoyer le lien</button></form>${btn("← Retour", "auth", "link center", 'data-mode="login"')}`,
-    reset: `<form id="reset-form" class="form"><label>Nouveau mot de passe <small>8 caractères minimum</small><input name="password" type="password" autocomplete="new-password" required minlength="8"></label><button class="cta small wide">Enregistrer</button></form>`,
-  };
-  const titles = { login: "Bon retour parmi nous !", register: "Rejoignez la Maison", forgot: "Mot de passe oublié", reset: "Nouveau mot de passe" };
-  modal(`<div class="auth"><div class="auth-art">${["lea", "renard", "papi"].map((a) => avatar(a)).join("")}</div><h2>${titles[mode]}</h2><p class="muted center small">Un seul compte pour le site, l’App Store et Google Play.</p>${forms[mode]}</div>`, "auth-modal");
-}
-function avatarGrid(current) {
-  return `<div class="avatar-grid">${AVATARS.map((a) => `<button type="button" class="av-pick ${a === current ? "on" : ""}" data-action="setAvatar" data-avatar="${a}" aria-label="Avatar ${a}">${avatar(a)}</button>`).join("")}
-  <label class="av-pick upload ${String(current).startsWith("u:") ? "on" : ""}" aria-label="Importer une photo"><input type="file" accept="image/*" id="photo-input" hidden><span>📷<small>Photo</small></span></label></div>`;
-}
-function profileModal() {
-  const p = state.player,
-    a = p.account;
-  const account = a
-    ? `<div class="account-box"><div class="ab-row"><span>📧 ${e(a.email ?? "Compte " + a.providers.join(" / "))}</span>${a.verified ? '<span class="ok">✓ vérifiée</span>' : btn("Renvoyer le lien", "resend", "chip-btn")}</div>
-       ${a.providers.length ? `<p class="muted small">Connecté avec ${a.providers.map((x) => (x === "apple" ? "Apple" : "Google")).join(" et ")}</p>` : ""}
-       ${a.hasPassword ? `<details><summary>Changer de mot de passe</summary><form id="password-form" class="form"><label>Actuel<input name="current" type="password" autocomplete="current-password" required></label><label>Nouveau<input name="password" type="password" minlength="8" autocomplete="new-password" required></label><button class="pill small">Enregistrer</button></form></details>` : ""}
-       <div class="ab-actions">${btn("Se déconnecter", "logout", "chip-btn ghost")}${btn("Supprimer mon compte", "deleteAccount", "chip-btn danger")}</div></div>`
-    : `<div class="account-box guest"><b>Profil invité</b><p class="muted small">Lié à ce navigateur. Créez un compte pour le retrouver sur le site et dans l’application.</p><div class="row">${btn("Créer un compte", "auth", "pill small", 'data-mode="register"')}${btn("J’ai déjà un compte", "auth", "link", 'data-mode="login"')}</div></div>`;
-  modal(
-    `<div class="profile">
-      <div class="profile-head">${avatar(p.avatar, "xxl")}<div><h2>${e(p.name)}</h2><p class="muted">${p.stats.games} parties · ${p.stats.wins} victoires</p></div></div>
-      <form id="profile-form" class="form inline"><label>Pseudo<input name="name" maxlength="24" minlength="2" required value="${e(p.name)}" autocomplete="nickname"></label><button class="pill small">OK</button></form>
-      <h3>Votre avatar</h3>${avatarGrid(p.avatar)}
-      ${account}
-      <div class="profile-foot">${btn(sound ? "🔊 Sons activés" : "🔇 Sons coupés", "sound", "chip-btn ghost")}${p.history.length ? `<span class="muted small">Dernière partie : ${p.history[0].won ? "victoire" : "défaite"} ${p.history[0].scores.join(" / ")}</span>` : ""}</div>
-    </div>`,
-    "profile-modal",
-  );
-}
-function avatarStep() {
-  modal(`<div class="profile"><h2>Choisissez votre avatar</h2><p class="muted">Vous pourrez le changer à tout moment depuis votre profil.</p>${avatarGrid(state.player.avatar)}${btn("C’est parti !", "close", "cta small wide")}${state.player.account && !state.player.account.verified ? '<p class="muted small center">📧 Un lien de confirmation vous a été envoyé par e-mail.</p>' : ""}</div>`, "profile-modal");
-}
-// Recadrage : glisser pour cadrer, curseur pour zoomer, aperçu rond en direct.
 function openCropper(file) {
   const url = URL.createObjectURL(file);
   const img = new Image();
@@ -869,7 +1064,7 @@ function fundsModal(stake) {
 function needFunds(stake) {
   if (!stake) return false;
   if (!state.player.account) {
-    authModal("register");
+    go("register");
     toast("Créez un compte pour jouer avec des crédits");
     return true;
   }
@@ -980,12 +1175,14 @@ function createModal(r = DEFAULT_RULES, editing = false) {
 }
 function joinModal(prefill = {}) {
   modal(
-    `<div class="modal-head"><span class="modal-icon">🔑</span><h2>Rejoindre une table privée</h2></div>
-    <form id="invite-form" class="form"><label>Identifiant de la table<input name="tableId" value="${e(prefill.tableId)}" required></label><label>Code d’invitation<input name="invite" value="${e(prefill.invite)}" required></label><label>Mot de passe <small>si demandé</small><input name="password" type="password" maxlength="128"></label><button class="cta small wide">Voir les règles</button></form>`,
+    `<h2>Rejoindre avec un code</h2><p class="lead">Saisissez le code donné par l’hôte, par exemple VIP-482.</p>
+    <form id="invite-form" class="stack">
+      ${prefill.tableId ? `<input type="hidden" name="tableId" value="${e(prefill.tableId)}"><input type="hidden" name="invite" value="${e(prefill.invite)}">` : field("link", "code", "text", "Code d’invitation", `value="${e(prefill.code ?? "")}" required autocapitalize="characters"`)}
+      ${field("lock", "password", "password", "Mot de passe (si demandé)", 'maxlength="128"')}
+      <button class="gold-btn wide">Voir les règles</button></form>`,
     "sheet-modal",
   );
 }
-
 // ———————————————————————————————————————————————————————————— interactions
 document.addEventListener("click", async (ev) => {
   const el = ev.target.closest("[data-action]");
@@ -1019,16 +1216,114 @@ document.addEventListener("click", async (ev) => {
       cmd("settings", { sounds: sound });
       tone([523, 784]);
       render();
-      if ($("#modal").open && $(".profile")) profileModal();
+
       break;
     case "auth":
-      authModal(el.dataset.mode ?? "login");
+      go(el.dataset.mode === "register" ? "register" : "login");
+      break;
+    case "go":
+      if (el.dataset.page === "home" || el.dataset.page === "tables" || el.dataset.page === "profile") pageStack = [];
+      go(el.dataset.page, el.dataset.tab ? { tab: el.dataset.tab } : {});
+      break;
+    case "back":
+      if (state.table) cmd("leave");
+      else back();
+      break;
+    case "discover":
+      localStorage.setItem("welcomed", "1");
+      go("home");
+      break;
+    case "peek": {
+      const input = el.parentElement.querySelector("input");
+      input.type = input.type === "password" ? "text" : "password";
+      break;
+    }
+    case "checkVerified": {
+      const me = await (await fetch("/api/session", { method: "POST" })).json();
+      if (me.account?.verified) {
+        toast("Adresse confirmée, merci !");
+        go("home");
+      } else toast("Pas encore confirmé : ouvrez le lien reçu par e-mail.");
+      break;
+    }
+    case "changeEmail":
+      toast("Déconnectez-vous puis créez un compte avec la bonne adresse.");
+      go("settings");
+      break;
+    case "editName":
+      modal(`<h2>Modifier mon pseudo</h2><form id="profile-form" class="stack">${field("user", "name", "text", "Pseudo", `minlength="2" maxlength="24" required value="${e(state.player.name)}"`)}<button class="gold-btn wide">Enregistrer</button></form>`, "sheet-modal");
+      break;
+    case "avatarTab":
+    case "historyTab":
+      page = { ...page, params: { ...page.params, tab: el.dataset.tab } };
+      render();
+      break;
+    case "pickAvatar":
+      page = { ...page, params: { ...page.params, pick: el.dataset.avatar } };
+      render();
+      break;
+    case "useAvatar":
+      cmd("profile", { avatar: el.dataset.avatar });
+      toast("Avatar enregistré");
+      if (page.params.onboarding) go(state.player.account && !state.player.account.verified ? "verify" : "home");
+      else back();
+      break;
+    case "afterAvatar":
+      go(state.player.account && !state.player.account.verified ? "verify" : "home");
+      break;
+    case "createPublic":
+      createModal();
+      setTimeout(() => document.querySelector('#create-form input[name="vip"][value="false"]')?.click(), 0);
+      break;
+    case "enterTable":
+      cmd("enter", { tableId: el.dataset.id });
+      break;
+    case "copyCode":
+      try {
+        await navigator.clipboard.writeText(t.code);
+        toast(`Code ${t.code} copié !`);
+      } catch {
+        toast(t.code);
+      }
+      break;
+    case "shareInvite": {
+      const link = location.origin + "/#" + encodeURIComponent(JSON.stringify({ code: t.code }));
+      try {
+        if (navigator.share) await navigator.share({ title: t.name, text: `Rejoins ma table de contrée ! Code ${t.code}`, url: link });
+        else {
+          await navigator.clipboard.writeText(link);
+          toast("Lien d’invitation copié !");
+        }
+      } catch {}
+      break;
+    }
+    case "roomMenu":
+      modal(`<h2>${e(t.name)}</h2><div class="menu-card">${menuLink("doc", "Règles de la table", "rulesInfo")}${t.owner === state.player.id && !t.quick ? menuLink("pen", "Modifier les règles", "editRules") : ""}${menuLink("users", "Inviter un ami", "friends")}${menuLink("logout", "Quitter la table", "leave")}${t.vip && t.host === state.player.id && t.seats.filter((s) => s && !s.bot).length <= 1 ? menuLink("trash", "Fermer définitivement la table", "closeTable", `data-id="${t.id}"`) : ""}</div>`, "sheet-modal");
+      break;
+    case "closeTable":
+      cmd("closeTable", { tableId: el.dataset.id });
+      closeModal();
+      break;
+    case "teams":
+      modal(`<h2>Choisir les équipes</h2><p class="lead">Places 1 et 3 contre 2 et 4. Déplacer un joueur vers une place occupée échange les deux places.</p>${t.seats.map((s, i) => `<label class="lbl">Place ${i + 1} · ${e(s?.name ?? "libre")}<select data-move="${i}">${[0, 1, 2, 3].map((j) => `<option value="${j}" ${j === i ? "selected" : ""}>Place ${j + 1} · équipe ${(j % 2) + 1}</option>`).join("")}</select></label>`).join("")}`, "sheet-modal");
+      break;
+    case "help":
+      modal(`<h2>Aide & contact</h2><div class="text-card"><p><b>Une question sur les règles ?</b> Consultez « Règles de la table ».</p><p><b>Un problème avec un joueur ?</b> Touchez son avatar pendant la partie puis « Signaler ».</p><p><b>Un souci technique ?</b> Écrivez-nous ici : la modération reçoit votre message avec le contexte de votre table.</p></div>${btn("Signaler un problème", "report", "gold-btn wide")}`, "sheet-modal");
+      break;
+    case "changePassword":
+      modal(`<h2>Modifier mon mot de passe</h2><form id="password-form" class="stack">${field("lock", "current", "password", "Mot de passe actuel", 'autocomplete="current-password" required')}${field("lock", "password", "password", "Nouveau mot de passe", 'minlength="8" autocomplete="new-password" required')}<button class="gold-btn wide">Enregistrer</button></form>`, "sheet-modal");
+      break;
+    case "pickSuit":
+      bidSuit = el.dataset.suit;
+      el.form.suit.value = bidSuit;
+      el.form.querySelectorAll(".suit-btn").forEach((b) => b.classList.toggle("on", b === el));
+      el.form.querySelector('button[name="go"]').disabled = false;
       break;
     case "oidc":
       oidc(el.dataset.provider);
       break;
     case "profile":
-      profileModal();
+      go("profile");
       break;
     case "setAvatar":
       cmd("profile", { avatar: el.dataset.avatar });
@@ -1305,7 +1600,8 @@ document.addEventListener("click", async (ev) => {
   }
 });
 document.addEventListener("change", (ev) => {
-  if (ev.target.id === "photo-input" && ev.target.files[0]) openCropper(ev.target.files[0]);
+  if (/^photo-input/.test(ev.target.id) && ev.target.files[0]) openCropper(ev.target.files[0]);
+  if (ev.target.dataset?.local) localStorage.setItem(ev.target.dataset.local, ev.target.checked ? "on" : "off");
   const k = ev.target.dataset?.setting;
   if (k) cmd("settings", { [k]: ev.target.type === "checkbox" ? ev.target.checked : ev.target.value });
 });
@@ -1349,7 +1645,9 @@ document.addEventListener("submit", async (ev) => {
   try {
     switch (f.id) {
       case "bid-form":
+        if (!d.suit) return toast("Choisissez d’abord une couleur d’atout");
         cmd("action", { version: state.table.game.version, action: { type: "bid", amount: Number(d.amount), suit: d.suit } });
+        bidSuit = null;
         return;
       case "chat-form":
         cmd("chat", { text: d.text });
@@ -1362,7 +1660,7 @@ document.addEventListener("submit", async (ev) => {
         for (const k of ["scoring", "allPass"]) r[k] = d[k];
         for (const k of ["flyingCounter", "beloteRetained", "beloteCountsContract"]) r[k] = d[k] === "on";
         if (f.id === "create-form" && needFunds(Number(d.stake))) return;
-        cmd(f.id === "create-form" ? "create" : "rules", { name: d.name, password: d.password || undefined, vip: d.vip === "true", rules: r, stake: Number(d.stake ?? 0) });
+        cmd(f.id === "create-form" ? "create" : "rules", { name: d.name, password: d.password || undefined, vip: d.vip === "true", rules: r, stake: Number(d.stake ?? 0), fillBots: d.fillBots === "on" });
         break;
       }
       case "search-form": {
@@ -1399,20 +1697,26 @@ document.addEventListener("submit", async (ev) => {
         return;
       case "login-form":
         await api("/api/auth/login", d);
-        toast("Bon retour à la Maison !");
+        localStorage.setItem("welcomed", "1");
+        toast("Heureux de vous revoir !");
+        go("home");
         break;
       case "register-form":
         await api("/api/auth/register", d);
-        avatarStep();
+        localStorage.setItem("welcomed", "1");
+        pendingName = d.name;
+        go("avatar", { onboarding: true });
         return;
       case "forgot-form":
         await api("/api/auth/forgot", d);
-        toast("Si un compte existe, un e-mail vient de partir.");
+        page = { ...page, params: { sent: true } };
+        render();
         break;
       case "reset-form":
         await api("/api/auth/reset", { ...d, token: resetToken });
         history.replaceState(null, "", "/");
         toast("Mot de passe modifié, vous êtes connecté");
+        go("home");
         break;
       case "password-form":
         await api("/api/auth/password", d);
@@ -1436,7 +1740,7 @@ function handleHash() {
   if (h === "#verify-failed") toast("Ce lien de confirmation n’est plus valable.");
   if (h.startsWith("#reset=")) {
     resetToken = h.slice(7);
-    authModal("reset");
+    page = { name: "reset", params: {} };
   }
   if (["#verified", "#verify-failed"].includes(h)) history.replaceState(null, "", "/");
 }
@@ -1466,6 +1770,10 @@ async function connect() {
         delete pendingAcks[msg.id];
       }
       if (msg.type === "state") {
+        if (pendingName && state.player.account) {
+          cmd("profile", { name: pendingName });
+          pendingName = null;
+        }
         if (state.player.invites.length > seenInvites) {
           toast(`📨 ${state.player.invites.at(-1).from} vous invite à « ${state.player.invites.at(-1).table} »`);
           tone([660, 990], 0.08, 0.05);

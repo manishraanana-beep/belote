@@ -76,8 +76,8 @@ function rules(input = {}) {
 }
 // Avatars illustrés (public/avatars/<id>.svg) ; les robots ont leurs propres mascottes.
 export const AVATARS = [
-  "renard", "chat", "hibou", "panda", "ours", "lapin", "grenouille", "chien",
-  "lea", "hugo", "nadia", "karim", "mamie", "papi", "lou", "sacha",
+  "jacques", "sophie", "camille", "emma", "malik", "henri", "leo",
+  "chat", "chien", "renard", "hibou", "panda",
 ];
 export const BOT_AVATARS = ["robot-bleu", "robot-corail", "robot-menthe", "robot-soleil"];
 const BOT_NAMES = ["Léon", "Margot", "Basile", "Rosalie", "Gaston", "Suzon", "Firmin", "Odette"];
@@ -197,6 +197,14 @@ export function createApp({
     writeFileSync(file + ".tmp", JSON.stringify(db), { mode: 0o600 });
     renameSync(file + ".tmp", file);
   }
+  // Code d'invitation court et lisible (ex. VIP-482), unique parmi les tables ouvertes.
+  function shortCode() {
+    for (let digits = 3; ; digits++)
+      for (let i = 0; i < 20; i++) {
+        const c = "VIP-" + String(randomBytes(4).readUInt32BE() % 10 ** digits).padStart(digits, "0");
+        if (!Object.values(db.tables).some((t) => t.code === c)) return c;
+      }
+  }
   function table(name, owner, vip = false, r = {}, stake = 0) {
     const t = {
       stake,
@@ -216,6 +224,8 @@ export function createApp({
       quick: false,
       fillAt: null,
       invite: vip ? id() : null,
+      code: vip ? shortCode() : null,
+      host: owner,
       password: null,
       revision: 0,
       deadline: null,
@@ -248,6 +258,7 @@ export function createApp({
       fillAt: t.fillAt,
       stake: t.stake ?? 0,
       practice: !!t.practice,
+      fillBots: !!t.fillBots,
       humans: t.seats.filter((s) => s && !s.bot).length,
     };
   }
@@ -281,6 +292,9 @@ export function createApp({
           ? t.pending.map((p) => ({ id: p, name: db.players[p]?.name }))
           : [],
       invite: pid === t.owner ? t.invite : undefined,
+      code: t.seats.some((s) => s?.id === pid) ? t.code : undefined,
+      vip: t.vip,
+      host: t.host,
       game: t.game ? view(t.game, seat >= 0 ? seat : null) : null,
       // Crédits engagés (ou, avant lancement, ce qui serait engagé) pour chaque place.
       money: t.money
@@ -309,6 +323,9 @@ export function createApp({
       account: accounts.view(p),
       tag: p.tag,
       lastResult: p.lastResult ?? null,
+      myTables: Object.values(db.tables)
+        .filter((t) => t.vip && !t.practice && t.host === p.id)
+        .map((t) => ({ id: t.id, name: t.name, code: t.code, stake: t.stake ?? 0, players: t.seats.filter(Boolean).length, avatars: t.seats.filter(Boolean).map((s) => s.avatar), playing: !!t.game && t.game.phase !== "finished" })),
       wallet: economy.view(p),
       progress: progression.view(p),
       settings: p.settings,
@@ -509,11 +526,18 @@ export function createApp({
       if (playing && t.money && !t.money.settled) integrity.leave(p.id, t.gameId);
     }
     if (t.rematch) delete t.rematch.votes[p.id];
-    if (t.owner === p.id) t.owner = t.seats.find((s) => s && !s.bot)?.id ?? null;
+    if (t.owner === p.id) t.owner = t.seats.find((s) => s && !s.bot)?.id ?? (t.vip && !t.practice && t.host === p.id ? p.id : null);
     if (!t.seats.some((s) => s && !s.bot) && !(playing && t.money && !t.money.settled)) {
       // Plus aucun humain : on ne fait pas jouer quatre robots dans le vide
       // (sauf partie avec crédits engagés, menée à son terme pour un règlement valide).
-      if (t.vip || t.quick) delete db.tables[t.id];
+      if (t.vip && !t.practice && t.host) {
+        // Table privée conservée pour son hôte (« Mes tables privées ») ; elle se vide simplement.
+        t.seats = t.seats.map(() => null);
+        if (!(playing && t.money && !t.money.settled)) t.game = null;
+        t.owner = t.host;
+        t.idleSince = Date.now();
+        update(t);
+      } else if (t.vip || t.quick) delete db.tables[t.id];
       else {
         t.seats = [null, null, null, null];
         t.game = null;
@@ -531,7 +555,8 @@ export function createApp({
     check(target, "Table introuvable");
     if (target.vip) {
       check(
-        typeof d.invite === "string" && d.invite === target.invite,
+        (typeof d.invite === "string" && d.invite === target.invite) ||
+          (typeof d.code === "string" && d.code.toUpperCase() === target.code),
         "Invitation invalide",
       );
       if (target.password)
@@ -631,6 +656,7 @@ export function createApp({
           const stake = stakeOf(d.stake);
           canStake(p, stake);
           changed = table(clean(d.name) || "Table privée", pid, !!d.vip, d.rules, stake);
+          changed.fillBots = !!d.fillBots && !stake;
         }
         changed.seats[0] = { id: pid, name: p.name, avatar: p.avatar };
         p.tableId = changed.id;
@@ -644,12 +670,35 @@ export function createApp({
         }
         break;
       case "inspectInvite": {
-        const target = db.tables[d.tableId];
+        // Par lien (identifiant + jeton) ou par code court.
+        const code = typeof d.code === "string" ? d.code.trim().toUpperCase().replace(/^(\d)/, "VIP-$1") : null;
+        const target = code ? Object.values(db.tables).find((x) => x.code === code) : db.tables[d.tableId];
+        if (code) check(target, "Code inconnu");
         validateInvite(target, d);
-        return { invitation: publicTable(target) };
+        return { invitation: { ...publicTable(target), tableId: target.id, owner: db.players[target.host]?.name ?? null } };
+      }
+      case "enter": {
+        // L'hôte rouvre une de ses tables privées.
+        const target = db.tables[d.tableId];
+        check(target?.vip && target.host === pid, "Table introuvable");
+        if (t && t !== target) leave(p);
+        if (!target.seats.some((s) => s?.id === pid)) seatPlayer(target, p);
+        target.owner = pid;
+        delete target.idleSince;
+        changed = target;
+        break;
+      }
+      case "closeTable": {
+        const target = db.tables[d.tableId];
+        check(target?.vip && target.host === pid, "Table introuvable");
+        check(!target.seats.some((s) => s && s.id !== pid && !s.bot) && (!target.game || target.game.phase === "finished"), "Des joueurs sont encore à cette table");
+        if (p.tableId === target.id) p.tableId = null;
+        delete db.tables[target.id];
+        break;
       }
       case "join": {
         check(!db.settings.maintenance, "Entrées temporairement fermées");
+        if (d.code && !d.tableId) d.tableId = Object.values(db.tables).find((x) => x.code === String(d.code).toUpperCase())?.id;
         const target = db.tables[d.tableId];
         check(target, "Table introuvable");
         check(
@@ -782,7 +831,11 @@ export function createApp({
           if (guest && !guest.bot) db.players[guest.id].tableId = null;
           t.seats[d.seat] = null;
         }
-        if (msg.type === "start") start(t);
+        if (msg.type === "start") {
+          // Option « Compléter avec des robots » (parties gratuites uniquement).
+          if (t.fillBots && !t.stake) for (let i = 0; i < 4; i++) if (!t.seats[i]) t.seats[i] = makeBot(i);
+          start(t);
+        }
         if (msg.type === "rematch") voteRematch(t, pid, true);
         changed = t;
         break;
@@ -1426,7 +1479,8 @@ export function createApp({
     const cardFile =
       /^cards\/(?:[789]|10|[JQKA])[SHCD]\.svg$/.test(rel) ||
       /^avatars\/[a-z-]+\.svg$/.test(rel) && [...AVATARS, ...BOT_AVATARS].includes(rel.slice(8, -4)) ||
-      /^fonts\/[a-z0-9-]+\.woff2$/.test(rel) && existsSync(path.join(root, "public", rel));
+      /^fonts\/[a-z0-9-]+\.woff2$/.test(rel) && existsSync(path.join(root, "public", rel)) ||
+      /^decor\/[a-z0-9-]+\.svg$/.test(rel);
     if ((!allowed.includes(rel) && !cardFile) || !existsSync(path.join(root, "public", rel))) {
       res.writeHead(404);
       return res.end("Introuvable");
@@ -1507,6 +1561,10 @@ export function createApp({
     let dirty = false;
     const now = Date.now();
     for (const t of Object.values(db.tables)) {
+      if (t.idleSince && now - t.idleSince > 14 * 86400_000 && !t.seats.some(Boolean)) {
+        delete db.tables[t.id];
+        continue;
+      }
       if (t.quick && (!t.game || t.game.phase === "finished") && t.fillAt && now >= t.fillAt) {
         for (let i = 0; i < 4; i++) if (!t.seats[i]) t.seats[i] = makeBot(i);
         t.fillAt = null;
