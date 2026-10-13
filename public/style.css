@@ -1132,3 +1132,64 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .dock { flex-direction: column; }
 }
 .bidding-me .seat.p1 .robot-tag, .bidding-me .seat.p3 .robot-tag, .bidding-me .seat.p1 .seat-timer, .bidding-me .seat.p3 .seat-timer { display: none; }
+/* Logo Belote Prestige : emblème (trois cartes) + nom doré */
+.logo .emblem { width: 3.1em; height: auto; margin-bottom: -0.2em; font-size: clamp(12px, 3.2vw, 16px); filter: drop-shadow(0 2px 3px #0008); }
+.logo .orn { font-family: var(--logo); letter-spacing: 0.35em; font-size: 0.32em; }
+.logo b + .orn { font-size: clamp(8px, 2.2vw, 12px); }
+.page-welcome .logo .emblem { font-size: 22px; }
+.page-welcome .logo b + .orn { font-size: 15px; }
+.gt-logo .logo .emblem { font-size: 9px; }
+.gt-logo .logo b + .orn { font-size: 7.5px; letter-spacing: 0.3em; }
+/* Décor du salon (ressource séparée) derrière la table */
+.screen.game { background: radial-gradient(ellipse at 50% 60%, transparent 30%, #0006 100%), url(/decor/salon.svg) center / cover no-repeat, #0b1c1a; }
+.screen.game.theme-vip { background: radial-gradient(ellipse at 50% 60%, transparent 30%, #0007 100%), url(/decor/salon.svg) center / cover no-repeat, #140830; background-blend-mode: normal, luminosity, normal; }
+.screen.game > .ambient .leaf { display: none; }
+.taker-badge { display: inline-flex; align-items: center; gap: 3px; margin-top: 2px; padding: 1px 10px; border-radius: 999px; background: linear-gradient(180deg, var(--gold-1), var(--gold)); color: var(--gold-ink); font-family: var(--ui); font-weight: 700; font-size: 13px; box-shadow: 0 3px 8px #0006; white-space: nowrap; }
+.taker-badge .suit { color: #111; } .taker-badge .suit.red { color: var(--red-suit); }
+.taker-badge em { font-style: normal; padding: 0 6px; border-radius: 999px; background: var(--danger); color: #fff; font-size: 11px; }
+.counter-fly { align-self: center; min-height: 40px; padding: 6px 20px; border-radius: 12px; font-family: var(--title); font-size: 16px; animation: pop 0.35s cubic-bezier(0.2, 1.6, 0.4, 1); }
+@media (max-width: 380px) {
+  .auction-strip { display: grid; gap: 3px; }
+  .a-chip small { font-size: 9.5px; }
+  .a-chip b { font-size: 13px; }
+  .last-bid-pill { font-size: 12px; padding: 3px 10px; }
+  .bid-zone { width: 76vw; top: calc(var(--av) * 0.55 + 22px); }
+}
+.bid-zone.watching { width: min(54vw, 380px); }
+.bid-zone.watching .a-chip small { font-size: 10px; }
+@media (max-width: 380px) {
+  .bid-zone.watching { width: 58vw; }
+  .turn-pill { font-size: 13px; padding: 4px 10px; }
+  .turn-pill::before, .turn-pill::after { display: none; }
+  .me-seat b { max-width: 22vw; font-size: 11px; padding: 1px 8px; }
+  .gold-round { width: 44px; height: 44px; }
+}
+@media (max-width: 380px) {
+  .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: 2%; }
+  .screen.game:has(.bid-zone.watching) .seat .robot-tag, .screen.game:has(.bid-zone.watching) .seat-timer { display: none; }
+}
+/* Ordinateur : on agrandit l'interface autour du tapis */
+@media (min-width: 900px) and (min-height: 600px) {
+  .screen.game { --av: clamp(64px, 9.5vh, 92px); --cw: clamp(84px, 12.5vh, 118px); --tc: clamp(70px, 10vh, 96px); }
+  .gt-logo .logo .emblem { font-size: 12px; }
+  .gt-logo .logo b { font-size: 34px; }
+  .gt-logo .logo b + .orn { font-size: 11px; }
+  .gt-chip { font-size: 17px; padding: 8px 18px; }
+  .square-btn { width: 52px; height: 52px; }
+  .scoreboard > div { min-width: 150px; }
+  .scoreboard small { font-size: 14px; } .scoreboard b { font-size: 28px; }
+  .bid-zone { width: 440px; top: calc(var(--av) + 30px); }
+  .bid-zone.watching { width: 440px; }
+  .a-chip small { font-size: 13px; } .a-chip b { font-size: 19px; }
+  .last-bid-pill { font-size: 16px; }
+  .turn-pill { font-size: 18px; }
+  .me-seat b { font-size: 15px; }
+  .name-pill b { font-size: 16px; }
+}
+.bid-zone .bid-panel { flex: none; }
+.bid-zone { transform-origin: 50% 0; bottom: auto; }
+@media (min-width: 900px) and (max-height: 720px) {
+  .screen.game { --av: 58px; --cw: 82px; }
+  .scoreboard b { font-size: 22px; } .scoreboard small { font-size: 12px; }
+  .gt-logo .logo b { font-size: 26px; }
+}

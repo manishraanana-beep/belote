@@ -111,7 +111,7 @@ for (const [name, viewport, mobile] of [
     await expect(banner).toBeVisible({ timeout: 15000 });
     await expect(banner).toContainText("a pris");
     await expect(banner).toContainText(/Votre équipe|Équipe adverse/);
-    await expect(page.locator(".contract-pill")).not.toHaveClass(/pending/);
+    await expect(page.locator(".taker-badge")).toHaveCount(1);
     await page.screenshot({ path: `${shots}${name}-2-preneur.png` });
     await noScroll(page);
     await expect.poll(async () => (await game(page)).phase, { timeout: 15000 }).toBe("playing");

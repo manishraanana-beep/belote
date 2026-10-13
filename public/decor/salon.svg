@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice">
+  <!-- Salon de jeu : boiseries, lampes chaudes, plantes et fauteuils, volontairement flous (arrière-plan) -->
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2114"/><stop offset=".35" stop-color="#1a2a24"/><stop offset="1" stop-color="#0b1c1a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#ffd27a" stop-opacity=".9"/><stop offset=".35" stop-color="#ffb54a" stop-opacity=".35"/><stop offset="1" stop-color="#ff9a2a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff2c8"/><stop offset="1" stop-color="#f0b456"/>
+    </linearGradient>
+    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8a5a1a"/><stop offset=".5" stop-color="#f3c66a"/><stop offset="1" stop-color="#8a5a1a"/>
+    </linearGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="3"/></filter>
+    <filter id="blur"><feGaussianBlur stdDeviation="7"/></filter>
+  </defs>
+  <rect width="400" height="800" fill="url(#wall)"/>
+  <!-- boiseries -->
+  <g opacity=".35" filter="url(#soft)">
+    <rect x="0" y="120" width="400" height="6" fill="#6a4a22"/>
+    <rect x="20" y="140" width="70" height="170" rx="4" fill="none" stroke="#5a3e1c" stroke-width="3"/>
+    <rect x="310" y="140" width="70" height="170" rx="4" fill="none" stroke="#5a3e1c" stroke-width="3"/>
+    <rect x="165" y="20" width="70" height="90" rx="4" fill="none" stroke="#5a3e1c" stroke-width="3"/>
+  </g>
+  <!-- halos et bokeh -->
+  <g filter="url(#blur)">
+    <circle cx="40" cy="150" r="90" fill="url(#glow)"/>
+    <circle cx="370" cy="230" r="90" fill="url(#glow)"/>
+    <circle cx="200" cy="40" r="60" fill="url(#glow)" opacity=".6"/>
+    <circle cx="120" cy="60" r="10" fill="#ffd27a" opacity=".5"/>
+    <circle cx="290" cy="80" r="8" fill="#ffd27a" opacity=".5"/>
+    <circle cx="250" cy="30" r="6" fill="#ffd27a" opacity=".6"/>
+  </g>
+  <!-- lampe gauche -->
+  <g filter="url(#soft)">
+    <path d="M10 120 h70 l-12 -60 h-46 z" fill="url(#shade)"/>
+    <rect x="42" y="120" width="6" height="110" fill="url(#brass)"/>
+    <ellipse cx="45" cy="232" rx="26" ry="7" fill="url(#brass)"/>
+  </g>
+  <!-- lampe droite -->
+  <g filter="url(#soft)">
+    <path d="M322 200 h70 l-12 -60 h-46 z" fill="url(#shade)"/>
+    <rect x="354" y="200" width="6" height="110" fill="url(#brass)"/>
+    <ellipse cx="357" cy="312" rx="26" ry="7" fill="url(#brass)"/>
+  </g>
+  <!-- plantes -->
+  <g fill="#1f5a3a" opacity=".75" filter="url(#soft)">
+    <path d="M0 330 q60 -40 70 -110 q-40 50 -70 60z"/><path d="M0 380 q80 -20 100 -80 q-60 40 -100 40z"/>
+    <path d="M400 360 q-60 -40 -70 -110 q40 50 70 60z"/><path d="M400 420 q-80 -20 -100 -80 q60 40 100 40z"/>
+  </g>
+  <!-- fauteuils -->
+  <g fill="#0e3b3a" opacity=".85" filter="url(#blur)">
+    <rect x="-30" y="690" width="140" height="130" rx="40"/>
+    <rect x="290" y="690" width="140" height="130" rx="40"/>
+  </g>
+  <rect width="400" height="800" fill="#000" opacity=".18"/>
+</svg>
