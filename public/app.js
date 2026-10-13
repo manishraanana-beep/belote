@@ -2043,6 +2043,7 @@ async function adminRequest(data) {
     const open = d.reports.filter((r) => !r.resolved);
     const alerts = d.alerts.filter((x) => !x.reviewed);
     $("#admin-result").innerHTML = `
+      ${d.storage?.ephemeral ? '<p class="warn">⚠️ Données temporaires : aucun volume n’est attaché au service Railway. Comptes, crédits et parties sont effacés à chaque déploiement. Ajoutez un volume (Railway › service › Settings › Volumes, point de montage /data).</p>' : ""}
       <div class="admin-stats"><div><b>${d.players.length}</b><small>joueurs</small></div><div><b>${d.tables.length}</b><small>tables</small></div><div><b>${open.length}</b><small>signalements</small></div><div><b>${alerts.length}</b><small>alertes</small></div></div>
       <p class="muted small">Crédits en circulation : ${fmt(d.economy.circulating)} · engagés : ${fmt(d.economy.reserved)} · achats ${d.economy.purchases ? "ouverts" : "fermés"} (web ${d.economy.stripe ? "✓" : "—"}, iOS ${d.economy.apple ? "✓" : "—"}, Android ${d.economy.google ? "✓" : "—"})</p>
       ${btn(d.settings.maintenance ? "Rouvrir les entrées" : "Suspendre les nouvelles entrées", "maintenance", "chip-btn", `data-enabled="${!d.settings.maintenance}"`)}

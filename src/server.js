@@ -103,7 +103,9 @@ const validAvatar = (v, p) =>
 const hashPassword = (password, salt) =>
   scryptSync(password, salt, 32).toString("hex");
 export function createApp({
-  dataDir = process.env.BELOTE_DATA_DIR || path.join(root, ".data"),
+  // Railway : un volume attaché est monté sur RAILWAY_VOLUME_MOUNT_PATH ; sans volume, le disque
+  // est effacé à chaque déploiement (comptes, crédits et parties perdus).
+  dataDir = process.env.BELOTE_DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(root, ".data"),
   tickMs = 250,
   botDelay = 800,
   adminKey = process.env.BELOTE_ADMIN_KEY,
@@ -121,6 +123,10 @@ export function createApp({
     settings: { maintenance: false },
   };
   if (existsSync(file)) db = JSON.parse(readFileSync(file, "utf8"));
+  db.createdAt ??= Date.now();
+  const ephemeral = !!env.RAILWAY_ENVIRONMENT && !env.RAILWAY_VOLUME_MOUNT_PATH && !env.BELOTE_DATA_DIR;
+  if (ephemeral)
+    console.error("ATTENTION : aucun volume Railway attaché. Les comptes et les crédits seront effacés au prochain déploiement. Ajoutez un volume au service (Settings › Volumes).");
   const economy = createEconomy(db, economyConfig(env));
   const progression = createProgression({ db, economy, env });
   const integrity = createIntegrity(db, integrityConfig(env));
@@ -1328,6 +1334,8 @@ export function createApp({
           ok: true,
           version: process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) ?? "local",
           cards: "svg-cards",
+          storage: ephemeral ? "temporaire (aucun volume)" : "persistant",
+          dataSince: new Date(db.createdAt).toISOString(),
         }),
       );
     }
@@ -1610,6 +1618,7 @@ export function createApp({
           reports: db.reports,
           alerts: db.alerts.map((a) => ({ ...a, names: a.players.map((x) => db.players[x]?.name ?? x) })),
           settings: db.settings,
+          storage: { ephemeral, since: db.createdAt },
           tournaments: tournaments.adminList(),
           rewards: TOURNAMENT_REWARDS,
           push: { web: !!(pushCfg.vapidPublic && pushCfg.vapidPrivate), native: !!pushCfg.fcm },
