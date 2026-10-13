@@ -551,7 +551,13 @@ export function createApp({
     const url = new URL(req.url, "http://localhost");
     if (url.pathname === "/api/health") {
       res.setHeader("Content-Type", "application/json");
-      return res.end(JSON.stringify({ ok: true }));
+      return res.end(
+        JSON.stringify({
+          ok: true,
+          version: process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) ?? "local",
+          cards: "svg-cards",
+        }),
+      );
     }
     if (url.pathname === "/api/session" && req.method === "POST") {
       if (
@@ -669,7 +675,10 @@ export function createApp({
       return res.end("Introuvable");
     }
     res.setHeader("Content-Type", mime[path.extname(rel)]);
-    if (cardFile) res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader(
+      "Cache-Control",
+      cardFile ? "public, max-age=86400" : "no-cache",
+    );
     res.end(readFileSync(path.join(root, "public", rel)));
   });
   const wss = new WebSocketServer({ noServer: true, maxPayload: 8192 });
