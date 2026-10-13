@@ -182,6 +182,14 @@ test("mobile : lobby sans débordement, invitation privée et reconnexion naviga
     )
     .toBe(8);
   await expect(page.locator(".hand")).toHaveClass(/bidding-glow/);
+  await expect(page.locator("#rotate-hint")).toBeVisible();
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(page.locator("#rotate-hint")).toBeHidden();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollHeight <= innerHeight,
+    ),
+  ).toBe(true);
   await page.locator("#bid-form button").click();
   await expect(page.locator(".auction-log")).toContainText("80");
   await page.screenshot({
