@@ -88,7 +88,8 @@ test("tournoi : liste, fiche, solde insuffisant, inscription, présence, départ
   const rivalId = st.seats[(mySeat + 1) % 4].id;
   for (const p of others)
     if ((await p.evaluate(() => window.__beloteState.player.id)) === rivalId) {
-      await p.locator('[data-action="quitGame"]').click();
+      await p.locator('[data-action="menu"]').click();
+  await p.locator('.sheet [data-action="quitGame"]').click();
       await expect(p.locator("#modal")).toContainText("forfait");
       await p.locator('[data-action="confirmLeave"]').click();
     }

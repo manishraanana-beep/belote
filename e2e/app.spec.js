@@ -48,7 +48,7 @@ async function tap(el) {
       }
     return { x: r.width * 0.15, y: r.height * 0.45 };
   });
-  await el.click({ position: pos });
+  await el.click({ position: pos, timeout: 4000 });
 }
 async function playLegal(page) {
   const g = await game(page);
@@ -62,9 +62,9 @@ async function startPractice(page) {
   await expect(page.locator(".hand .hcard")).toHaveCount(8);
 }
 async function bid(page, suit, amount) {
-  if (amount) await page.locator(`.amount[data-amount="${amount}"]`).click();
-  await page.locator(`.suit-btn[data-suit="${suit}"]`).click();
-  await page.locator('#bid-form button[name="go"]').click();
+  if (amount) await page.locator(`.amount[data-amount="${amount}"]`).click({ timeout: 4000 });
+  await page.locator(`.suit-btn[data-suit="${suit}"]`).click({ timeout: 4000 });
+  await page.locator('#bid-form button[name="go"]').click({ timeout: 4000 });
 }
 async function createVip(page, name) {
   await page.goto("/");
@@ -102,7 +102,7 @@ for (const [name, viewport, mobile] of [
     await noScroll(page);
     await inView(page, ".hand .hcard");
     await inView(page, ".seat .seat-avatar");
-    await inView(page, ".score-pill");
+    await inView(page, ".scoreboard");
     await inView(page, ".bid-panel .amount, .bid-panel .suit-btn, .bid-panel .bid-actions button");
     await inView(page, ".status-row .turn-pill");
     await page.screenshot({ path: `${shots}${name}-1-encheres.png` });
@@ -132,7 +132,7 @@ for (const [name, viewport, mobile] of [
     await page.mouse.click(8, Math.round(viewport.height / 2));
     await expect(page.locator(".sheet")).toHaveCount(0);
     await noScroll(page);
-    await inView(page, ".score-pill b");
+    await inView(page, ".scoreboard b");
     expect(errors).toEqual([]);
     await ctx.close();
   });
@@ -166,13 +166,13 @@ test("partie complète contre les robots, résultat et revanche", async ({ page 
     const g = await game(page);
     if (g.phase === "finished") break;
     if (g.phase === "bidding" && g.turn === 0) {
-      if (g.contract) await page.locator('#bid-form [data-action="pass"]').click().catch(() => {});
+      if (g.contract) await page.locator('#bid-form [data-action="pass"]').click({ timeout: 4000 }).catch(() => {});
       else await bid(page, "H").catch(() => {});
     } else if (g.phase === "playing" && g.turn === 0 && g.legal.length && !(await page.locator(".collecting").count())) await playLegal(page).catch(() => {});
     else if (g.phase === "summary") {
       if (!summaryShot) await page.screenshot({ path: `${shots}fin-de-donne.png` });
       summaryShot = true;
-      await page.locator('[data-action="next"]').click().catch(() => {});
+      await page.locator('[data-action="next"]').click({ timeout: 4000 }).catch(() => {});
     }
     await page.waitForTimeout(120);
   }
@@ -197,7 +197,8 @@ test("jouer maintenant : recherche, robots ajoutés, départ remplacé par un ro
   await a.screenshot({ path: `${shots}recherche-joueurs.png` });
   await expect(a.locator(".hand .hcard")).toHaveCount(8, { timeout: 20000 });
   await expect(a.locator(".seat .robot-tag")).toHaveCount(2);
-  await b.locator('[data-action="quitGame"]').click();
+  await b.locator('[data-action="menu"]').click();
+  await b.locator('.sheet [data-action="quitGame"]').click();
   await expect(b.locator("#modal")).toContainText("Un robot prendra votre place");
   await b.screenshot({ path: `${shots}quitter-confirmation.png` });
   await b.locator('[data-action="confirmLeave"]').click();
