@@ -1,11 +1,11 @@
 const symbols = { S: "♠", H: "♥", C: "♣", D: "♦" };
 const names = { S: "pique", H: "cœur", C: "trèfle", D: "carreau" };
 const patterns = {
-  7: [0, 2, 6, 8, 12, 14, 4],
-  8: [0, 2, 6, 8, 12, 14, 4, 10],
-  9: [0, 2, 3, 5, 9, 11, 12, 14, 7],
-  10: [0, 2, 3, 5, 9, 11, 12, 14, 4, 10],
-  A: [7],
+  7: [0, 2, 9, 11, 18, 20, 4],
+  8: [0, 2, 9, 11, 18, 20, 4, 16],
+  9: [0, 2, 6, 8, 12, 14, 18, 20, 10],
+  10: [0, 2, 6, 8, 12, 14, 18, 20, 4, 16],
+  A: [10],
 };
 function portrait(rank, symbol) {
   const crown =
@@ -24,7 +24,7 @@ export function card(c, { disabled = false, play = false } = {}) {
   if (!symbols[s] || !["7", "8", "9", "10", "J", "Q", "K", "A"].includes(r))
     throw Error("Carte inconnue");
   const body = patterns[r]
-    ? `<span class="card-pips ${r === "A" ? "ace" : ""}" aria-hidden="true">${Array.from({ length: 15 }, (_, i) => `<span class="pip-cell ${i >= 9 ? "inverted" : ""}">${patterns[r].includes(i) ? `<span class="card-pip">${symbols[s]}</span>` : ""}</span>`).join("")}</span>`
+    ? `<span class="card-pips ${r === "A" ? "ace" : ""}" aria-hidden="true">${Array.from({ length: 21 }, (_, i) => `<span class="pip-cell ${i >= 12 ? "inverted" : ""}">${patterns[r].includes(i) ? `<span class="card-pip">${symbols[s]}</span>` : ""}</span>`).join("")}</span>`
     : portrait(r, symbols[s]);
   return `<button type="button" class="card ${["H", "D"].includes(s) ? "red" : ""}" data-card="${c}" ${disabled ? "disabled" : ""} ${play ? 'data-action="play"' : ""} aria-label="${label} de ${names[s]}"><span class="corner">${label}<small>${symbols[s]}</small></span>${body}<span class="corner bottom">${label}<small>${symbols[s]}</small></span></button>`;
 }

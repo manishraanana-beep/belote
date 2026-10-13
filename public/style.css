@@ -1922,3 +1922,362 @@ dialog .close-button {
     font-size: 22px;
   }
 }
+/* Salon ludique : cartes contrastées, grandes valeurs et dernier pli visible. */
+:root {
+  --bg: #102c3c;
+  --panel: #173d4b;
+  --gold: #ffd166;
+  --cream: #fff9ee;
+  --muted: #b8d6db;
+  --line: #bfe9e824;
+  --red: #c32143;
+}
+body {
+  background:
+    radial-gradient(ellipse at top right, #235565 0, transparent 55%),
+    linear-gradient(140deg, #102a40, #113c38);
+}
+header {
+  background: #0d263bd9;
+}
+.brand-mark {
+  color: #ffce65;
+}
+.brand b {
+  color: #ffcf66;
+}
+.gold {
+  background: #ffd166;
+  color: #173044;
+  border-radius: 12px;
+  box-shadow: 0 4px 0 #ac7830;
+}
+.outline {
+  border-radius: 12px;
+  border-color: #79dbca;
+  color: #a6f7df;
+}
+.avatar {
+  background: linear-gradient(140deg, #386b82, #24485d);
+  border: 2px solid #ffd166;
+  color: #fff2b5;
+}
+.felt {
+  background: radial-gradient(ellipse, #247d67, #14594e);
+  border-color: #24445a;
+  box-shadow:
+    inset 0 0 0 3px #58cda866,
+    inset 0 0 70px #08271a55,
+    0 12px 0 #092b34;
+}
+.side-panel,
+.table-tile {
+  background: linear-gradient(145deg, #1d4857, #153a46);
+  border-radius: 16px;
+  border-color: #91d5d336;
+}
+.private-tile {
+  background: linear-gradient(140deg, #514476, #29394e);
+}
+.table-tile h3,
+.training h3 {
+  color: #fff5d3;
+}
+.training {
+  background: #244657;
+  border-radius: 16px;
+}
+.table-sidebar .side-panel h3 {
+  color: #ffe39b;
+  font-family: Arial, sans-serif;
+  font-weight: bold;
+  font-size: 19px;
+}
+.game-layout {
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+.card {
+  background: #fffef9;
+  color: #10263d;
+  border: 2px solid #e3dfd0;
+  border-radius: 10px;
+  box-shadow:
+    0 4px 0 #0004,
+    0 6px 14px #0002;
+  --pip-size: 24px;
+}
+.card.red {
+  color: #bd173b;
+}
+.hand .card {
+  width: 96px;
+  height: 142px;
+  --pip-size: 24px;
+}
+.hand .card .corner {
+  font-family: Arial, sans-serif;
+  font-size: 26px;
+  left: 6px;
+  top: 6px;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+.hand .card .corner small {
+  font-size: 20px;
+  margin-top: 2px;
+}
+.hand .card .bottom {
+  left: auto;
+  top: auto;
+  right: 6px;
+  bottom: 6px;
+}
+.card-pips {
+  left: 28%;
+  width: 44%;
+  top: 18%;
+  height: 64%;
+  font-family: Arial, sans-serif;
+}
+.hand .ace {
+  font-size: 44px;
+}
+.court-art {
+  left: 27%;
+  width: 46%;
+  top: 18%;
+  height: 64%;
+}
+.hand-cards {
+  min-height: 142px;
+  gap: 7px;
+}
+.hand {
+  gap: 20px;
+}
+.suit-label {
+  color: #b9ecff;
+  font-size: 16px;
+  letter-spacing: 0.2px;
+}
+.red-suit .suit-label {
+  color: #ffb2c2;
+}
+.hand-label {
+  color: #fff1b1;
+}
+.score-center {
+  color: #ffd166;
+  font-weight: bold;
+}
+.auction-log span,
+.auction-history span {
+  color: #ffe19a;
+}
+.last-trick-panel {
+  border: 2px solid #62ccb9;
+  background: linear-gradient(135deg, #20575e, #153b4b);
+}
+.last-trick-panel .trick-winner {
+  font-size: 14px;
+  color: #c8f4e8;
+  margin: 0 0 16px;
+}
+.last-trick-panel .last-trick-cards {
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+.last-trick-panel .last-trick-cards > div {
+  min-width: 0;
+  flex: 1;
+}
+.last-trick-panel .card {
+  width: 100%;
+  max-width: 70px;
+  height: 104px;
+  --pip-size: 17px;
+  pointer-events: none;
+}
+.last-trick-panel .card .corner {
+  font-size: 20px;
+  left: 4px;
+  top: 4px;
+}
+.last-trick-panel .card .corner small {
+  font-size: 13px;
+}
+.last-trick-panel .card .bottom {
+  right: 4px;
+  bottom: 4px;
+  left: auto;
+  top: auto;
+}
+.last-trick-panel .ace {
+  font-size: 32px;
+}
+.last-trick-panel .last-trick-cards strong {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  max-width: none;
+  color: #fff5df;
+}
+.trick-card .card {
+  width: 78px;
+  height: 113px;
+  --pip-size: 19px;
+}
+.trick-card .card .corner {
+  font-size: 21px;
+}
+.trick-card .card .corner small {
+  font-size: 14px;
+}
+.trick {
+  width: 260px;
+  height: 210px;
+}
+.trick-0 {
+  left: 90px;
+}
+.trick-2 {
+  left: 90px;
+}
+.trick-card small {
+  font-size: 12px;
+  font-weight: bold;
+}
+.chat-messages span {
+  color: #ecf9f4;
+}
+.reactions button {
+  background: #306271;
+  border-radius: 10px;
+}
+dialog {
+  background: #173c4e;
+  border-radius: 20px;
+  border-color: #79d9c7;
+}
+input,
+select,
+textarea {
+  background: #102d3c;
+}
+.scoreboard small {
+  color: #cae4e2;
+}
+.empty-suit {
+  color: #b6d8dc;
+}
+@media (max-width: 1050px) {
+  .game-layout {
+    grid-template-columns: minmax(0, 1fr) 310px;
+  }
+  .hand .card {
+    width: 88px;
+    height: 132px;
+    --pip-size: 22px;
+  }
+  .hand-cards {
+    min-height: 132px;
+  }
+}
+@media (max-width: 800px) {
+  .game-layout {
+    grid-template-columns: 1fr;
+  }
+  .table-sidebar {
+    grid-template-columns: 1fr;
+  }
+  .last-trick-panel {
+    max-width: none;
+  }
+  .last-trick-panel .last-trick-cards {
+    justify-content: flex-start;
+  }
+  .last-trick-panel .last-trick-cards > div {
+    flex: 0 1 100px;
+  }
+  .last-trick-panel .card {
+    max-width: 88px;
+    height: 130px;
+    --pip-size: 22px;
+  }
+}
+@media (max-width: 520px) {
+  .hand .card,
+  .hand .card:first-child {
+    width: 76px;
+    height: 116px;
+    --pip-size: 19px;
+  }
+  .hand .card .corner {
+    font-size: 24px;
+    left: 5px;
+    top: 5px;
+  }
+  .hand .card .corner small {
+    font-size: 17px;
+  }
+  .hand .card .bottom {
+    right: 5px;
+    bottom: 5px;
+    left: auto;
+    top: auto;
+  }
+  .hand-cards {
+    min-height: 116px;
+    gap: 5px;
+  }
+  .hand {
+    gap: 16px;
+  }
+  .suit-label {
+    font-size: 15px;
+  }
+  .hand .ace {
+    font-size: 37px;
+  }
+  .last-trick-panel .card {
+    max-width: 74px;
+    height: 111px;
+    --pip-size: 18px;
+  }
+  .last-trick-panel .last-trick-cards > div {
+    flex: 1;
+  }
+  .last-trick-panel .card .corner {
+    font-size: 21px;
+  }
+  .trick {
+    width: 185px;
+    height: 175px;
+  }
+  .trick-card .card {
+    width: 62px;
+    height: 92px;
+    --pip-size: 15px;
+  }
+  .trick-card .card .corner {
+    font-size: 17px;
+  }
+  .trick-card .card .corner small {
+    font-size: 11px;
+  }
+  .trick-0,
+  .trick-2 {
+    left: 60px;
+  }
+  .trick-card small {
+    font-size: 10px;
+  }
+  .table-sidebar .side-panel h3 {
+    font-size: 19px;
+  }
+}
+
+.card-pips {
+  grid-template-rows: repeat(7, 1fr);
+  top: 12%;
+  height: 76%;
+}

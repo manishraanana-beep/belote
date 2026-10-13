@@ -98,9 +98,9 @@ function tableView() {
         }</div>`
   }</div></div>${
     g
-      ? `<div class="hand-label">VOTRE MAIN <span>${g.phase === "playing" ? (g.turn === me ? "À vous de jouer" : `Au tour de ${e(t.seats[g.turn]?.name)}`) : g.phase === "bidding" && g.turn === me ? "À vous d’enchérir" : e(g.lastEvent)}</span></div>${handView(g, me)}<div class="action-bar">${gameActions(g, me, t)}${btn("Dernier pli", "lastTrick", "outline", "", !g.tricks.length)}</div>`
+      ? `<div class="hand-label">VOTRE MAIN <span>${g.phase === "playing" ? (g.turn === me ? "À vous de jouer" : `Au tour de ${e(t.seats[g.turn]?.name)}`) : g.phase === "bidding" && g.turn === me ? "À vous d’enchérir" : e(g.lastEvent)}</span></div>${handView(g, me)}<div class="action-bar">${gameActions(g, me, t)}</div>`
       : `<div class="waiting-bottom"><p>${e(ruleText(t.rules))}</p>${owner ? btn("Personnaliser les règles", "editRules", "outline") + btn("Organiser les équipes", "teams", "outline") : ""}</div>`
-  }</section><aside class="table-sidebar">${t.vip && owner ? `<section class="side-panel"><h3>♛ Invitations privées</h3><p>Seules les personnes invitées peuvent demander une place.</p>${btn("Copier le lien d’invitation", "copyInvite", "outline")}<details><summary>Code privé</summary><code>${e(t.invite)}</code><small>Table : ${e(t.id)}</small></details>${t.pending.map((p) => `<div class="request"><strong>${e(p.name)}</strong>${btn("Accepter", "admit", "gold", `data-player="${p.id}"`)}${btn("Refuser", "reject", "text-button", `data-player="${p.id}"`)}</div>`).join("")}</section>` : ""}${g ? auctionView(g, t) : ""}<section class="side-panel chat-panel"><h3>Le coin de la table <span>●</span></h3><div class="chat-messages">${t.chat.length ? t.chat.map((m) => `<p><strong>${e(m.name)}</strong><span>${e(m.text)}</span></p>`).join("") : '<p class="muted">Un bonjour, un beau pli…<br>Le jeu se partage aussi ici.</p>'}</div><div class="reactions">${["👏", "Bien joué !", "🍀"].map((text) => btn(e(text), "reaction", "", `data-text="${e(text)}"`)).join("")}</div><form id="chat-form"><input name="text" placeholder="Votre message…" maxlength="280" aria-label="Message de table" required><button aria-label="Envoyer">↗</button></form></section><section class="side-panel"><h3>Les dernières donnes</h3>${
+  }</section><aside class="table-sidebar">${t.vip && owner ? `<section class="side-panel"><h3>♛ Invitations privées</h3><p>Seules les personnes invitées peuvent demander une place.</p>${btn("Copier le lien d’invitation", "copyInvite", "outline")}<details><summary>Code privé</summary><code>${e(t.invite)}</code><small>Table : ${e(t.id)}</small></details>${t.pending.map((p) => `<div class="request"><strong>${e(p.name)}</strong>${btn("Accepter", "admit", "gold", `data-player="${p.id}"`)}${btn("Refuser", "reject", "text-button", `data-player="${p.id}"`)}</div>`).join("")}</section>` : ""}${g ? lastTrickView(g, t) + auctionView(g, t) : ""}<section class="side-panel chat-panel"><h3>Le coin de la table <span>●</span></h3><div class="chat-messages">${t.chat.length ? t.chat.map((m) => `<p><strong>${e(m.name)}</strong><span>${e(m.text)}</span></p>`).join("") : '<p class="muted">Un bonjour, un beau pli…<br>Le jeu se partage aussi ici.</p>'}</div><div class="reactions">${["👏", "Bien joué !", "🍀"].map((text) => btn(e(text), "reaction", "", `data-text="${e(text)}"`)).join("")}</div><form id="chat-form"><input name="text" placeholder="Votre message…" maxlength="280" aria-label="Message de table" required><button aria-label="Envoyer">↗</button></form></section><section class="side-panel"><h3>Les dernières donnes</h3>${
     g?.history.length
       ? g.history
           .slice(-5)
@@ -111,7 +111,7 @@ function tableView() {
           )
           .join("")
       : '<p class="muted">Les scores apparaîtront ici.</p>'
-  }${g ? btn("Historique des plis", "tricks", "text-button") : ""}</section></aside></div></main>`;
+  }</section></aside></div></main>`;
 }
 let collection = null,
   lastTrickKey = null,
@@ -147,6 +147,10 @@ function auctionRows(g, t) {
         `<li><strong>${e(t.seats[a.seat]?.name)}</strong><span>${a.type === "bid" ? `${a.amount === 250 ? "Capot" : a.amount} ${suits[a.suit]} ${names[a.suit]}` : a.type === "pass" ? "Passe" : a.type === "counter" ? "CONTRÉ !" : "SURCONTRÉ !"}</span></li>`,
     )
     .join("");
+}
+function lastTrickView(g, t) {
+  const p = g.tricks.at(-1) ?? g.history.at(-1)?.tricks.at(-1);
+  return `<section class="side-panel last-trick-panel"><h3>🃏 Dernier pli</h3>${p ? `<p class="trick-winner">${e(t.seats[p.winner]?.name)} remporte ${p.points} points</p><div class="last-trick-cards">${p.cards.map((c) => `<div>${card(c.card)}<strong>${e(t.seats[c.seat]?.name)}</strong></div>`).join("")}</div>` : "<p>Les quatre cartes du dernier pli apparaîtront ici.</p>"}</section>`;
 }
 function auctionView(g, t) {
   return `<section class="side-panel auction-history"><h3>Historique des annonces</h3><ol>${auctionRows(g, t) || "<li>Les enchères commencent.</li>"}</ol></section>`;
@@ -440,19 +444,6 @@ document.addEventListener("click", async (ev) => {
     case "report":
       modal(
         '<h2>Signaler un problème</h2><form id="report-form"><label>Que s’est-il passé ?<textarea name="reason" maxlength="500" required></textarea></label><button class="gold">Envoyer le signalement</button></form>',
-      );
-      break;
-    case "lastTrick": {
-      const p = g.tricks.at(-1);
-      if (!p) break;
-      modal(
-        `<h2>Dernier pli</h2><p>Remporté par <strong>${e(t.seats[p.winner]?.name)}</strong> · ${p.points} points</p><div class="last-trick-cards">${p.cards.map((c) => `<div>${card(c.card)}<strong>${e(t.seats[c.seat]?.name)}</strong></div>`).join("")}</div>`,
-      );
-      break;
-    }
-    case "tricks":
-      modal(
-        `<h2>Historique des plis</h2>${[...(g.history ?? []).flatMap((h) => h.tricks.map((p, i) => ({ ...p, deal: h.deal, index: i + 1 }))), ...g.tricks.map((p, i) => ({ ...p, deal: g.deal, index: i + 1 }))].map((p) => `<div class="history-row"><span>Donne ${p.deal} · Pli ${p.index}<small>${e(t.seats[p.winner]?.name)} · ${p.points} points</small></span><strong>${p.cards.map((c) => e(c.card.slice(0, -1)) + suits[c.card.slice(-1)]).join(" ")}</strong></div>`).join("") || "<p>Aucun pli terminé.</p>"}`,
       );
       break;
     case "admin":

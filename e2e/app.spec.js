@@ -63,12 +63,16 @@ test("ordinateur : profil, table VIP, règles, robots et partie complète", asyn
     await page.locator(`.hand [data-card="${legal}"]`).click();
     await expect(page.locator(".hand .card")).toHaveCount(7 - i);
     if (i === 0) {
-      await expect(page.locator('[data-action="lastTrick"]')).toBeEnabled({
+      await expect(page.locator(".last-trick-panel .card")).toHaveCount(4, {
         timeout: 15000,
       });
-      await page.locator('[data-action="lastTrick"]').click();
-      await expect(page.locator(".last-trick-cards .card")).toHaveCount(4);
-      await page.locator('[data-action="close"]').click();
+      await expect(page.locator('[data-action="tricks"]')).toHaveCount(0);
+      const panels = await page
+        .locator(".table-sidebar > section")
+        .evaluateAll((nodes) => nodes.map((n) => n.className));
+      expect(
+        panels.findIndex((s) => s.includes("last-trick-panel")),
+      ).toBeLessThan(panels.findIndex((s) => s.includes("auction-history")));
     }
     if (i < 7)
       await expect(
