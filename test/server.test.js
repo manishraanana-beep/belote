@@ -496,3 +496,134 @@ test("choix des équipes par le créateur, refus des autres joueurs et gel au la
     await f.close();
   }
 });
+async function api(f, cookie, route, body) {
+  const r = await fetch(f.base + route, {
+    method: "POST",
+    headers: { Cookie: cookie, "Content-Type": "application/json", Origin: f.base },
+    body: typeof body === "string" || body instanceof Uint8Array ? body : JSON.stringify(body ?? {}),
+  });
+  const set = r.headers.get("set-cookie");
+  return { status: r.status, body: await r.json(), cookie: set ? set.split(";")[0] : cookie };
+}
+test("comptes : inscription, vérification, connexion sur un autre appareil, réinitialisation, suppression", async () => {
+  const f = await fixture();
+  try {
+    const guest = await fetch(f.base + "/api/session", { method: "POST" });
+    let cookie = guest.headers.get("set-cookie").split(";")[0];
+    const guestId = (await guest.json()).id;
+    let r = await api(f, cookie, "/api/auth/register", { email: "Sophie@Exemple.fr", password: "court" });
+    assert.equal(r.status, 400);
+    r = await api(f, cookie, "/api/auth/register", { email: "Sophie@Exemple.fr", password: "motdepasse1" });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.id, guestId, "le profil invité devient le compte");
+    assert.deepEqual(r.body.account, { email: "sophie@exemple.fr", verified: false, providers: [], hasPassword: true });
+    const link = /\/api\/auth\/verify\?token=\S+/.exec(f.app.db.outbox.at(-1).text)[0];
+    const v = await fetch(f.base + link, { redirect: "manual" });
+    assert.equal(v.headers.get("location"), "/#verified");
+    assert.equal((await fetch(f.base + link, { redirect: "manual" })).headers.get("location"), "/#verify-failed");
+    // Deuxième appareil : nouvel invité qui se connecte → même profil, ses parties sont reprises.
+    const other = await fetch(f.base + "/api/session", { method: "POST" });
+    const otherCookie = other.headers.get("set-cookie").split(";")[0];
+    f.app.db.players[(await other.json()).id].stats.games = 2;
+    assert.equal((await api(f, otherCookie, "/api/auth/login", { email: "sophie@exemple.fr", password: "mauvais!!" })).status, 401);
+    r = await api(f, otherCookie, "/api/auth/login", { email: "sophie@exemple.fr", password: "motdepasse1" });
+    assert.equal(r.body.id, guestId);
+    assert.equal(r.body.account.verified, true);
+    assert.equal(r.body.stats.games, 2);
+    const ws = await f.client(r.cookie);
+    assert.equal(ws.state.player.id, guestId);
+    // Mot de passe oublié : réponse identique pour une adresse inconnue.
+    assert.equal((await api(f, "", "/api/auth/forgot", { email: "inconnu@exemple.fr" })).status, 200);
+    await api(f, "", "/api/auth/forgot", { email: "sophie@exemple.fr" });
+    const reset = /#reset=(\S+)/.exec(f.app.db.outbox.at(-1).text)[1];
+    r = await api(f, "", "/api/auth/reset", { token: reset, password: "nouveau-mdp" });
+    assert.equal(r.body.id, guestId);
+    assert.equal((await api(f, "", "/api/auth/reset", { token: reset, password: "nouveau-mdp" })).status, 400);
+    assert.equal((await fetch(f.base + "/api/session", { method: "POST", headers: { Cookie: cookie } }).then((x) => x.json())).id !== guestId, true, "anciennes sessions révoquées");
+    cookie = r.cookie;
+    // Connexion Apple/Google sans configuration : refus explicite.
+    assert.equal((await api(f, cookie, "/api/auth/oidc", { provider: "google", idToken: "x.y.z" })).status, 501);
+    // Suppression du compte.
+    assert.equal((await api(f, cookie, "/api/auth/delete", { password: "faux-mdp!" })).status, 401);
+    r = await api(f, cookie, "/api/auth/delete", { password: "nouveau-mdp" });
+    assert.equal(r.status, 200, r.body.error);
+    assert.notEqual(r.body.id, guestId);
+    assert.equal(f.app.db.players[guestId], undefined);
+    assert.equal(Object.keys(f.app.db.accounts).length, 0);
+  } finally {
+    await f.close();
+  }
+});
+test("profil : pseudo, avatar illustré, photo recadrée", async () => {
+  const f = await fixture();
+  try {
+    const c = await f.client();
+    await c.command("profile", { name: "Sophie", avatar: "hibou" });
+    await c.wait((c) => c.state.player.avatar === "hibou");
+    await c.command("profile", { avatar: "♠" }, "error");
+    await c.command("profile", { name: "x" }, "error");
+    const jpeg = new Uint8Array(200).fill(1);
+    jpeg.set([0xff, 0xd8, 0xff]);
+    assert.equal((await api(f, c.cookie, "/api/avatar", new Uint8Array([1, 2, 3]))).status, 400);
+    const r = await api(f, c.cookie, "/api/avatar", jpeg);
+    assert.match(r.body.avatar, /^u:[0-9a-f]{32}$/);
+    const img = await fetch(`${f.base}/u/${r.body.avatar.slice(2)}.jpg`);
+    assert.equal(img.headers.get("content-type"), "image/jpeg");
+    assert.equal((await fetch(f.base + "/avatars/renard.svg")).status, 200);
+    assert.equal((await fetch(f.base + "/avatars/inconnu.svg")).status, 404);
+  } finally {
+    await f.close();
+  }
+});
+test("jouer maintenant : humains regroupés, robots ajoutés après le délai", async () => {
+  const f = await fixture({ fillSeconds: 0.3 });
+  try {
+    const a = await f.client(),
+      b = await f.client();
+    await a.command("quick");
+    await b.command("quick");
+    await a.wait((c) => c.state.table?.seats.filter(Boolean).length === 2);
+    assert.equal(a.state.table.id, b.state.table.id);
+    assert.equal(a.state.table.quick, true);
+    assert.equal(a.state.table.game, null);
+    await a.wait((c) => c.state.table?.game);
+    const seats = a.state.table.seats;
+    assert.equal(seats.filter((s) => s.bot).length, 2);
+    assert.equal(seats.filter((s) => !s.bot).length, 2);
+  } finally {
+    await f.close();
+  }
+});
+test("quitter la partie : un robot reprend la main, les autres continuent", async () => {
+  const f = await fixture({ botDelay: 100000 });
+  try {
+    const players = await Promise.all(Array.from({ length: 4 }, () => f.client()));
+    const t = players[0].state.tables[0];
+    for (const p of players) await p.command("join", { tableId: t.id });
+    await players[0].command("start");
+    await players[1].wait((c) => c.state.table?.game);
+    const before = players[1].state.table.game;
+    const hand = f.app.db.tables[t.id].game.hands[1].slice();
+    await players[1].command("leave");
+    await players[1].wait((c) => !c.state.table);
+    await players[0].wait((c) => c.state.table.seats[1].bot);
+    const seat = players[0].state.table.seats[1];
+    assert.equal(seat.replaced, players[1].state.player.name);
+    const g = f.app.db.tables[t.id].game;
+    assert.deepEqual(g.hands[1], hand, "main conservée");
+    assert.deepEqual(g.scores, before.scores);
+    // Le robot joue à son tour.
+    while (g.turn !== 1) {
+      const p = players[g.turn];
+      await p.command("action", { version: g.version, action: { type: "pass" } });
+    }
+    const v = g.version;
+    f.app.db.tables[t.id].botAt = 0;
+    await players[0].wait(() => g.version > v);
+    // Plus aucun humain : la table publique est remise à zéro.
+    for (const i of [0, 2, 3]) await players[i].command("leave");
+    await players[0].wait((c) => !c.state.table && c.state.tables.every((x) => x.status === "En attente"));
+  } finally {
+    await f.close();
+  }
+});

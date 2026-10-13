@@ -7,8 +7,10 @@ import {
   writeFileSync,
   renameSync,
   existsSync,
+  unlinkSync,
 } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { createAccounts, createMailer } from "./accounts.js";
 import path from "node:path";
 import {
   newGame,
@@ -68,6 +70,15 @@ function rules(input = {}) {
     }
   return r;
 }
+// Avatars illustrés (public/avatars/<id>.svg) ; les robots ont leurs propres mascottes.
+export const AVATARS = [
+  "renard", "chat", "hibou", "panda", "ours", "lapin", "grenouille", "chien",
+  "lea", "hugo", "nadia", "karim", "mamie", "papi", "lou", "sacha",
+];
+export const BOT_AVATARS = ["robot-bleu", "robot-corail", "robot-menthe", "robot-soleil"];
+const BOT_NAMES = ["Léon", "Margot", "Basile", "Rosalie", "Gaston", "Suzon", "Firmin", "Odette"];
+const validAvatar = (v, p) =>
+  AVATARS.includes(v) || (typeof v === "string" && v.startsWith("u:") && v === p?.photo);
 const hashPassword = (password, salt) =>
   scryptSync(password, salt, 32).toString("hex");
 export function createApp({
@@ -75,6 +86,7 @@ export function createApp({
   tickMs = 250,
   botDelay = 800,
   adminKey = process.env.BELOTE_ADMIN_KEY,
+  fillSeconds = Number(process.env.BELOTE_FILL_SECONDS) || 8,
 } = {}) {
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   const file = path.join(dataDir, "state.json");
@@ -85,6 +97,53 @@ export function createApp({
     settings: { maintenance: false },
   };
   if (existsSync(file)) db = JSON.parse(readFileSync(file, "utf8"));
+  const photoDir = path.join(dataDir, "avatars");
+  mkdirSync(photoDir, { recursive: true, mode: 0o700 });
+  // Anciens avatars (symboles) : remplacés par un avatar illustré.
+  for (const p of Object.values(db.players))
+    if (!validAvatar(p.avatar, p)) p.avatar = AVATARS[0];
+  for (const t of Object.values(db.tables))
+    for (const s of t.seats)
+      if (s && !validAvatar(s.avatar, db.players[s.id]) && !BOT_AVATARS.includes(s.avatar))
+        s.avatar = s.bot ? BOT_AVATARS[0] : AVATARS[0];
+  function newPlayer() {
+    const p = {
+      id: id(),
+      token: null,
+      name: "Joueur " + randomBytes(2).toString("hex"),
+      avatar: AVATARS[randomBytes(1)[0] % AVATARS.length],
+      stats: { games: 0, wins: 0 },
+      history: [],
+      tableId: null,
+      seen: [],
+      created: Date.now(),
+    };
+    db.players[p.id] = p;
+    return p;
+  }
+  function makeBot(seat, replaced) {
+    return {
+      id: "bot-" + id(),
+      name: BOT_NAMES[seat * 2 + (randomBytes(1)[0] % 2)],
+      avatar: BOT_AVATARS[seat % BOT_AVATARS.length],
+      bot: true,
+      replaced: replaced ?? null,
+    };
+  }
+  function retirePlayer(p) {
+    if (p.tableId) leave(p, true);
+    for (const ws of connections.get(p.id) ?? []) ws.close(4001, "Session terminée");
+    if (p.photo) {
+      try {
+        unlinkSync(path.join(photoDir, p.photo.slice(2) + ".jpg"));
+      } catch {}
+    }
+    for (const t of Object.values(db.tables)) t.pending = t.pending.filter((x) => x !== p.id);
+    delete db.players[p.id];
+  }
+  const baseUrl = (req) =>
+    process.env.BELOTE_PUBLIC_URL?.replace(/\/$/, "") ||
+    `${req.socket.encrypted || process.env.BELOTE_SECURE_COOKIE === "true" ? "https" : "http"}://${req.headers.host}`;
   let closing = false;
   const connections = new Map(),
     rate = new Map();
@@ -103,6 +162,8 @@ export function createApp({
       pending: [],
       chat: [],
       game: null,
+      quick: false,
+      fillAt: null,
       invite: vip ? id() : null,
       password: null,
       revision: 0,
@@ -132,6 +193,9 @@ export function createApp({
           ? "Partie en cours"
           : "En attente",
       rules: t.rules,
+      quick: !!t.quick,
+      fillAt: t.fillAt,
+      humans: t.seats.filter((s) => s && !s.bot).length,
     };
   }
   function publicSeat(s) {
@@ -141,6 +205,7 @@ export function createApp({
           name: s.name,
           avatar: s.avatar,
           bot: !!s.bot,
+          replaced: s.replaced ?? null,
           connected: s.bot || connections.has(s.id),
           disconnectedAt: s.disconnectedAt ?? null,
         }
@@ -169,9 +234,11 @@ export function createApp({
       id: p.id,
       name: p.name,
       avatar: p.avatar,
+      photo: p.photo ?? null,
       stats: p.stats,
       history: p.history,
       banned: !!p.banned,
+      account: accounts.view(p),
     };
   }
   function broadcast() {
@@ -179,6 +246,7 @@ export function createApp({
     persist();
     for (const [pid, set] of connections) {
       const p = db.players[pid];
+      if (!p) continue;
       const t = db.tables[p.tableId];
       for (const ws of set)
         send(ws, {
@@ -232,20 +300,30 @@ export function createApp({
     t.gameId = id();
     update(t);
   }
-  function leave(p) {
+  // Départ d'une table. Pendant une partie, un robot reprend aussitôt la main et la place :
+  // les cartes, le contrat et les scores sont conservés pour les autres joueurs.
+  function leave(p, force = false) {
     const t = db.tables[p.tableId];
-    if (!t) {
-      p.tableId = null;
+    p.tableId = null;
+    if (!t) return;
+    const seat = t.seats.findIndex((s) => s?.id === p.id);
+    const playing = t.game && t.game.phase !== "finished";
+    if (seat >= 0) t.seats[seat] = playing ? makeBot(seat, p.name) : null;
+    if (t.owner === p.id) t.owner = t.seats.find((s) => s && !s.bot)?.id ?? null;
+    if (!t.seats.some((s) => s && !s.bot)) {
+      // Plus aucun humain : on ne fait pas jouer quatre robots dans le vide.
+      if (t.vip || t.quick) delete db.tables[t.id];
+      else {
+        t.seats = [null, null, null, null];
+        t.game = null;
+        t.fillAt = null;
+        update(t);
+      }
+      if (!Object.values(db.tables).some((x) => !x.vip && !x.quick))
+        table("Le Salon • Contrée", null);
       return;
     }
-    check(
-      !t.game || t.game.phase === "finished",
-      "La place reste réservée pendant la partie. Vous pouvez fermer la page et revenir.",
-    );
-    t.seats = t.seats.map((s) => (s?.id === p.id ? null : s));
-    if (t.owner === p.id)
-      t.owner = t.seats.find((s) => s && !s.bot)?.id ?? null;
-    p.tableId = null;
+    if (force && !playing && seat < 0) return;
     update(t);
   }
   function validateInvite(target, d) {
@@ -296,10 +374,15 @@ export function createApp({
     let changed;
     switch (msg.type) {
       case "profile":
-        p.name = clean(d.name, 24) || p.name;
-        p.avatar = ["♠", "♥", "♦", "♣", "👑", "🌟"].includes(d.avatar)
-          ? d.avatar
-          : p.avatar;
+        if (d.name !== undefined) {
+          const name = clean(d.name, 24);
+          check(name.length >= 2, "Pseudo trop court");
+          p.name = name;
+        }
+        if (d.avatar !== undefined) {
+          check(validAvatar(d.avatar, p), "Avatar inconnu");
+          p.avatar = d.avatar;
+        }
         if (t) {
           const s = t.seats.find((s) => s?.id === pid);
           if (s) {
@@ -437,12 +520,7 @@ export function createApp({
               !t.seats[d.seat],
             "Place indisponible",
           );
-          t.seats[d.seat] = {
-            id: "bot-" + id(),
-            name: ["Émile", "Camille", "Lucie", "Marcel"][d.seat],
-            avatar: "♣",
-            bot: true,
-          };
+          t.seats[d.seat] = makeBot(d.seat);
         }
         if (msg.type === "kick") {
           check(
@@ -465,19 +543,39 @@ export function createApp({
         if (p.tableId) leave(p);
         changed = table("Entraînement", pid, true, d.rules);
         changed.seats[0] = { id: pid, name: p.name, avatar: p.avatar };
-        for (let i = 1; i < 4; i++)
-          changed.seats[i] = {
-            id: "bot-" + id(),
-            name: ["", "Camille", "Lucie", "Marcel"][i],
-            avatar: "♣",
-            bot: true,
-          };
+        for (let i = 1; i < 4; i++) changed.seats[i] = makeBot(i);
         p.tableId = changed.id;
         start(changed);
         break;
       case "leave":
         leave(p);
         break;
+      case "quick": {
+        // Jouer maintenant : une table rapide en attente, sinon une nouvelle.
+        // Les places encore libres après le délai sont complétées par des robots.
+        check(!db.settings.maintenance, "Entrées temporairement fermées");
+        if (t) {
+          check(!t.game || t.game.phase === "finished", "Vous jouez déjà une partie");
+          leave(p);
+        }
+        let target = Object.values(db.tables).find(
+          (x) => x.quick && !x.game && x.seats.includes(null),
+        );
+        if (!target) {
+          target = table("Partie rapide", pid, false);
+          target.quick = true;
+        }
+        target.seats[target.seats.indexOf(null)] = { id: pid, name: p.name, avatar: p.avatar };
+        p.tableId = target.id;
+        target.owner ??= pid;
+        target.fillAt ??= Date.now() + fillSeconds * 1000;
+        if (target.seats.every(Boolean)) {
+          target.fillAt = null;
+          start(target);
+        }
+        changed = target;
+        break;
+      }
       case "action":
         check(t?.game, "Partie introuvable");
         check(d.version === t.game.version, "Action périmée : état actualisé");
@@ -499,7 +597,7 @@ export function createApp({
         {
           const text = clean(d.text, 280);
           check(text, "Message vide");
-          t.chat.push({ id: id(), name: p.name, text, at: Date.now() });
+          t.chat.push({ id: id(), pid, name: p.name, text, at: Date.now() });
           t.chat = t.chat.slice(-60);
         }
         break;
@@ -534,19 +632,89 @@ export function createApp({
     ".css": "text/css; charset=utf-8",
     ".svg": "image/svg+xml",
     ".txt": "text/plain; charset=utf-8",
+    ".woff2": "font/woff2",
   };
+  const cookieToken = (req) =>
+    /\bbelote_session=([A-Za-z0-9_-]+)/.exec(req.headers.cookie ?? "")?.[1];
   function getPlayer(req) {
-    const token = /\bbelote_session=([A-Za-z0-9_-]+)/.exec(
-      req.headers.cookie ?? "",
-    )?.[1];
-    return Object.values(db.players).find((p) => p.token === token);
+    const token = cookieToken(req);
+    if (!token) return null;
+    return (
+      accounts.resolve(token) ??
+      Object.values(db.players).find((p) => p.token && p.token === token)
+    );
   }
+  const accounts = createAccounts({
+    db,
+    mail: createMailer(db),
+    baseUrl,
+    newPlayer,
+    retirePlayer,
+  });
+  const secure = (req) =>
+    req.socket.encrypted || process.env.BELOTE_SECURE_COOKIE === "true" ? "; Secure" : "";
+  function setSession(req, res, p) {
+    res.setHeader(
+      "Set-Cookie",
+      `belote_session=${accounts.session(p)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000${secure(req)}`,
+    );
+  }
+  const sameOrigin = (req) =>
+    !req.headers.origin ||
+    req.headers.origin === `http://${req.headers.host}` ||
+    req.headers.origin === `https://${req.headers.host}`;
+  async function readBody(req, max) {
+    const chunks = [];
+    let size = 0;
+    for await (const c of req) {
+      size += c.length;
+      if (size > max) throw Object.assign(Error("Contenu trop volumineux"), { status: 413 });
+      chunks.push(c);
+    }
+    return Buffer.concat(chunks);
+  }
+  const authRate = new Map();
+  function authLimit(req) {
+    const ip = req.socket.remoteAddress ?? "?";
+    const now = Date.now();
+    const r = authRate.get(ip);
+    if (!r || now - r.at > 60_000) authRate.set(ip, { at: now, n: 1 });
+    else if (++r.n > 20) throw Object.assign(Error("Trop de tentatives, réessayez dans une minute."), { status: 429 });
+  }
+  function json(res, status, body) {
+    res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+    res.end(JSON.stringify(body));
+  }
+  // Les domaines Apple / Google ne sont autorisés que si la connexion correspondante est configurée.
+  const ext = { script: [], frame: [], connect: [] };
+  if (process.env.GOOGLE_CLIENT_ID) {
+    ext.script.push("https://accounts.google.com/gsi/client");
+    ext.frame.push("https://accounts.google.com");
+    ext.connect.push("https://accounts.google.com");
+  }
+  if (process.env.APPLE_CLIENT_ID) {
+    ext.script.push("https://appleid.cdn-apple.com");
+    ext.frame.push("https://appleid.apple.com");
+    ext.connect.push("https://appleid.apple.com");
+  }
+  const csp = [
+    "default-src 'self'",
+    `connect-src 'self' ${ext.connect.join(" ")}`.trim(),
+    "style-src 'self'",
+    `script-src 'self' ${ext.script.join(" ")}`.trim(),
+    "img-src 'self' data: blob:",
+    "font-src 'self'",
+    ext.frame.length ? `frame-src ${ext.frame.join(" ")}` : "frame-src 'none'",
+    "frame-ancestors 'none'",
+    "base-uri 'none'",
+    "form-action 'self'",
+  ].join("; ");
   const server = http.createServer(async (req, res) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Referrer-Policy", "no-referrer");
     res.setHeader(
       "Content-Security-Policy",
-      "default-src 'self'; connect-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'",
+      csp,
     );
     const url = new URL(req.url, "http://localhost");
     if (url.pathname === "/api/health") {
@@ -560,11 +728,7 @@ export function createApp({
       );
     }
     if (url.pathname === "/api/session" && req.method === "POST") {
-      if (
-        req.headers.origin &&
-        req.headers.origin !== `http://${req.headers.host}` &&
-        req.headers.origin !== `https://${req.headers.host}`
-      ) {
+      if (!sameOrigin(req)) {
         res.writeHead(403);
         return res.end();
       }
@@ -574,26 +738,99 @@ export function createApp({
         return res.end("Profil suspendu");
       }
       if (!p) {
-        p = {
-          id: id(),
-          token: id(),
-          name: "Joueur " + randomBytes(2).toString("hex"),
-          avatar: "♠",
-          stats: { games: 0, wins: 0 },
-          history: [],
-          tableId: null,
-          seen: [],
-        };
-        db.players[p.id] = p;
+        p = newPlayer();
+        setSession(req, res, p);
         persist();
       }
-      res.setHeader(
-        "Set-Cookie",
-        `belote_session=${p.token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000${req.socket.encrypted || process.env.BELOTE_SECURE_COOKIE === "true" ? "; Secure" : ""}`,
-      );
-      res.setHeader("Content-Type", "application/json");
-      res.setHeader("Cache-Control", "no-store");
-      return res.end(JSON.stringify(playerView(p)));
+      return json(res, 200, playerView(p));
+    }
+    if (url.pathname === "/api/auth/config") {
+      return json(res, 200, {
+        google: process.env.GOOGLE_CLIENT_ID?.split(",")[0] || null,
+        apple: process.env.APPLE_CLIENT_ID?.split(",")[0] || null,
+        mail: !!(process.env.RESEND_API_KEY && process.env.BELOTE_MAIL_FROM),
+      });
+    }
+    if (url.pathname === "/api/auth/verify" && req.method === "GET") {
+      let ok = true;
+      try {
+        accounts.verify(url.searchParams.get("token"));
+        broadcast();
+      } catch {
+        ok = false;
+      }
+      res.writeHead(302, { Location: ok ? "/#verified" : "/#verify-failed" });
+      return res.end();
+    }
+    if (url.pathname.startsWith("/api/auth/") && req.method === "POST") {
+      try {
+        if (!sameOrigin(req)) throw Object.assign(Error("Origine refusée"), { status: 403 });
+        authLimit(req);
+        const d = JSON.parse((await readBody(req, 8192)).toString() || "{}");
+        const p = getPlayer(req);
+        const action = url.pathname.slice("/api/auth/".length);
+        let next = null;
+        if (action === "register") next = await accounts.register(p ?? newPlayer(), d, req);
+        else if (action === "login") next = accounts.login(p, d);
+        else if (action === "oidc") next = await accounts.oidc(p ?? newPlayer(), d);
+        else if (action === "forgot") await accounts.forgot(d, req);
+        else if (action === "reset") next = accounts.reset(d);
+        else if (action === "resend") await accounts.resend(p, req);
+        else if (action === "password") accounts.changePassword(p, d);
+        else if (action === "logout" || action === "delete") {
+          check(p, "Session absente");
+          if (action === "delete") accounts.remove(p, d);
+          else {
+            check(!p.tableId || !db.tables[p.tableId]?.game || db.tables[p.tableId].game.phase === "finished", "Quittez d’abord la partie en cours");
+            if (p.tableId) leave(p);
+            accounts.logout(cookieToken(req));
+          }
+          next = newPlayer();
+        } else throw Object.assign(Error("Action inconnue"), { status: 404 });
+        if (next) {
+          if (next !== p) {
+            for (const ws of connections.get(p?.id) ?? []) ws.close(4001, "Session changée");
+          }
+          setSession(req, res, next);
+        }
+        persist();
+        broadcast();
+        return json(res, 200, next ? playerView(next) : { ok: true });
+      } catch (e) {
+        return json(res, e.status ?? 400, { error: e.message });
+      }
+    }
+    if (url.pathname === "/api/avatar" && req.method === "POST") {
+      try {
+        if (!sameOrigin(req)) throw Object.assign(Error("Origine refusée"), { status: 403 });
+        const p = getPlayer(req);
+        check(p && !p.banned, "Session absente");
+        consume(p.id);
+        const img = await readBody(req, 400_000);
+        // Uniquement du JPEG produit par le recadrage du navigateur.
+        check(img.length > 100 && img[0] === 0xff && img[1] === 0xd8 && img[2] === 0xff, "Image JPEG attendue");
+        const name = randomBytes(16).toString("hex");
+        writeFileSync(path.join(photoDir, name + ".jpg"), img, { mode: 0o600 });
+        if (p.photo) {
+          try {
+            unlinkSync(path.join(photoDir, p.photo.slice(2) + ".jpg"));
+          } catch {}
+        }
+        p.photo = "u:" + name;
+        p.avatar = p.photo;
+        const t = db.tables[p.tableId];
+        const seat = t?.seats.find((s) => s?.id === p.id);
+        if (seat) seat.avatar = p.avatar;
+        broadcast();
+        return json(res, 200, playerView(p));
+      } catch (e) {
+        return json(res, e.status ?? 400, { error: e.message });
+      }
+    }
+    const photo = /^\/u\/([0-9a-f]{32})\.jpg$/.exec(url.pathname);
+    if (photo && existsSync(path.join(photoDir, photo[1] + ".jpg"))) {
+      res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=31536000, immutable" });
+      return res.end(readFileSync(path.join(photoDir, photo[1] + ".jpg")));
     }
     if (url.pathname === "/api/admin") {
       const supplied = req.headers.authorization?.replace(/^Bearer /, "") ?? "";
@@ -669,8 +906,11 @@ export function createApp({
       "style.css",
       "cards-LICENSE.txt",
     ];
-    const cardFile = /^cards\/(?:[789]|10|[JQKA])[SHCD]\.svg$/.test(rel);
-    if (!allowed.includes(rel) && !cardFile) {
+    const cardFile =
+      /^cards\/(?:[789]|10|[JQKA])[SHCD]\.svg$/.test(rel) ||
+      /^avatars\/[a-z-]+\.svg$/.test(rel) && [...AVATARS, ...BOT_AVATARS].includes(rel.slice(8, -4)) ||
+      /^fonts\/[a-z0-9-]+\.woff2$/.test(rel) && existsSync(path.join(root, "public", rel));
+    if ((!allowed.includes(rel) && !cardFile) || !existsSync(path.join(root, "public", rel))) {
       res.writeHead(404);
       return res.end("Introuvable");
     }
@@ -750,6 +990,14 @@ export function createApp({
     let dirty = false;
     const now = Date.now();
     for (const t of Object.values(db.tables)) {
+      if (t.quick && (!t.game || t.game.phase === "finished") && t.fillAt && now >= t.fillAt) {
+        for (let i = 0; i < 4; i++) if (!t.seats[i]) t.seats[i] = makeBot(i);
+        t.fillAt = null;
+        if (!t.game) start(t);
+        else update(t);
+        dirty = true;
+        continue;
+      }
       if (!t.game) {
         for (let i = 0; i < 4; i++) {
           const s = t.seats[i];

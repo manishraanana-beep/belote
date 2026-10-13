@@ -14,7 +14,11 @@ export default defineConfig({
   webServer: {
     command: "node src/server.js",
     url: "http://127.0.0.1:3100/api/health",
-    env: { PORT: "3100", BELOTE_DATA_DIR: "/tmp/belote-e2e-" + Date.now() },
+    env: {
+      PORT: "3100",
+      BELOTE_DATA_DIR: "/tmp/belote-e2e-" + Date.now(),
+      BELOTE_FILL_SECONDS: "4",
+    },
     reuseExistingServer: false,
   },
   reporter: "list",

@@ -2,19 +2,23 @@
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="theme-color" content="#102f28" />
-    <title>Maison Belote — Contrée</title>
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#2a1b4d" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Maison Belote — Contrée entre amis</title>
+    <link rel="preload" href="/fonts/fredoka.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/nunito.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
     <div id="app">
-      <div class="loading">♠<br />Bienvenue à la Maison Belote…</div>
-    </div>
-    <div id="rotate-hint" aria-live="polite">
-      <div class="rotate-phone" aria-hidden="true">📱</div>
-      <p>Tournez votre téléphone<br />pour jouer en paysage</p>
-      <button class="gold" data-action="landscape">Passer en paysage</button>
+      <div class="splash">
+        <div class="splash-logo">♠</div>
+        <p>On mélange les cartes…</p>
+      </div>
     </div>
     <div id="toast" role="status" aria-live="polite"></div>
     <dialog id="modal"></dialog>
