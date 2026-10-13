@@ -172,7 +172,7 @@ test("partie complète contre les robots, résultat et revanche", async ({ page 
     else if (g.phase === "summary") {
       if (!summaryShot) await page.screenshot({ path: `${shots}fin-de-donne.png` });
       summaryShot = true;
-      await page.locator('[data-action="next"]').click({ timeout: 4000 }).catch(() => {});
+      await expect(page.locator(".next-auto")).toContainText("Donne suivante dans").catch(() => {}); // enchaînement automatique
     }
     await page.waitForTimeout(120);
   }

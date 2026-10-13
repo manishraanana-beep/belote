@@ -113,6 +113,7 @@ export function createApp({
   env = process.env,
   reactionCooldownMs = 4000,
   clock = () => Date.now(), // horloge des tournois (remplaçable dans les tests)
+  summaryMs = (Number(process.env.BELOTE_SUMMARY_SECONDS) || 5) * 1000, // résultat de la donne affiché avant la suivante
 } = {}) {
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   const file = path.join(dataDir, "state.json");
@@ -381,6 +382,7 @@ export function createApp({
       reactions: t.reactions.filter((r) => Date.now() - r.at < 6000),
       result: t.results?.[pid] ?? null,
       tournament: t.tournament ? { id: t.tournament.id, name: t.tournament.name } : null,
+      nextAt: t.game?.phase === "summary" ? (t.nextAt ?? Date.now() + summaryMs) : null,
     };
   }
   function playerView(p) {
@@ -976,6 +978,7 @@ export function createApp({
       case "next":
         check(t?.game, "Partie introuvable");
         nextDeal(t.game);
+        t.nextAt = null;
         changed = t;
         break;
       case "chat":
@@ -1780,6 +1783,17 @@ export function createApp({
         continue;
       }
       const g = t.game;
+      // Donne suivante automatique après quelques secondes d'affichage du résultat.
+      if (g.phase === "summary") {
+        t.nextAt ??= now + summaryMs;
+        if (now >= t.nextAt) {
+          t.nextAt = null;
+          nextDeal(g);
+          update(t);
+          dirty = true;
+        }
+        continue;
+      }
       if (t.tournament && g.phase !== "finished") {
         // Absence prolongée en tournoi : forfait de l'équipe (la première partie absente perd).
         const gone = t.seats
