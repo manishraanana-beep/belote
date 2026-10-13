@@ -56,7 +56,9 @@ export function legalCards(hand, trick, t, seat) {
     const higher = trumps.filter(
       (c) => suit(master) !== t || strength(c, t) > strength(master, t),
     );
-    return higher.length ? higher : trumps;
+    // Un adversaire a déjà coupé plus haut que tous vos atouts : pas d'obligation de
+    // « pisser » (sous-couper), vous jouez la carte de votre choix.
+    return higher.length ? higher : [...hand];
   }
   return [...hand];
 }

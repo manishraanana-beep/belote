@@ -51,7 +51,7 @@ test("fournir, couper, surcouper, partenaire maître et monter", () => {
       "S",
       2,
     ),
-    ["7S"],
+    ["7D", "7S"], // impossible de surcouper : pas d'obligation de sous-couper
   );
   assert.equal(
     winner(

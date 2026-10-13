@@ -163,7 +163,7 @@ function rulesModal(r = DEFAULT_RULES, action = "") {
       <li>Contre ${r.flyingCounter ? "<b>à la volée</b> : les deux adversaires peuvent contrer à tout moment" : "à son tour"} · surcontre pendant ${r.counterWindowSeconds} s</li>
       <li>Contré ×2, surcontré ×4 · belote jamais multipliée, ${r.beloteRetained ? "conservée" : "perdue"} à la chute</li>
       <li>Atout : V 9 A 10 R D 8 7 · hors atout : A 10 R D V 9 8 7 · dix de der</li>
-      <li>Fournir, couper, surcouper, monter à l’atout ; partenaire maître : défausse libre</li>
+      <li>Fournir, couper, surcouper, monter à l’atout ; sans surcoupe possible, carte libre (pas de sous-coupe) ; partenaire maître : défausse libre</li>
       <li>Tour de ${r.turnSeconds} s · absence : un robot joue après ${r.reconnectSeconds} s, jusqu’à votre retour</li>
     </ul>${action}`,
     "sheet-modal",
@@ -964,7 +964,7 @@ function handView(g, me, t) {
   const myTurn = g.phase === "playing" && g.turn === me && !collection;
   const glow = g.phase === "bidding" && g.turn === me;
   const status = myTurn
-    ? `<span class="turn-pill on">${selected ? `Touchez encore : ${cardName(selected)}` : "À vous de jouer"}</span>`
+    ? `<span class="turn-pill on">À vous de jouer</span>`
     : glow
       ? `<span class="turn-pill on">À vous d’enchérir</span>`
       : ["bidding", "playing"].includes(g.phase)
@@ -1839,13 +1839,16 @@ document.addEventListener("click", async (ev) => {
       cmd("action", { version: g.version, action: { type: a } });
       break;
     case "pick": {
-      // Première touche : la carte ressort. Deuxième touche : elle est jouée.
+      // Une seule touche : la carte est jouée si c'est votre tour et qu'elle est autorisée.
       const c = el.dataset.card;
       const myTurn = g.phase === "playing" && g.turn === me && !collection;
-      if (selected === c && myTurn) {
-        cmd("action", { version: g.version, action: { type: "play", card: c } });
-        selected = null;
-      } else selected = selected === c ? null : c;
+      if (!myTurn) break;
+      if (!g.legal.includes(c)) {
+        toast("Cette carte n’est pas autorisée ici");
+        break;
+      }
+      cmd("action", { version: g.version, action: { type: "play", card: c } });
+      selected = c; // la carte ressort pendant l'envoi
       render();
       break;
     }

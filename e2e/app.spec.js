@@ -52,10 +52,7 @@ async function tap(el) {
 }
 async function playLegal(page) {
   const g = await game(page);
-  const el = page.locator(`.hand [data-card="${g.legal[0]}"]`);
-  await tap(el);
-  await expect(el).toHaveClass(/selected/);
-  await tap(el);
+  await tap(page.locator(`.hand [data-card="${g.legal[0]}"]`)); // une seule touche suffit
 }
 async function startPractice(page) {
   await spy(page);
@@ -120,10 +117,8 @@ for (const [name, viewport, mobile] of [
     await expect.poll(async () => (await game(page)).phase, { timeout: 15000 }).toBe("playing");
     await expect.poll(async () => (await game(page)).legal.length, { timeout: 15000 }).toBeGreaterThan(0);
     const first = (await game(page)).legal[0];
-    await tap(page.locator(`.hand [data-card="${first}"]`));
-    await expect(page.locator(".hand .selected")).toHaveCount(1);
-    await page.screenshot({ path: `${shots}${name}-3-selection.png` });
-    await tap(page.locator(`.hand [data-card="${first}"]`));
+    await page.screenshot({ path: `${shots}${name}-3-a-vous.png` });
+    await tap(page.locator(`.hand [data-card="${first}"]`)); // une seule touche joue la carte
     await expect(page.locator(".trick .tcard").first()).toBeVisible();
     await expect(banner).toHaveCount(0);
     await page.waitForTimeout(500);
