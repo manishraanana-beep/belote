@@ -279,7 +279,7 @@ const ICONS = {
   coin: '<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4"/>',
 };
 const icon = (name, cls = "") => `<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] ?? ""}</svg>`;
-const logo = (sub = "") => `<div class="logo" aria-label="Belote Prestige"><img class="emblem" src="/decor/emblem.svg" alt=""><b>BELOTE</b><span class="orn"><i></i>PRESTIGE<i></i></span>${sub ? `<em>${sub}</em>` : ""}</div>`;
+const logo = (sub = "") => `<div class="logo"><img class="logo-img" src="/decor/logo.webp" alt="Belote Prestige" draggable="false">${sub ? `<em>${sub}</em>` : ""}</div>`;
 let page = { name: null, params: {} },
   pageStack = [];
 function go(name, params = {}) {

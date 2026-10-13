@@ -1208,3 +1208,10 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 }
 .next-auto { margin: 4px 0 0; text-align: center; font-family: var(--title); font-size: 18px; color: #ffe7a6; }
 .next-auto b { color: var(--gold); }
+/* Logo officiel Belote Prestige */
+.logo-img { display: block; width: clamp(130px, 40vw, 200px); height: auto; filter: drop-shadow(0 4px 10px #0009); user-select: none; }
+.page-welcome .logo-img { width: clamp(220px, 70vw, 340px); }
+.gt-logo .logo-img { width: clamp(84px, 24vw, 150px); }
+.splash-img { width: min(70vw, 320px); height: auto; }
+@media (orientation: landscape) and (max-height: 520px) { .gt-logo .logo-img { width: 90px; } }
+@media (min-width: 900px) and (min-height: 600px) { .gt-logo .logo-img { width: 170px; } }
