@@ -82,7 +82,7 @@ function tableView() {
     g = t.game,
     me = t.seats.findIndex((s) => s?.id === state.player.id),
     owner = t.owner === state.player.id;
-  return `<main class="game-page"><div class="table-title"><div><span class="badge ${t.vip ? "vip" : ""}">${t.vip ? "VIP · PRIVÉ" : "PUBLIC"}</span><h2>${e(t.name)}</h2></div><div>${btn("Règles de la table", "rulesInfo", "outline")}${btn("Signaler", "report", "text-button")}${btn("Quitter", "leave", "text-button", "", !!g && g.phase !== "finished")}</div></div><div class="game-layout"><section class="play-area"><div class="scoreboard"><div><small>NOUS</small><strong>${g?.scores[me % 2] ?? 0}</strong></div><div class="score-center">${g?.contract ? `${g.contract.amount === 250 ? "CAPOT" : g.contract.amount} ${suits[g.contract.suit]}` : "CONTRÉE"}<small>${g ? `Donne ${g.deal} · ${g.phase === "bidding" ? "Enchères" : g.phase === "counter" ? "Surcontre ouverte" : g.phase === "playing" ? "Jeu en cours" : g.phase === "summary" ? "Fin de donne" : "Partie terminée"}` : `Objectif ${t.rules.target}`}</small>${g?.multiplier > 1 ? `<span class="counter-banner">${g.multiplier === 4 ? "SURCONTRÉ !" : "CONTRÉ !"}</span>` : ""}</div><div><small>EUX</small><strong>${g?.scores[1 - (me % 2)] ?? 0}</strong></div></div><div class="felt"><div class="felt-logo">♠<span>MAISON BELOTE</span></div>${t.seats.map((s, i) => seatBox(s, i, me, g)).join("")}<div class="center-play">${
+  return `<main class="game-page"><div class="table-title"><div><span class="badge ${t.vip ? "vip" : ""}">${t.vip ? "VIP · PRIVÉ" : "PUBLIC"}</span><h2>${e(t.name)}</h2></div><div>${g ? btn("💬 Table", "togglePanels", "outline panels-toggle") : ""}${btn("Règles de la table", "rulesInfo", "outline")}${btn("Signaler", "report", "text-button")}${btn("Quitter", "leave", "text-button", "", !!g && g.phase !== "finished")}</div></div><div class="game-layout"><section class="play-area"><div class="scoreboard"><div><small>NOUS</small><strong>${g?.scores[me % 2] ?? 0}</strong></div><div class="score-center">${g?.contract ? `${g.contract.amount === 250 ? "CAPOT" : g.contract.amount} ${suits[g.contract.suit]}` : "CONTRÉE"}<small>${g ? `Donne ${g.deal} · ${g.phase === "bidding" ? "Enchères" : g.phase === "counter" ? "Surcontre ouverte" : g.phase === "playing" ? "Jeu en cours" : g.phase === "summary" ? "Fin de donne" : "Partie terminée"}` : `Objectif ${t.rules.target}`}</small>${g?.multiplier > 1 ? `<span class="counter-banner">${g.multiplier === 4 ? "SURCONTRÉ !" : "CONTRÉ !"}</span>` : ""}</div><div><small>EUX</small><strong>${g?.scores[1 - (me % 2)] ?? 0}</strong></div></div><div class="felt"><div class="felt-logo">♠<span>MAISON BELOTE</span></div>${t.seats.map((s, i) => seatBox(s, i, me, g)).join("")}<div class="center-play">${
     g
       ? centerGame(g, t, me)
       : `<div class="waiting"><h3>La table est à vous.</h3><p>Choisissez votre équipe, invitez vos amis<br>ou complétez les places avec des robots.</p><div class="waiting-actions">${t.seats.map((s, i) => (!s ? `${btn(`Place ${i + 1} · Équipe ${(i % 2) + 1}`, "seat", "outline", `data-seat="${i}"`)} ${owner ? btn("+ Robot", "bot", "text-button", `data-seat="${i}"`) : ""}` : owner && i !== me ? btn(`Retirer ${e(s.name)}`, "kick", "text-button", `data-seat="${i}"`) : "")).join("")}</div>${
@@ -100,10 +100,10 @@ function tableView() {
     g
       ? `<div class="hand-label">VOTRE MAIN <span>${g.phase === "playing" ? (g.turn === me ? "À vous de jouer" : `Au tour de ${e(t.seats[g.turn]?.name)}`) : g.phase === "bidding" && g.turn === me ? "À vous d’enchérir" : e(g.lastEvent)}</span></div>${handView(g, me)}<div class="action-bar">${gameActions(g, me, t)}</div>`
       : `<div class="waiting-bottom"><p>${e(ruleText(t.rules))}</p>${owner ? btn("Personnaliser les règles", "editRules", "outline") + btn("Organiser les équipes", "teams", "outline") : ""}</div>`
-  }</section><aside class="table-sidebar">${t.vip && owner ? `<section class="side-panel"><h3>♛ Invitations privées</h3><p>Seules les personnes invitées peuvent demander une place.</p>${btn("Copier le lien d’invitation", "copyInvite", "outline")}<details><summary>Code privé</summary><code>${e(t.invite)}</code><small>Table : ${e(t.id)}</small></details>${t.pending.map((p) => `<div class="request"><strong>${e(p.name)}</strong>${btn("Accepter", "admit", "gold", `data-player="${p.id}"`)}${btn("Refuser", "reject", "text-button", `data-player="${p.id}"`)}</div>`).join("")}</section>` : ""}${g ? lastTrickView(g, t) + auctionView(g, t) : ""}<section class="side-panel chat-panel"><h3>Le coin de la table <span>●</span></h3><div class="chat-messages">${t.chat.length ? t.chat.map((m) => `<p><strong>${e(m.name)}</strong><span>${e(m.text)}</span></p>`).join("") : '<p class="muted">Un bonjour, un beau pli…<br>Le jeu se partage aussi ici.</p>'}</div><div class="reactions">${["👏", "Bien joué !", "🍀"].map((text) => btn(e(text), "reaction", "", `data-text="${e(text)}"`)).join("")}</div><form id="chat-form"><input name="text" placeholder="Votre message…" maxlength="280" aria-label="Message de table" required><button aria-label="Envoyer">↗</button></form></section><section class="side-panel"><h3>Les dernières donnes</h3>${
+  }</section><aside class="table-sidebar">${btn("Fermer ×", "togglePanels", "outline panels-close")}${t.vip && owner ? `<section class="side-panel invite-side"><h3>♛ Invitations privées</h3><p>Seules les personnes invitées peuvent demander une place.</p>${btn("Copier le lien d’invitation", "copyInvite", "outline")}<details><summary>Code privé</summary><code>${e(t.invite)}</code><small>Table : ${e(t.id)}</small></details>${t.pending.map((p) => `<div class="request"><strong>${e(p.name)}</strong>${btn("Accepter", "admit", "gold", `data-player="${p.id}"`)}${btn("Refuser", "reject", "text-button", `data-player="${p.id}"`)}</div>`).join("")}</section>` : ""}${g ? lastTrickView(g, t) + auctionView(g, t) : ""}<section class="side-panel chat-panel"><h3>Le coin de la table <span>●</span></h3><div class="chat-messages">${t.chat.length ? t.chat.slice(-4).map((m) => `<p><strong>${e(m.name)}</strong><span>${e(m.text)}</span></p>`).join("") : '<p class="muted">Un bonjour, un beau pli…<br>Le jeu se partage aussi ici.</p>'}</div><div class="reactions">${["👏", "Bien joué !", "🍀"].map((text) => btn(e(text), "reaction", "", `data-text="${e(text)}"`)).join("")}</div><form id="chat-form"><input name="text" placeholder="Votre message…" maxlength="280" aria-label="Message de table" required><button aria-label="Envoyer">↗</button></form></section><section class="side-panel"><h3>Les dernières donnes</h3>${
     g?.history.length
       ? g.history
-          .slice(-5)
+          .slice(-3)
           .reverse()
           .map(
             (h) =>
@@ -127,7 +127,7 @@ function handView(g, me) {
   ]
     .map(
       (s) =>
-        `<div class="suit-group ${["H", "D"].includes(s) ? "red-suit" : ""}"><div class="suit-label">${suits[s]}<span class="suit-name"> ${names[s]}</span></div><div class="hand-cards">${
+        `<div class="suit-group ${["H", "D"].includes(s) ? "red-suit" : ""}" data-suit="${s}"><div class="hand-cards">${
           g.hand
             .filter((c) => c.slice(-1) === s)
             .sort(
@@ -135,7 +135,7 @@ function handView(g, me) {
                 order.indexOf(a.slice(0, -1)) - order.indexOf(b.slice(0, -1)),
             )
             .map((c) => card(c, { disabled: !active, play: active }))
-            .join("") || '<span class="empty-suit">—</span>'
+            .join("") || ""
         }</div></div>`,
     )
     .join("")}</div>`;
@@ -198,6 +198,8 @@ function gameActions(g, me, t) {
 }
 function render() {
   if (!state) return;
+  document.body.classList.toggle("in-game", !!state.table?.game);
+  if (!state.table?.game) document.body.classList.remove("show-panels");
   const dealKey = state.table?.game
     ? state.table.gameId + ":" + state.table.game.deal
     : null;
@@ -308,6 +310,9 @@ document.addEventListener("click", async (ev) => {
     t = state?.table,
     g = t?.game;
   switch (a) {
+    case "togglePanels":
+      document.body.classList.toggle("show-panels");
+      break;
     case "close":
       $("#modal").close();
       break;
