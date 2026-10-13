@@ -954,3 +954,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .bp-coins .k0 { left: 12%; } .bp-coins .k1 { left: 22%; animation-delay: 0.15s; } .bp-coins .k2 { left: 33%; animation-delay: 0.05s; } .bp-coins .k3 { left: 44%; animation-delay: 0.25s; } .bp-coins .k4 { left: 52%; animation-delay: 0.1s; }
 .bp-coins .k5 { left: 61%; animation-delay: 0.3s; } .bp-coins .k6 { left: 70%; animation-delay: 0.2s; } .bp-coins .k7 { left: 79%; animation-delay: 0.05s; } .bp-coins .k8 { left: 86%; animation-delay: 0.35s; } .bp-coins .k9 { left: 6%; animation-delay: 0.4s; }
 @keyframes coinfall { from { transform: translateY(0) rotateY(0); opacity: 1; } to { transform: translateY(110vh) rotateY(720deg); opacity: 0.9; } }
+/* Récompenses exclusives de tournoi */
+.back-velours .backs i, .pv-backs.back-velours .backs i, .swatch.back-velours { background: radial-gradient(circle at 50% 50%, #f6c85f 0 2px, transparent 3px) 0 0 / 8px 8px, linear-gradient(135deg, #4a1f8a, #24104e); }
+.felt-velours .felt, .pv-felt.felt-velours .felt, .swatch.felt-velours { background: radial-gradient(ellipse at 50% 40%, #6a3fc0, #3d1d7e 62%, #24104e); }
+.frame-champion .seat-avatar, .pv-avatar.frame-champion .seat-avatar, .swatch.frame-champion { background: conic-gradient(#fff3c0, #e0a92e, #8a5cf0, #e0a92e, #fff3c0); box-shadow: 0 0 18px #f6c85f; }

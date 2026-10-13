@@ -829,3 +829,100 @@ test("bonus de connexion : un seul par compte et par 24 h, sur tous les appareil
     await f.close();
   }
 });
+test("tournoi programmé : départ automatique, vraies tables sans robots, forfait sur absence prolongée", async () => {
+  let offset = 0;
+  const f = await fixture({ adminKey: "k", clock: () => Date.now() + offset, env: { BELOTE_SIGNUP_BONUS: "60000", BELOTE_LOGIN_BONUS: "0" } });
+  try {
+    const admin = (body) => fetch(f.base + "/api/admin", { method: body ? "POST" : "GET", headers: { Authorization: "Bearer k", "Content-Type": "application/json" }, body: body && JSON.stringify(body) }).then(async (r) => [r.status, r.status === 200 ? await r.json() : await r.text()]);
+    const H = 3600_000;
+    const local = (ms) => new Date(ms + 0).toISOString().slice(0, 16); // fuseau UTC pour ce test
+    const now = Date.now();
+    const data = { name: "Coupe du jeudi", timeZone: "UTC", teams: 8, minTeams: 2, minBalance: 50000, rules: { target: 500, turnSeconds: 20, flyingCounter: true }, rewards: { winner: ["tournoi-vainqueur"], participant: ["tournoi-participant"] }, regOpen: local(now + H), regClose: local(now + 2 * H), confirmBy: local(now + 3 * H - 10 * 60_000), start: local(now + 3 * H), publish: true };
+    // Les dates incohérentes sont refusées par le serveur.
+    assert.equal((await admin({ type: "tourCreate", data: { ...data, confirmBy: local(now + 4 * H) } }))[0], 400);
+    const [status, view] = await admin({ type: "tourCreate", data });
+    assert.equal(status, 200);
+    const tid = view.tournaments[0].id;
+    const ps = [];
+    for (let i = 0; i < 4; i++) ps.push(await member(f, `t${i}@exemple.fr`));
+    await ps[0].wait((c) => c.state.tournaments?.length === 1);
+    assert.equal(ps[0].state.tournaments[0].stage, "soon");
+    await ps[0].command("tourRegister", { id: tid }, "error");
+    offset = H + 1000; // ouverture programmée
+    await ps[0].wait((c) => c.state.tournaments[0].stage === "open");
+    for (const p of ps) await p.command("tourRegister", { id: tid });
+    assert.ok(ps[0].state.player.inbox.some((n) => /Inscription confirmée/.test(n.title)));
+    offset = 3 * H - 9.5 * 60_000; // fenêtre de présence (l'échéance est passée de 30 s : on teste le refus)
+    await ps[0].command("tourConfirm", { id: tid }, "error");
+    offset = 3 * H - 12 * 60_000;
+    for (const p of ps) await p.command("tourConfirm", { id: tid });
+    offset = 3 * H + 1000; // départ automatique : aucun administrateur connecté
+    for (const p of ps) await p.wait((c) => c.state.table?.game && c.state.table.tournament?.id === tid);
+    const t = ps[0].state.table;
+    assert.equal(t.seats.filter((s) => s.bot).length, 0, "aucun robot en tournoi");
+    await ps[0].wait((c) => c.state.player.inbox.some((n) => n.title === "Votre table est prête, rejoignez la partie !"));
+    // Revanche impossible, la suite se joue au tour suivant.
+    // Coupure longue d'un joueur de l'équipe impaire : forfait au-delà du délai annoncé.
+    const db = f.app.db;
+    const quitter = ps.find((p) => db.tables[t.id].seats.findIndex((s) => s.id === p.state.player.id) === 1);
+    quitter.ws.close();
+    await delay(50);
+    db.tables[t.id].seats[1].disconnectedAt = Date.now() - 301_000;
+    await ps[0].wait((c) => c.state.tournaments[0].status === "finished");
+    const tour = db.tournaments[tid];
+    assert.equal(tour.rounds[0].find((m) => m.tableId === t.id).status, "forfeit");
+    const champ = tour.teamsList.find((x) => x.id === tour.champion);
+    assert.ok(!champ.pids.includes(quitter.state.player.id));
+    for (const pid of champ.pids) assert.ok(db.players[pid].progress.badges["tournoi-vainqueur"]);
+    assert.ok(db.players[quitter.state.player.id].progress.badges["tournoi-participant"]);
+    assert.equal(db.tables[t.id], undefined, "table de la rencontre fermée");
+    const [, after] = await admin();
+    assert.ok(after.tournaments[0].log.some((l) => l.kind === "forfait"));
+  } finally {
+    await f.close();
+  }
+});
+test("tournoi : reconnexion dans le délai sans pénalité, abandon = forfait, notifications push enregistrées", async () => {
+  let offset = 0;
+  const f = await fixture({ adminKey: "k", clock: () => Date.now() + offset, env: { BELOTE_SIGNUP_BONUS: "60000", BELOTE_LOGIN_BONUS: "0" } });
+  try {
+    const H = 3600_000;
+    const local = (ms) => new Date(ms).toISOString().slice(0, 16);
+    const now = Date.now();
+    const data = { name: "Coupe du vendredi", timeZone: "UTC", teams: 8, minTeams: 2, minBalance: 50000, rules: { target: 500, turnSeconds: 20 }, regOpen: local(now - H), regClose: local(now + H), confirmBy: local(now + 2 * H - 10 * 60_000), start: local(now + 2 * H), publish: true };
+    await fetch(f.base + "/api/admin", { method: "POST", headers: { Authorization: "Bearer k", "Content-Type": "application/json" }, body: JSON.stringify({ type: "tourCreate", data }) });
+    const tid = Object.keys(f.app.db.tournaments)[0];
+    const ps = [];
+    for (let i = 0; i < 4; i++) ps.push(await member(f, `r${i}@exemple.fr`));
+    // Abonnement push d'un navigateur : validé et conservé côté serveur.
+    const bad = await api(f, ps[0].cookie, "/api/push/subscribe", { type: "web", subscription: { endpoint: "http://non-securise" } });
+    assert.equal(bad.status, 400);
+    const ok = await api(f, ps[0].cookie, "/api/push/subscribe", { type: "web", subscription: { endpoint: "https://push.exemple/1", keys: { p256dh: "x".repeat(87), auth: "y".repeat(22) } } });
+    assert.equal(ok.status, 200);
+    assert.equal(f.app.db.players[ps[0].state.player.id].push.web.length, 1);
+    for (const p of ps) await p.command("tourRegister", { id: tid });
+    offset = 2 * H - 12 * 60_000;
+    for (const p of ps) await p.command("tourConfirm", { id: tid });
+    offset = 2 * H + 1000;
+    for (const p of ps) await p.wait((c) => c.state.table?.game);
+    const t = f.app.db.tables[ps[0].state.table.id];
+    // Coupure courte : la place est gardée, aucun robot, pas de forfait.
+    const who = ps.find((p) => t.seats[2].id === p.state.player.id);
+    who.ws.close();
+    await delay(100);
+    t.seats[2].disconnectedAt = Date.now() - 60_000;
+    await delay(1200);
+    assert.equal(f.app.db.tournaments[tid].status, "running");
+    const back = await f.client(who.cookie);
+    assert.equal(back.state.table.id, t.id, "reconnexion : retour à la même table");
+    assert.equal(t.seats[2].bot, undefined);
+    // Abandon volontaire d'un joueur de l'équipe paire : forfait immédiat.
+    await ps.find((p) => t.seats[0].id === p.state.player.id).command("leave");
+    await back.wait((c) => c.state.tournaments[0].status === "finished");
+    const tour = f.app.db.tournaments[tid];
+    assert.match(tour.rounds[0][0].forfeit, /Abandon/);
+    assert.ok(tour.teamsList.find((x) => x.id === tour.champion).pids.includes(t.seats[1].id));
+  } finally {
+    await f.close();
+  }
+});

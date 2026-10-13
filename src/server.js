@@ -12,7 +12,9 @@ import {
 import { fileURLToPath } from "node:url";
 import { createAccounts, createMailer } from "./accounts.js";
 import { createEconomy, economyConfig, STAKES, toCredits, toUnits } from "./economy.js";
-import { createProgression } from "./progression.js";
+import { createProgression, TOURNAMENT_REWARDS } from "./progression.js";
+import { createTournaments, validTimeZone } from "./tournaments.js";
+import { pushConfig, sendFcm, sendWebPush } from "./push.js";
 import { createIntegrity, integrityConfig } from "./integrity.js";
 import { stripeCheckout, stripeEvent, verifyAppleTransaction, verifyGooglePurchase } from "./purchases.js";
 import path from "node:path";
@@ -108,6 +110,7 @@ export function createApp({
   fillSeconds = Number(process.env.BELOTE_FILL_SECONDS) || 8,
   env = process.env,
   reactionCooldownMs = 4000,
+  clock = () => Date.now(), // horloge des tournois (remplaçable dans les tests)
 } = {}) {
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   const file = path.join(dataDir, "state.json");
@@ -121,6 +124,19 @@ export function createApp({
   const economy = createEconomy(db, economyConfig(env));
   const progression = createProgression({ db, economy, env });
   const integrity = createIntegrity(db, integrityConfig(env));
+  const pushCfg = pushConfig(env);
+  const tournaments = createTournaments({
+    db,
+    now: clock,
+    rewardIds: TOURNAMENT_REWARDS.map((r) => r.id),
+    hooks: {
+      available: (p) => toCredits(economy.available(p)),
+      notify: (pid, msg) => deliver(pid, msg),
+      launchMatch: (tour, m, a, b) => launchMatch(tour, m, a, b),
+      endTable: (tableId) => endTournamentTable(tableId),
+      award: (p, reward) => progression.award(p, reward),
+    },
+  });
   const photoDir = path.join(dataDir, "avatars");
   mkdirSync(photoDir, { recursive: true, mode: 0o700 });
   // Anciens avatars (symboles) : remplacés par un avatar illustré.
@@ -240,6 +256,51 @@ export function createApp({
   const send = (ws, msg) => {
     if (ws.readyState === 1) ws.send(JSON.stringify(msg));
   };
+  // Notification : boîte de réception dans l'application (toujours), puis push navigateur et
+  // natif si le joueur les a autorisés. Un échec d'envoi n'interrompt jamais le tournoi.
+  function deliver(pid, msg) {
+    const p = db.players[pid];
+    if (!p) return;
+    const notice = { id: id(), at: Date.now(), read: false, ...msg };
+    p.inbox = [notice, ...(p.inbox ?? [])].slice(0, 30);
+    for (const ws of connections.get(pid) ?? []) send(ws, { type: "notice", notice });
+    const payload = { title: msg.title, body: msg.body, url: msg.url ?? "/", tag: `${msg.tournament ?? "contree"}:${msg.kind ?? ""}` };
+    for (const sub of p.push?.web ?? [])
+      sendWebPush(sub, payload, pushCfg)
+        .then((r) => {
+          if (r === "gone") p.push.web = p.push.web.filter((x) => x !== sub);
+        })
+        .catch((e) => console.error("Push web impossible :", e.message));
+    for (const token of p.push?.fcm ?? [])
+      sendFcm(token.token, payload, pushCfg)
+        .then((r) => {
+          if (r === "gone") p.push.fcm = p.push.fcm.filter((x) => x !== token);
+        })
+        .catch((e) => console.error("Push natif impossible :", e.message));
+  }
+  // Table d'une rencontre de tournoi : équipe « a » aux places 0 et 2, équipe « b » aux places 1 et 3.
+  function launchMatch(tour, m, a, b) {
+    const t = table(`${tour.name}`, null, true, { ...tour.rules, reconnectSeconds: tour.reconnectSeconds });
+    t.invite = null;
+    t.code = null;
+    t.host = null;
+    t.tournament = { id: tour.id, match: m.id, name: tour.name, round: m.round, forfeitSeconds: tour.forfeitSeconds };
+    const order = [a.pids[0], b.pids[0], a.pids[1], b.pids[1]];
+    order.forEach((pid, seat) => {
+      const p = db.players[pid];
+      if (p.tableId && p.tableId !== t.id && db.tables[p.tableId]) leave(p, true);
+      p.tableId = t.id;
+      t.seats[seat] = { id: pid, name: p.name, avatar: p.avatar, ...(connections.has(pid) ? {} : { disconnectedAt: Date.now() }) };
+    });
+    start(t);
+    return t.id;
+  }
+  function endTournamentTable(tableId) {
+    const t = db.tables[tableId];
+    if (!t) return;
+    for (const s of t.seats) if (s && !s.bot && db.players[s.id]?.tableId === t.id) db.players[s.id].tableId = null;
+    delete db.tables[tableId];
+  }
   function loginBonus(p) {
     const e = economy.loginBonus(p);
     if (!e) return null;
@@ -313,6 +374,7 @@ export function createApp({
       rematch: t.rematch ? { votes: t.rematch.votes, blocked: t.rematch.blocked ?? [] } : null,
       reactions: t.reactions.filter((r) => Date.now() - r.at < 6000),
       result: t.results?.[pid] ?? null,
+      tournament: t.tournament ? { id: t.tournament.id, name: t.tournament.name } : null,
     };
   }
   function playerView(p) {
@@ -331,6 +393,9 @@ export function createApp({
         .filter((t) => t.vip && !t.practice && t.host === p.id)
         .map((t) => ({ id: t.id, name: t.name, code: t.code, stake: t.stake ?? 0, players: t.seats.filter(Boolean).length, avatars: t.seats.filter(Boolean).map((s) => s.avatar), playing: !!t.game && t.game.phase !== "finished" })),
       wallet: economy.view(p),
+      timeZone: p.timeZone ?? null,
+      inbox: (p.inbox ?? []).slice(0, 20),
+      push: { web: p.push?.web?.length ?? 0, native: p.push?.fcm?.length ?? 0 },
       progress: progression.view(p),
       settings: p.settings,
       hidden: Object.keys(p.hidden),
@@ -381,6 +446,7 @@ export function createApp({
             .filter((t) => t.pending.includes(pid))
             .map((t) => ({ id: t.id, name: t.name })),
           maintenance: db.settings.maintenance,
+          tournaments: tournaments.list(pid),
         });
     }
   }
@@ -458,6 +524,7 @@ export function createApp({
         challenges: prog.challenges.map((c) => c.label),
       };
     }
+    if (t.tournament) tournaments.matchFinished(t.id, winTeam, g.scores);
     // Les joueurs remplacés par un robot restent engagés : leur résultat leur est aussi communiqué.
     for (const r of settlement?.rows ?? []) {
       if (t.results[r.pid] || !db.players[r.pid]) continue;
@@ -499,6 +566,7 @@ export function createApp({
   // Revanche : chaque joueur confirme ; lancement automatique quand les quatre sont d'accord.
   function voteRematch(t, pid, accept) {
     check(t.game?.phase === "finished", "La partie n’est pas terminée");
+    check(!t.tournament, "Rencontre de tournoi : la suite se joue au tour suivant");
     t.rematch ??= { votes: {}, blocked: [] };
     if (!accept) {
       // Retour au salon avec les participants restants.
@@ -525,6 +593,11 @@ export function createApp({
     if (!t) return;
     const seat = t.seats.findIndex((s) => s?.id === p.id);
     const playing = t.game && t.game.phase !== "finished";
+    if (t.tournament && playing && seat >= 0 && tournaments.isTournamentTable(t.id)) {
+      // Pas de robot en tournoi : quitter une rencontre en cours vaut forfait de l'équipe.
+      tournaments.forfeit(t.id, seat % 2, `Abandon de ${p.name}`);
+      return;
+    }
     if (seat >= 0) {
       t.seats[seat] = playing ? { ...makeBot(seat, p.name), owner: p.id } : null;
       if (playing && t.money && !t.money.settled) integrity.leave(p.id, t.gameId);
@@ -933,6 +1006,30 @@ export function createApp({
       case "equip":
         progression.equip(p, d.id);
         break;
+      case "timezone":
+        if (validTimeZone(d.timeZone)) p.timeZone = d.timeZone;
+        break;
+      case "readInbox":
+        for (const n of p.inbox ?? []) n.read = true;
+        break;
+      case "tourRegister": {
+        let partner = null;
+        if (d.partner) {
+          check(p.friends?.[d.partner], "Choisissez un partenaire parmi vos amis");
+          partner = d.partner;
+        }
+        tournaments.register(String(d.id ?? ""), pid, partner);
+        break;
+      }
+      case "tourPartner":
+        tournaments.answerPartner(String(d.id ?? ""), pid, d.accept === true);
+        break;
+      case "tourUnregister":
+        tournaments.unregister(String(d.id ?? ""), pid);
+        break;
+      case "tourConfirm":
+        tournaments.confirm(String(d.id ?? ""), pid);
+        break;
       case "checkin":
         // Retour dans l'application (onglet ou appli réactivé) : éligibilité au bonus revérifiée.
         loginBonus(p);
@@ -1119,6 +1216,8 @@ export function createApp({
     ".css": "text/css; charset=utf-8",
     ".svg": "image/svg+xml",
     ".webp": "image/webp",
+    ".png": "image/png",
+    ".webmanifest": "application/manifest+json",
     ".txt": "text/plain; charset=utf-8",
     ".woff2": "font/woff2",
   };
@@ -1208,6 +1307,8 @@ export function createApp({
     "img-src 'self' data: blob:",
     "font-src 'self'",
     ext.frame.length ? `frame-src ${ext.frame.join(" ")}` : "frame-src 'none'",
+    "worker-src 'self'",
+    "manifest-src 'self'",
     "frame-ancestors 'none'",
     "base-uri 'none'",
     "form-action 'self'",
@@ -1330,6 +1431,37 @@ export function createApp({
         return json(res, e.status ?? 400, { error: e.message });
       }
     }
+    if (url.pathname === "/api/push/config") {
+      return json(res, 200, { vapidPublicKey: pushCfg.vapidPrivate ? pushCfg.vapidPublic : null, native: !!pushCfg.fcm });
+    }
+    if ((url.pathname === "/api/push/subscribe" || url.pathname === "/api/push/unsubscribe") && req.method === "POST") {
+      try {
+        if (!sameOrigin(req)) throw Object.assign(Error("Origine refusée"), { status: 403 });
+        const p = getPlayer(req);
+        check(p && !p.banned, "Session absente");
+        consume(p.id);
+        const d = JSON.parse((await readBody(req, 4096)).toString() || "{}");
+        p.push ??= { web: [], fcm: [] };
+        const add = url.pathname.endsWith("/subscribe");
+        if (d.type === "web") {
+          const sub = d.subscription ?? {};
+          check(typeof sub.endpoint === "string" && /^https:\/\//.test(sub.endpoint) && sub.endpoint.length < 1024, "Abonnement invalide");
+          p.push.web = p.push.web.filter((x) => x.endpoint !== sub.endpoint);
+          if (add) {
+            check(typeof sub.keys?.p256dh === "string" && typeof sub.keys?.auth === "string" && sub.keys.p256dh.length < 200 && sub.keys.auth.length < 100, "Abonnement invalide");
+            p.push.web = [...p.push.web, { endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } }].slice(-5);
+          }
+        } else if (d.type === "fcm") {
+          check(typeof d.token === "string" && d.token.length > 10 && d.token.length < 4096, "Jeton invalide");
+          p.push.fcm = p.push.fcm.filter((x) => x.token !== d.token);
+          if (add) p.push.fcm = [...p.push.fcm, { token: d.token, platform: d.platform === "ios" ? "ios" : "android" }].slice(-5);
+        } else throw Error("Type inconnu");
+        persist();
+        return json(res, 200, { ok: true });
+      } catch (e) {
+        return json(res, e.status ?? 400, { error: e.message });
+      }
+    }
     if (url.pathname === "/api/shop/config") {
       const c = economy.config;
       return json(res, 200, {
@@ -1400,7 +1532,7 @@ export function createApp({
         let body = "";
         for await (const chunk of req) {
           body += chunk;
-          if (body.length > 4096) {
+          if (body.length > 16384) {
             res.writeHead(413);
             return res.end();
           }
@@ -1424,6 +1556,18 @@ export function createApp({
             const r = db.reports.find((r) => r.id === d.id);
             check(r, "Signalement introuvable");
             r.resolved = true;
+          } else if (d.type === "tourCreate") {
+            tournaments.create(d.data ?? {});
+          } else if (d.type === "tourUpdate") {
+            tournaments.update(String(d.id), d.data ?? {});
+          } else if (d.type === "tourPublish") {
+            tournaments.publish(String(d.id));
+          } else if (d.type === "tourPostpone") {
+            tournaments.postpone(String(d.id), d.start);
+          } else if (d.type === "tourCancel") {
+            tournaments.cancel(String(d.id), clean(d.reason || "Annulé par l’organisateur", 200));
+          } else if (d.type === "tourDuplicate") {
+            tournaments.duplicate(String(d.id));
           } else if (d.type === "loginBonus") {
             check(Number.isInteger(d.amount) && d.amount >= 0 && d.amount <= 100000, "Montant invalide");
             db.settings.loginBonus = d.amount;
@@ -1466,6 +1610,9 @@ export function createApp({
           reports: db.reports,
           alerts: db.alerts.map((a) => ({ ...a, names: a.players.map((x) => db.players[x]?.name ?? x) })),
           settings: db.settings,
+          tournaments: tournaments.adminList(),
+          rewards: TOURNAMENT_REWARDS,
+          push: { web: !!(pushCfg.vapidPublic && pushCfg.vapidPrivate), native: !!pushCfg.fcm },
           economy: {
             loginBonus: economy.config.loginBonus,
             purchases: economy.config.purchases,
@@ -1485,13 +1632,16 @@ export function createApp({
       "cards.js",
       "style.css",
       "cards-LICENSE.txt",
+      "sw.js",
+      "manifest.webmanifest",
     ];
     const cardFile =
       /^cards\/(?:[789]|10|[JQKA])[SHCD]\.svg$/.test(rel) ||
       (/^avatars\/[a-z-]+\.webp$/.test(rel) && AVATARS.includes(rel.slice(8, -5))) ||
       (/^avatars\/[a-z-]+\.svg$/.test(rel) && BOT_AVATARS.includes(rel.slice(8, -4))) ||
       /^fonts\/[a-z0-9-]+\.woff2$/.test(rel) && existsSync(path.join(root, "public", rel)) ||
-      /^decor\/[a-z0-9-]+\.(?:svg|webp)$/.test(rel);
+      /^decor\/[a-z0-9-]+\.(?:svg|webp)$/.test(rel) ||
+      /^icons\/icon-(?:192|512|maskable)\.png$/.test(rel);
     if ((!allowed.includes(rel) && !cardFile) || !existsSync(path.join(root, "public", rel))) {
       res.writeHead(404);
       return res.end("Introuvable");
@@ -1544,7 +1694,7 @@ export function createApp({
         const result = command(p.id, msg);
         send(ws, { type: "ack", id: msg.id, ...result });
       } catch (e) {
-        send(ws, { type: "error", id: msg?.id, message: e.message });
+        send(ws, { type: "error", id: msg?.id, message: e.message, ...(e.code ? { code: e.code, balance: e.balance, missing: e.missing, required: e.required } : {}) });
         broadcast();
       }
     });
@@ -1569,9 +1719,25 @@ export function createApp({
     }
   }, 15000);
   heartbeat.unref();
+  let lastTourTick = 0,
+    lastTourSig = "";
+  const tourSignature = () => JSON.stringify(Object.values(db.tournaments).map((x) => [tournaments.stage(x), x.formedAt, x.start, x.rounds?.flat().map((m) => m.status), Object.keys(x.sent).length]));
   const timer = setInterval(() => {
     let dirty = false;
     const now = Date.now();
+    if (now - lastTourTick >= 1000) {
+      // Programmation des tournois : ouverture, rappels, présence, départ… sans administrateur.
+      lastTourTick = now;
+      try {
+        tournaments.tick();
+      } catch (e) {
+        console.error("Tournois :", e.message);
+      }
+      // Les étapes dépendent aussi de l'heure : on compare avec le passage précédent.
+      const sig = tourSignature();
+      if (sig !== lastTourSig) dirty = true;
+      lastTourSig = sig;
+    }
     for (const t of Object.values(db.tables)) {
       if (t.idleSince && now - t.idleSince > 14 * 86400_000 && !t.seats.some(Boolean)) {
         delete db.tables[t.id];
@@ -1605,6 +1771,18 @@ export function createApp({
         continue;
       }
       const g = t.game;
+      if (t.tournament && g.phase !== "finished") {
+        // Absence prolongée en tournoi : forfait de l'équipe (la première partie absente perd).
+        const gone = t.seats
+          .map((s, seat) => ({ s, seat }))
+          .filter(({ s }) => s && !connections.has(s.id) && s.disconnectedAt && now - s.disconnectedAt >= t.tournament.forfeitSeconds * 1000)
+          .sort((x, y) => x.s.disconnectedAt - y.s.disconnectedAt);
+        if (gone.length) {
+          tournaments.forfeit(t.id, gone[0].seat % 2, `Absence prolongée de ${gone[0].s.name}`);
+          dirty = true;
+          continue;
+        }
+      }
       if (expireCounter(g, now)) {
         update(t);
         dirty = true;
@@ -1612,6 +1790,7 @@ export function createApp({
       if (["bidding", "playing"].includes(g.phase)) {
         const s = t.seats[g.turn];
         const absent =
+          !t.tournament &&
           s &&
           !s.bot &&
           !connections.has(s.id) &&

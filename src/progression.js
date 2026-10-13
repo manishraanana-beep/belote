@@ -21,6 +21,10 @@ export const BADGES = [
   { id: "capot", icon: "💥", name: "Capot !", hint: "Réussir un capot" },
   { id: "contreur", icon: "⚡", name: "Contreur", hint: "Faire chuter un contrat que vous avez contré" },
   { id: "vip-host", icon: "👑", name: "Hôte VIP", hint: "Terminer une partie dans votre table VIP" },
+  // Récompenses de tournoi : attribuées une seule fois, annoncées avant l'inscription.
+  { id: "tournoi-participant", icon: "🎟️", name: "Tournoyeur", hint: "Disputer un tournoi", reward: true },
+  { id: "tournoi-finaliste", icon: "🥈", name: "Finaliste", hint: "Atteindre la finale d’un tournoi", reward: true },
+  { id: "tournoi-vainqueur", icon: "🏆", name: "Champion de tournoi", hint: "Remporter un tournoi", reward: true },
 ];
 
 // Collection purement visuelle. Le dos de cartes et le décor ne s'appliquent qu'à votre écran.
@@ -39,6 +43,14 @@ export const COSMETICS = [
   { id: "felt-ocean", kind: "felt", name: "Océan", unlock: { type: "level", value: 1, label: "Niveau Habitué" } },
   { id: "felt-bordeaux", kind: "felt", name: "Bordeaux", unlock: { type: "badge", value: "first-rubicon", label: "Badge Premier rubicon" } },
   { id: "felt-lagon", kind: "felt", name: "Lagon", unlock: { type: "badge", value: "games-50", label: "Badge Cinquante parties" } },
+  { id: "frame-champion", kind: "frame", name: "Couronne de champion", unlock: { type: "tournament", label: "Exclusif tournoi" } },
+  { id: "back-velours", kind: "back", name: "Velours VIP", unlock: { type: "tournament", label: "Exclusif tournoi" } },
+  { id: "felt-velours", kind: "felt", name: "Velours violet", unlock: { type: "tournament", label: "Exclusif tournoi" } },
+];
+// Récompenses proposables pour un tournoi (badges ou objets exclusifs).
+export const TOURNAMENT_REWARDS = [
+  ...BADGES.filter((b) => b.reward).map((b) => ({ id: b.id, kind: "badge", name: `${b.icon} ${b.name}` })),
+  ...COSMETICS.filter((c) => c.unlock.type === "tournament").map((c) => ({ id: c.id, kind: c.kind, name: c.name })),
 ];
 
 export function challengesConfig(env = process.env) {
@@ -117,6 +129,19 @@ export function createProgression({ db, economy, env = process.env, maxSameLineu
     grant(p, id) {
       if (!COSMETICS.some((c) => c.id === id)) throw Error("Élément inconnu");
       prog(p).owned[id] = Date.now();
+    },
+    // Récompense de tournoi : badge ou objet exclusif, sans effet si déjà possédé.
+    award(p, id) {
+      const g = prog(p);
+      if (BADGES.some((b) => b.id === id && b.reward)) {
+        if (g.badges[id]) return false;
+        g.badges[id] = Date.now();
+        return true;
+      }
+      if (!COSMETICS.some((c) => c.id === id)) throw Error("Récompense inconnue");
+      if (g.owned[id]) return false;
+      g.owned[id] = Date.now();
+      return true;
     },
     // Partie réellement terminée par ce joueur (pas d'abandon). Renvoie le résumé affiché.
     record(p, info) {
