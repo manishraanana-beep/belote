@@ -279,7 +279,7 @@ const ICONS = {
   coin: '<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4"/>',
 };
 const icon = (name, cls = "") => `<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] ?? ""}</svg>`;
-const logo = (sub = "") => `<div class="logo" aria-label="Contrée"><b>CONTRÉE</b><span class="orn"><i></i>♥ ◆ ♣<i></i></span>${sub ? `<em>${sub}</em>` : ""}</div>`;
+const logo = (sub = "") => `<div class="logo" aria-label="Belote Prestige"><img class="emblem" src="/decor/emblem.svg" alt=""><b>BELOTE</b><span class="orn"><i></i>PRESTIGE<i></i></span>${sub ? `<em>${sub}</em>` : ""}</div>`;
 let page = { name: null, params: {} },
   pageStack = [];
 function go(name, params = {}) {
@@ -827,7 +827,7 @@ function topBar(g, t, me) {
     ${btn(icon("menu"), "menu", "square-btn", 'aria-label="Menu de la partie"')}
   </header>
   <div class="scoreboard" aria-label="Scores"><div class="us"><small>Nous</small><b>${fmt(g.scores[me % 2])}</b></div><i></i><div class="them"><small>Eux</small><b>${fmt(g.scores[1 - (me % 2)])}</b></div></div>
-  ${c && g.phase !== "bidding" ? `<div class="contract-row"><span class="contract-pill ${c.ours ? "us" : "them"}">${e(c.name)} • ${c.short} • ${c.amount} ${suitHtml(c.suit)}${c.mult > 1 ? ` <em>×${c.mult}</em>` : ""}</span></div>` : ""}`;
+`;
 }
 // Enchères de la donne : dernière parole de chaque autre joueur, puis meilleure enchère.
 function auctionStrip(g, t, me) {
@@ -878,10 +878,15 @@ function seatView(g, t, me, i) {
   return `<div class="seat p${rel} ${team} ${active ? "active" : ""} ${offline ? "offline" : ""} ${s?.frame ?? ""}">
     ${g.contract?.seat === i ? '<span class="crown-top" title="Preneur">♛</span>' : ""}
     <div class="seat-avatar ${human ? "tappable" : ""}" ${human ? `data-action="player" data-id="${s.id}" role="button" aria-label="Profil de ${e(s.name)}"` : ""}>${avatar(s?.avatar)}${g.dealer === i ? '<span class="dealer" title="Donneur">D</span>' : ""}</div>
-    <div class="name-pill"><b>${e(s?.name ?? "—")}</b></div>${s?.bot ? '<span class="robot-tag">ROBOT</span>' : ""}${status}
+    <div class="name-pill"><b>${e(s?.name ?? "—")}</b></div>${takerBadge(g, i)}${s?.bot ? '<span class="robot-tag">ROBOT</span>' : ""}${status}
     ${rel !== 0 ? `<div class="backs">${Array.from({ length: Math.min(8, g.handCounts[i]) }, () => "<i></i>").join("")}</div>` : ""}
     ${seatBubble(g, i)}${chatBubble(t, s)}${reactionBubble(t, s)}
   </div>`;
+}
+// Rappel compact du contrat, sous le nom du preneur.
+function takerBadge(g, i) {
+  if (!g.contract || g.contract.seat !== i || !["counter", "playing", "summary"].includes(g.phase)) return "";
+  return `<span class="taker-badge">${amountLabel(g.contract.amount)} ${suitHtml(g.contract.suit)}${g.multiplier > 1 ? ` <em>${multLabel(g.multiplier)}</em>` : ""}</span>`;
 }
 function trickCards(cards, me, cls = "") {
   return `<div class="trick ${cls}">${cards.map((p) => `<div class="tcard p${(p.seat - me + 4) % 4}"><img src="${cardImage(p.card)}" alt="${cardName(p.card)}"></div>`).join("")}</div>`;
@@ -899,12 +904,21 @@ function centerView(g, t, me) {
   const c = contractInfo(g, t, me);
   if (g.phase === "counter") return contractBanner(c, g);
   if (g.phase === "playing") {
-    if (!g.tricks.length && !g.trick.length) return contractBanner(c, g);
+    // Annonce du preneur affichée brièvement, puis le centre accueille les cartes jouées.
+    const key = `${t.gameId}:${g.deal}`;
+    if (bannerKey !== key) {
+      bannerKey = key;
+      bannerUntil = Date.now() + 2600;
+      setTimeout(render, 2700);
+    }
+    if (!g.tricks.length && !g.trick.length && Date.now() < bannerUntil) return contractBanner(c, g);
     return trickCards(g.trick, me);
   }
   if (["summary", "finished"].includes(g.phase)) return "";
   if (g.turn === me) return "";
-  return `<div class="bid-zone watching">${auctionStrip(g, t, me)}</div>`;
+  // Contre à la volée : proposé aux adversaires du preneur, même hors de leur tour (règle de la table).
+  const flying = g.contract && g.contract.seat % 2 !== me % 2 && g.rules.flyingCounter;
+  return `<div class="bid-zone watching">${auctionStrip(g, t, me)}${flying ? btn("Contrer à la volée", "counter", "red-btn counter-fly") : ""}</div>`;
 }
 // Maquette « Résultat de la donne ».
 function dealResult(g, t, me) {
@@ -968,7 +982,7 @@ function bidPanel(g, me, t) {
     <b class="bp-title"><i>⟡</i>Votre annonce<i>⟡</i></b>
     <input type="hidden" name="amount" value="${bidAmount ?? ""}"><input type="hidden" name="suit" value="${bidSuit ?? ""}">
     <div class="bid-suits">${HAND_ORDER.map((s) => `<button type="button" class="suit-btn ${isRed(s) ? "red" : ""} ${s === bidSuit ? "on" : ""}" data-action="pickSuit" data-suit="${s}" aria-label="Atout ${SUIT_NAMES[s]}" aria-pressed="${s === bidSuit}">${SUITS[s]}</button>`).join("")}</div>
-    <div class="bid-amounts">${BIDS.map((n) => `<button type="button" class="amount ${n === bidAmount ? "on" : ""}" data-action="pickAmount" data-amount="${n}" ${options.includes(n) ? "" : "disabled"}>${amountLabel(n)}</button>`).join("")}</div>
+    <div class="bid-amounts">${options.map((n) => `<button type="button" class="amount ${n === bidAmount ? "on" : ""}" data-action="pickAmount" data-amount="${n}">${amountLabel(n)}</button>`).join("")}</div>
     <span class="bp-sep" aria-hidden="true">◆</span>
     <div class="bid-actions">${btn("Passer", "pass", "teal-btn")}<button class="gold-btn announce" name="go" value="1" ${options.length && bidSuit ? "" : "disabled"}><span>Annoncer</span><b>${bidAmount ? amountLabel(bidAmount) : ""} ${bidSuit ? suitHtml(bidSuit) : ""}</b></button>${btn(g.rules.flyingCounter ? "Contrer<br>à la volée" : "Contrer", "counter", "red-btn", "", !canCounter)}</div>
   </form></div>`;
@@ -980,7 +994,7 @@ function announceLabel(form) {
 }
 function floatingAction(g, me) {
   const flying = g.phase === "bidding" && g.contract && g.contract.seat % 2 !== me % 2 && g.turn !== me && g.rules.flyingCounter;
-  if (flying) return `<div class="float-action">${btn("Contrer !", "counter", "danger-btn big")}</div>`;
+  if (flying) return ""; // bouton intégré à la zone des enchères
   if (g.phase === "counter" && g.contract.seat % 2 === me % 2) return `<div class="float-action">${btn(`Surcontrer ! <small data-deadline="${g.counterDeadline ?? 0}"></small>`, "surcounter", "danger-btn big")}</div>`;
   return "";
 }
@@ -1003,7 +1017,7 @@ function handView(g, me, t) {
     ${hand.map((c, i) => `<button type="button" class="hcard c${i} ${c === selected ? "selected" : ""}" data-action="pick" data-card="${c}" aria-label="${cardName(c)}" aria-pressed="${c === selected}"><img src="${cardImage(c)}" alt="" draggable="false"></button>`).join("")}
   </div>
   <div class="status-row">
-    <span class="me-mini"><span class="me-seat">${avatar(state.player.avatar)}<b>${e(state.player.name)}</b></span>${t.money ? `<small>${fmt(mine?.engaged ?? 0)} engagés</small>` : ""}</span>
+    <span class="me-mini"><span class="me-seat">${avatar(state.player.avatar)}<b>${e(state.player.name)}</b>${takerBadge(g, me)}</span>${t.money ? `<small>${fmt(mine?.engaged ?? 0)} engagés</small>` : ""}</span>
     ${status}
     <span class="status-btns">${btn("😊", "react", "round-btn", 'aria-label="Réactions"')}${btn(`${icon("chat")}${t.chat.length > seenChat && sheet !== "chat" ? '<i class="dot"></i>' : ""}`, "chat", "round-btn gold-round", 'aria-label="Discussion"')}</span>
   </div>`;
@@ -1034,6 +1048,8 @@ function gameView() {
 
 // ———————————————————————————————————————————————————————————— rendu
 // Un rafraîchissement pendant un appui ferait perdre la touche : on le diffère au relâchement.
+let bannerKey = null,
+  bannerUntil = 0;
 let pressing = false,
   pendingRender = false;
 document.addEventListener("pointerdown", () => (pressing = true), true);
@@ -1097,7 +1113,20 @@ function render() {
   if (log) log.scrollTop = log.scrollHeight;
   if (collection) $(".collecting")?.getAnimations({ subtree: true }).forEach((a) => (a.currentTime = performance.now() - collection.startedAt));
   clock();
+  fitBidZone();
 }
+// Sur les écrans bas (portable, petit téléphone), la zone d'annonce est réduite juste assez
+// pour ne jamais passer sous la main ni sous l'indication du tour : aucun défilement.
+function fitBidZone() {
+  const z = $(".bid-zone:not(.watching)"),
+    limit = $(".status-row");
+  if (!z || !limit) return;
+  z.style.removeProperty("scale");
+  const room = limit.getBoundingClientRect().top - 4 - z.getBoundingClientRect().top;
+  const need = z.scrollHeight;
+  if (need > room && room > 0) z.style.setProperty("scale", String(Math.max(0.6, room / need)));
+}
+addEventListener("resize", fitBidZone);
 // Retour dans l'application : le serveur revérifie l'éligibilité au bonus (au plus une fois par minute).
 let lastCheckin = 0;
 function checkin() {

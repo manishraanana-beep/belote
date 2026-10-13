@@ -306,7 +306,7 @@ test("HTTP : application disponible, origine hostile bloquée, administration au
   try {
     assert.equal((await fetch(f.base + "/api/health")).status, 200);
     const index = await fetch(f.base);
-    assert.match(await index.text(), /Contrée/);
+    assert.match(await index.text(), /Belote Prestige/);
     const svg = await fetch(f.base + "/cards/QH.svg");
     assert.equal(svg.status, 200);
     assert.equal(svg.headers.get("content-type"), "image/svg+xml");
