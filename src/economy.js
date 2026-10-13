@@ -25,7 +25,8 @@ export function economyConfig(env = process.env) {
   const production = env.NODE_ENV === "production" || !!env.RAILWAY_ENVIRONMENT;
   return {
     signupBonus: num("BELOTE_SIGNUP_BONUS", 2000),
-    dailyBonus: num("BELOTE_DAILY_BONUS", 200),
+    // Bonus de connexion : montant par défaut, modifiable depuis l'administration.
+    loginBonus: num("BELOTE_LOGIN_BONUS", 200),
     dayStartUtc: num("BELOTE_DAY_START_UTC", 3), // heure commune de renouvellement
     packs,
     // Les achats restent désactivables globalement.
@@ -48,9 +49,13 @@ export function nextReset(now = Date.now(), startUtc = 3) {
   return d.getTime() + startUtc * 3600_000;
 }
 
+export const LOGIN_PERIOD = 24 * 3600_000;
+
 export function createEconomy(db, config = economyConfig()) {
   db.ledger ??= [];
   db.ledgerKeys ??= {};
+  db.settings ??= {};
+  const loginAmount = () => db.settings.loginBonus ?? config.loginBonus;
   const wallet = (p) => (p.wallet ??= { balance: 0, reserved: 0 });
   const available = (p) => wallet(p).balance - wallet(p).reserved;
   // Écriture unique au journal : la clé empêche toute double attribution.
@@ -91,8 +96,7 @@ export function createEconomy(db, config = economyConfig()) {
         balance: w.balance,
         reserved: w.reserved,
         available: w.balance - w.reserved,
-        dailyReady: !db.ledgerKeys[`daily:${p.id}:${dayId(Date.now(), config.dayStartUtc)}`],
-        nextReset: nextReset(Date.now(), config.dayStartUtc),
+        loginBonus: p.accountId ? { amount: loginAmount(), next: p.loginBonusAt ? p.loginBonusAt + LOGIN_PERIOD : Date.now() } : null,
       };
     },
     signupBonus(p, account) {
@@ -100,10 +104,18 @@ export function createEconomy(db, config = economyConfig()) {
       const k = `signup:${account.emailHash ?? account.id}`;
       return post(p, k, "signup", toUnits(config.signupBonus), { label: "Bienvenue à la Maison" });
     },
-    daily(p) {
-      if (!p.accountId) throw Error("Créez un compte pour recevoir le bonus quotidien");
-      const e = post(p, `daily:${p.id}:${dayId(Date.now(), config.dayStartUtc)}`, "daily", toUnits(config.dailyBonus), { label: "Bonus du jour" });
-      if (!e) throw Error("Bonus déjà reçu aujourd’hui, revenez demain");
+    loginAmount,
+    // Bonus de connexion : un par compte et par période de 24 h (heure du serveur), sans cumul
+    // des jours d'absence. Vérification et écriture sont synchrones : deux connexions simultanées
+    // ne peuvent pas l'obtenir deux fois. Seul le solde augmente, jamais les crédits engagés.
+    loginBonus(p, now = Date.now()) {
+      if (!p.accountId || !(loginAmount() > 0)) return null;
+      if (p.loginBonusAt && now - p.loginBonusAt < LOGIN_PERIOD) return null;
+      const seq = (p.loginBonusSeq ?? 0) + 1;
+      const e = post(p, `login:${p.accountId}:${seq}`, "login", toUnits(loginAmount()), { label: "Bonus de connexion" });
+      if (!e) return null;
+      p.loginBonusAt = now;
+      p.loginBonusSeq = seq;
       return e;
     },
     // Réservation au lancement : min(disponible, 3 × mise), figée pour toute la partie.

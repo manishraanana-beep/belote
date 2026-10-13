@@ -72,13 +72,30 @@ test("annulation technique : réservations libérées sans gain ni perte", () =>
   assert.deepEqual(players.map((p) => [p.wallet.balance, p.wallet.reserved]), players.map(() => [toUnits(1000), 0]));
   assert.equal(eco.settle(db.players, m, [1000, 0], "g"), null);
 });
-test("bonus quotidien unique par jour, signature Stripe vérifiée", () => {
+test("bonus de connexion : immédiat, puis 24 h après la dernière attribution, sans cumul", () => {
   const db = { players: {} };
   const eco = createEconomy(db, economyConfig({}));
   const p = { id: "p", accountId: "a" };
-  eco.daily(p);
-  assert.throws(() => eco.daily(p), /déjà reçu/);
-  assert.throws(() => eco.daily({ id: "g" }), /compte/);
+  const H = 3600_000,
+    t0 = Date.UTC(2026, 2, 28, 22); // veille du passage à l'heure d'été : l'heure du serveur (UTC) ne saute pas
+  assert.equal(eco.loginBonus(p, t0).amount, toUnits(200)); // première connexion
+  assert.equal(eco.loginBonus(p, t0), null); // connexion simultanée sur un autre appareil
+  assert.equal(eco.loginBonus(p, t0 + 23 * H + 59 * 60_000), null);
+  assert.ok(eco.loginBonus(p, t0 + 24 * H)); // exactement 24 h après
+  assert.equal(eco.loginBonus(p, t0 + 30 * H), null);
+  assert.ok(eco.loginBonus(p, t0 + 24 * H + 10 * 24 * H)); // absence de dix jours : un seul bonus
+  assert.equal(eco.loginBonus(p, t0 + 24 * H + 10 * 24 * H + 1), null);
+  assert.equal(p.wallet.balance, toUnits(600));
+  assert.equal(eco.history(p).filter((x) => x.type === "login").length, 3);
+  assert.equal(eco.loginBonus({ id: "invite" }, t0), null); // compte requis
+  // Montant modifié depuis l'administration ; les crédits engagés ne bougent pas.
+  db.settings.loginBonus = 500;
+  p.wallet.reserved = toUnits(300);
+  eco.loginBonus(p, t0 + 100 * H + 10 * 24 * H);
+  assert.deepEqual([p.wallet.balance, p.wallet.reserved], [toUnits(1100), toUnits(300)]);
+  assert.equal(eco.view(p).loginBonus.amount, 500);
+});
+test("signature Stripe vérifiée", () => {
   const raw = '{"x":1}',
     t = Math.floor(Date.now() / 1000);
   const sig = createHmac("sha256", "whsec").update(`${t}.${raw}`).digest("hex");

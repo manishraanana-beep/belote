@@ -242,13 +242,13 @@ test("compte : accueil, inscription, choix d’avatar, vérification, profil", a
   await page.locator('#register-form [name="terms"]').check({ force: true });
   await page.locator("#register-form button.gold-btn").click();
   await expect(page.locator(".page-title")).toHaveText("Choisir mon avatar");
-  await page.locator('[data-avatar="hibou"]').first().click();
+  await page.locator('[data-avatar="chat"]').first().click();
   await page.locator('[data-action="useAvatar"]').click();
   await expect(page.locator(".page-title")).toHaveText("Vérifiez votre e-mail");
   await page.screenshot({ path: `${shots}verifier-email.png` });
   await page.reload();
   await page.locator('.tabbar [data-page="profile"]').click();
   await expect(page.locator(".profile-hero h1")).toHaveText("Sophie");
-  await expect(page.locator(".profile-hero img").first()).toHaveAttribute("src", "/avatars/hibou.svg");
+  await expect(page.locator(".profile-hero img").first()).toHaveAttribute("src", "/avatars/chat.webp");
   await page.screenshot({ path: `${shots}profil.png` });
 });

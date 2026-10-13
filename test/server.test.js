@@ -559,8 +559,8 @@ test("profil : pseudo, avatar illustré, photo recadrée", async () => {
   const f = await fixture();
   try {
     const c = await f.client();
-    await c.command("profile", { name: "Sophie", avatar: "hibou" });
-    await c.wait((c) => c.state.player.avatar === "hibou");
+    await c.command("profile", { name: "Sophie", avatar: "chat" });
+    await c.wait((c) => c.state.player.avatar === "chat");
     await c.command("profile", { avatar: "♠" }, "error");
     await c.command("profile", { name: "x" }, "error");
     const jpeg = new Uint8Array(200).fill(1);
@@ -570,7 +570,7 @@ test("profil : pseudo, avatar illustré, photo recadrée", async () => {
     assert.match(r.body.avatar, /^u:[0-9a-f]{32}$/);
     const img = await fetch(`${f.base}/u/${r.body.avatar.slice(2)}.jpg`);
     assert.equal(img.headers.get("content-type"), "image/jpeg");
-    assert.equal((await fetch(f.base + "/avatars/renard.svg")).status, 200);
+    assert.equal((await fetch(f.base + "/avatars/chien.webp")).status, 200);
     assert.equal((await fetch(f.base + "/avatars/inconnu.svg")).status, 404);
   } finally {
     await f.close();
@@ -636,7 +636,7 @@ async function member(f, email) {
 }
 test("crédits : table à 200, réservations, achat en cours, départ, règlement unique et équilibré", async () => {
   const { createHmac } = await import("node:crypto");
-  const env = { BELOTE_TEST_SHOP: "on", BELOTE_PURCHASES: "on", STRIPE_SECRET_KEY: "sk", STRIPE_WEBHOOK_SECRET: "whsec" };
+  const env = { BELOTE_TEST_SHOP: "on", BELOTE_PURCHASES: "on", STRIPE_SECRET_KEY: "sk", STRIPE_WEBHOOK_SECRET: "whsec", BELOTE_LOGIN_BONUS: "0" };
   const f = await fixture({ env, botDelay: 1 });
   try {
     const ps = [];
@@ -691,7 +691,7 @@ test("crédits : table à 200, réservations, achat en cours, départ, règlemen
   }
 });
 test("crédits : annulation technique par l'administration, sans gain ni perte", async () => {
-  const f = await fixture({ adminKey: "k", botDelay: 100000 });
+  const f = await fixture({ adminKey: "k", botDelay: 100000, env: { BELOTE_LOGIN_BONUS: "0" } });
   try {
     const ps = [];
     for (let i = 0; i < 4; i++) ps.push(await member(f, `a${i}@exemple.fr`));
@@ -796,6 +796,35 @@ test("revanche : chaque joueur confirme, nouvelles réservations, refus = retour
     f.app.db.tables[t.id].game.phase = "finished";
     await ps[1].command("rematchVote", { accept: false });
     assert.equal(t.game, null);
+  } finally {
+    await f.close();
+  }
+});
+test("bonus de connexion : un seul par compte et par 24 h, sur tous les appareils", async () => {
+  const f = await fixture({ adminKey: "k", env: { BELOTE_SIGNUP_BONUS: "1000" } });
+  try {
+    const phone = await member(f, "bonus@exemple.fr");
+    const id = phone.state.player.id;
+    await phone.wait((c) => c.state.player.wallet.balance === 2400); // 1 000 offerts + 200 à la première connexion
+    assert.ok(phone.queue.some((m) => m.type === "bonus" && m.amount === 200 && m.balance === 1200));
+    // Ordinateur et tablette connectés en même temps : aucun second bonus.
+    const s = await fetch(f.base + "/api/session", { method: "POST" });
+    const login = await api(f, s.headers.get("set-cookie").split(";")[0], "/api/auth/login", { email: "bonus@exemple.fr", password: "motdepasse" });
+    const [desk, tablet] = await Promise.all([f.client(login.cookie), f.client(login.cookie)]);
+    assert.equal(desk.state.player.id, id);
+    await Promise.all([desk.command("checkin"), tablet.command("checkin"), phone.command("checkin")]);
+    assert.equal(f.app.db.players[id].wallet.balance, 2400);
+    // 24 h plus tard (heure du serveur), le joueur toujours connecté revient dans l'appli.
+    f.app.db.players[id].loginBonusAt -= 24 * 3600_000;
+    await Promise.all([desk.command("checkin"), tablet.command("checkin"), phone.command("checkin")]);
+    assert.equal(f.app.db.players[id].wallet.balance, 2800);
+    assert.equal(f.app.db.ledger.filter((x) => x.pid === id && x.type === "login").length, 2);
+    // Montant réglé dans l'administration.
+    const r = await fetch(f.base + "/api/admin", { method: "POST", headers: { Authorization: "Bearer k", "Content-Type": "application/json" }, body: JSON.stringify({ type: "loginBonus", amount: 350 }) });
+    assert.equal(r.status, 200);
+    f.app.db.players[id].loginBonusAt -= 24 * 3600_000;
+    await desk.command("checkin");
+    assert.equal(f.app.db.players[id].wallet.balance, 3500);
   } finally {
     await f.close();
   }

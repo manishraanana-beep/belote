@@ -28,7 +28,8 @@ async function register(page, email) {
   const ok = await page.evaluate(async (email) => (await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "motdepasse" }) })).ok, email);
   expect(ok).toBe(true);
   await page.reload();
-  await expect(page.locator(".wallet-chip")).toContainText("600");
+  // Cadeau de bienvenue (600 en test) + bonus de connexion immédiat (200).
+  await expect(page.locator(".wallet-chip")).toContainText("800");
 }
 async function noScroll(page) {
   expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1 && document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -55,10 +56,9 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
 
   // Portefeuille, bonus du jour, boutique (paiement de test), historique.
   await A.locator(".wallet-chip").click();
-  await expect(A.locator(".wallet-hero")).toContainText("600");
+  await expect(A.locator(".wallet-hero")).toContainText("800");
+  await expect(A.locator("#modal .daily-done")).toContainText("Bonus de connexion");
   await A.screenshot({ path: `${shots}portefeuille.png` });
-  await A.locator('#modal [data-action="daily"]').click();
-  await expect(A.locator(".wallet-chip")).toContainText("800");
   await A.keyboard.press("Escape");
   await A.locator(".quick-row [data-action='shop']").click();
   await expect(A.locator(".pack")).toHaveCount(4);

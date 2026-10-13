@@ -74,11 +74,8 @@ function rules(input = {}) {
     }
   return r;
 }
-// Avatars illustrés (public/avatars/<id>.svg) ; les robots ont leurs propres mascottes.
-export const AVATARS = [
-  "jacques", "sophie", "camille", "emma", "malik", "henri", "leo",
-  "chat", "chien", "renard", "hibou", "panda",
-];
+// Avatars illustrés repris des maquettes du graphiste (public/avatars/<id>.webp) ; les robots ont leurs mascottes SVG.
+export const AVATARS = ["jacques", "sophie", "camille", "emma", "malik", "henri", "leo", "chat", "chien"];
 export const BOT_AVATARS = ["robot-bleu", "robot-corail", "robot-menthe", "robot-soleil"];
 const BOT_NAMES = ["Léon", "Margot", "Basile", "Rosalie", "Gaston", "Suzon", "Firmin", "Odette"];
 // Messages et réactions prédéfinis : impossible d'y décrire sa main à son partenaire.
@@ -243,6 +240,13 @@ export function createApp({
   const send = (ws, msg) => {
     if (ws.readyState === 1) ws.send(JSON.stringify(msg));
   };
+  function loginBonus(p) {
+    const e = economy.loginBonus(p);
+    if (!e) return null;
+    for (const ws of connections.get(p.id) ?? []) send(ws, { type: "bonus", amount: e.amount / 2, balance: e.balance / 2 });
+    persist();
+    return e;
+  }
   function publicTable(t) {
     return {
       id: t.id,
@@ -929,8 +933,9 @@ export function createApp({
       case "equip":
         progression.equip(p, d.id);
         break;
-      case "daily":
-        economy.daily(p);
+      case "checkin":
+        // Retour dans l'application (onglet ou appli réactivé) : éligibilité au bonus revérifiée.
+        loginBonus(p);
         break;
       case "wallet":
         return {
@@ -1113,6 +1118,7 @@ export function createApp({
     ".js": "text/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
     ".svg": "image/svg+xml",
+    ".webp": "image/webp",
     ".txt": "text/plain; charset=utf-8",
     ".woff2": "font/woff2",
   };
@@ -1418,6 +1424,9 @@ export function createApp({
             const r = db.reports.find((r) => r.id === d.id);
             check(r, "Signalement introuvable");
             r.resolved = true;
+          } else if (d.type === "loginBonus") {
+            check(Number.isInteger(d.amount) && d.amount >= 0 && d.amount <= 100000, "Montant invalide");
+            db.settings.loginBonus = d.amount;
           } else if (d.type === "maintenance") {
             check(typeof d.enabled === "boolean", "Valeur invalide");
             db.settings.maintenance = d.enabled;
@@ -1458,6 +1467,7 @@ export function createApp({
           alerts: db.alerts.map((a) => ({ ...a, names: a.players.map((x) => db.players[x]?.name ?? x) })),
           settings: db.settings,
           economy: {
+            loginBonus: economy.config.loginBonus,
             purchases: economy.config.purchases,
             stripe: economy.config.stripe,
             apple: economy.config.apple,
@@ -1478,9 +1488,10 @@ export function createApp({
     ];
     const cardFile =
       /^cards\/(?:[789]|10|[JQKA])[SHCD]\.svg$/.test(rel) ||
-      /^avatars\/[a-z-]+\.svg$/.test(rel) && [...AVATARS, ...BOT_AVATARS].includes(rel.slice(8, -4)) ||
+      (/^avatars\/[a-z-]+\.webp$/.test(rel) && AVATARS.includes(rel.slice(8, -5))) ||
+      (/^avatars\/[a-z-]+\.svg$/.test(rel) && BOT_AVATARS.includes(rel.slice(8, -4))) ||
       /^fonts\/[a-z0-9-]+\.woff2$/.test(rel) && existsSync(path.join(root, "public", rel)) ||
-      /^decor\/[a-z0-9-]+\.svg$/.test(rel);
+      /^decor\/[a-z0-9-]+\.(?:svg|webp)$/.test(rel);
     if ((!allowed.includes(rel) && !cardFile) || !existsSync(path.join(root, "public", rel))) {
       res.writeHead(404);
       return res.end("Introuvable");
@@ -1520,6 +1531,7 @@ export function createApp({
     const t = db.tables[p.tableId];
     const seat = t?.seats.find((s) => s?.id === p.id);
     if (seat) delete seat.disconnectedAt;
+    loginBonus(p);
     broadcast();
     ws.alive = true;
     ws.on("pong", () => {

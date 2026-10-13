@@ -12,10 +12,7 @@ const SUIT_NAMES = { S: "Pique", H: "Cœur", C: "Trèfle", D: "Carreau" };
 const HAND_ORDER = ["S", "H", "C", "D"];
 const RANKS = ["7", "8", "9", "10", "J", "Q", "K", "A"];
 const RANK_NAMES = { J: "Valet", Q: "Dame", K: "Roi", A: "As" };
-const AVATARS = [
-  "jacques", "sophie", "camille", "emma", "malik", "henri", "leo",
-  "chat", "chien", "renard", "hibou", "panda",
-];
+const AVATARS = ["jacques", "sophie", "camille", "emma", "malik", "henri", "leo", "chat", "chien"];
 const BIDS = [80, 90, 100, 110, 120, 130, 140, 150, 160, 250];
 const STAKES = [100, 200, 500, 1000];
 const REACTIONS = [
@@ -60,7 +57,9 @@ const cardName = (c) => {
 const avatarUrl = (v) =>
   typeof v === "string" && v.startsWith("u:")
     ? `/u/${v.slice(2)}.jpg`
-    : `/avatars/${/^[a-z-]+$/.test(v ?? "") ? v : "renard"}.svg`;
+    : /^robot-[a-z]+$/.test(v ?? "")
+      ? `/avatars/${v}.svg`
+      : `/avatars/${AVATARS.includes(v) ? v : "jacques"}.webp`;
 const avatar = (v, cls = "") => `<img class="avatar ${cls}" src="${avatarUrl(v)}" alt="" draggable="false">`;
 const btn = (text, action, cls = "", data = "", disabled = false) =>
   `<button type="button" class="${cls}" data-action="${action}" ${data} ${disabled ? "disabled" : ""}>${text}</button>`;
@@ -321,7 +320,7 @@ const levelTitle = () => {
 function welcomePage() {
   return shell(
     `<div class="welcome">
-      <div class="welcome-art">${avatar("camille", "w1")}${avatar("sophie", "w2")}${avatar("jacques", "w3")}</div>
+      <img class="art welcome-art" src="/decor/accueil.webp" alt="" draggable="false">
       <h1 class="script">À vous de jouer !</h1><div class="orn-line">✦</div>
       <div class="mini-fan">${["7S", "8H", "9D", "JC", "QS", "10H", "AC", "KD"].map((c, i) => `<img class="mf${i}" src="${cardImage(c)}" alt="">`).join("")}</div>
       <div class="stack">${btn("Créer un compte", "go", "gold-btn wide", 'data-page="register"')}${btn("Se connecter", "go", "line-btn wide", 'data-page="login"')}${btn(`${icon("cards")} Découvrir le jeu`, "discover", "text-link")}</div>
@@ -359,7 +358,7 @@ function loginPage() {
 }
 function forgotPage() {
   return shell(
-    `<div class="illus key" aria-hidden="true"><span>🗝️</span></div>
+    `<img class="art illus" src="/decor/cle.webp" alt="" draggable="false">
     <h1 class="page-title">Retrouver mon compte</h1>
     <p class="lead">Entrez votre adresse e-mail pour recevoir un lien de réinitialisation.</p>
     <form id="forgot-form" class="stack">${field("mail", "email", "email", "E-mail", 'autocomplete="email" required')}<button class="gold-btn wide">Envoyer le lien</button></form>
@@ -369,14 +368,14 @@ function forgotPage() {
 }
 function resetPage() {
   return shell(
-    `<div class="illus key" aria-hidden="true"><span>🗝️</span></div><h1 class="page-title">Nouveau mot de passe</h1>
+    `<img class="art illus" src="/decor/cle.webp" alt="" draggable="false"><h1 class="page-title">Nouveau mot de passe</h1>
     <form id="reset-form" class="stack">${field("lock", "password", "password", "Nouveau mot de passe", 'minlength="8" autocomplete="new-password" required')}<button class="gold-btn wide">Enregistrer</button></form>`,
   );
 }
 function verifyPage() {
   const a = state.player.account;
   return shell(
-    `<div class="illus envelope" aria-hidden="true"><span class="env"></span><span class="env-card">♣</span></div>
+    `<img class="art illus" src="/decor/enveloppe.webp" alt="" draggable="false">
     <h1 class="page-title">Vérifiez votre e-mail</h1>
     <p class="lead">Un lien vous attend dans votre boîte mail${a?.email ? ` <b>${e(a.email)}</b>` : ""}.</p>
     <div class="stack">${btn("J’ai vérifié mon e-mail", "checkVerified", "gold-btn wide")}${btn(`${icon("refresh")} Renvoyer le lien`, "resend", "line-btn wide")}${btn(`${icon("pen")} Changer d’adresse e-mail`, "changeEmail", "text-link")}</div>`,
@@ -391,16 +390,17 @@ function homePage() {
   return shell(
     `<div class="me-row">
       <button type="button" class="me" data-action="go" data-page="profile">${avatar(p.avatar, "lg ring")}<span><b>${e(p.name)} ${icon("chevron", "tiny")}</b><small>${levelTitle()}</small></span></button>
-      <button type="button" class="wallet-chip" data-action="wallet" aria-label="Portefeuille">${coins(p.wallet.available / 2)}${p.wallet.dailyReady && p.account ? '<span class="gift">🎁</span>' : ""}</button>
+      <button type="button" class="wallet-chip" data-action="wallet" aria-label="Portefeuille">${coins(p.wallet.available / 2)}</button>
     </div>
+    ${p.account && p.wallet.loginBonus ? `<p class="bonus-line">🎁 Prochain bonus de connexion (+${fmt(p.wallet.loginBonus.amount)}) dans <b data-countdown="${p.wallet.loginBonus.next}"></b></p>` : ""}
     ${p.account && !p.account.verified ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
     ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 crédits offerts ${icon("chevron", "tiny")}</button>`}
     ${btn(`${icon("cards")} Jouer maintenant`, "quick", "gold-btn wide big")}
     ${invitesBlock()}
     <div class="features">
-      ${featureCard("go", 'data-page="tables"', "f-public", "Tables publiques", "Jouez avec d’autres joueurs", `${avatar("sophie", "fa1")}${avatar("jacques", "fa2")}${avatar("camille", "fa3")}`)}
-      ${featureCard("go", 'data-page="vip"', "f-vip", "Tables VIP", "Une expérience exclusive", `<span class="crown">♛</span>${avatar("emma", "fa2")}`)}
-      ${featureCard("practice", "", "f-bots", "Entraînement", "Progressez à votre rythme", `${avatar("robot-bleu", "fa2")}`)}
+      ${featureCard("go", 'data-page="tables"', "f-public", "Tables publiques", "Jouez avec d’autres joueurs", '<img src="/decor/f-publiques.webp" alt="">')}
+      ${featureCard("go", 'data-page="vip"', "f-vip", "Tables VIP", "Une expérience exclusive", '<img src="/decor/f-vip.webp" alt="">')}
+      ${featureCard("practice", "", "f-bots", "Entraînement", "Progressez à votre rythme", '<img src="/decor/f-robot.webp" alt="">')}
     </div>
     <div class="quick-row">
       ${btn(`${icon("target")} Défis${p.progress.challenges.some((c) => !c.done) ? '<i class="dot"></i>' : ""}`, "challenges", "chip")}
@@ -529,7 +529,7 @@ function legalPage() {
 function vipPage() {
   const p = state.player;
   return shell(
-    `<div class="vip-hero"><div class="vh-art">${avatar("jacques", "v1")}${avatar("sophie", "v2")}${avatar("henri", "v3")}${avatar("emma", "v4")}<span class="vh-table"><span>♛</span></span></div>
+    `<div class="vip-hero"><img class="art vh-art" src="/decor/club-vip.webp" alt="" draggable="false">
       <p class="vh-title"><b>${e(p.name)}</b> vous accueille au Club VIP !</p></div>
     <div class="stack">${btn(`${icon("crown")} Créer une table privée`, "go", "gold-btn wide", 'data-page="vipCreate"')}${btn(`${icon("link")} Rejoindre avec un code`, "joinCode", "line-btn wide")}</div>
     <h2 class="section orn-title">Mes tables privées</h2>
@@ -721,7 +721,7 @@ function finalResult(g, t, me) {
   const blocked = t.rematch?.blocked ?? [];
   return `<div class="overlay-page final ${won ? "win" : "lose"}"><div class="op-inner">
     ${won ? '<div class="confetti" aria-hidden="true">' + "<i></i>".repeat(14) + "</div>" : ""}
-    <div class="final-art">${avatar(t.seats[me]?.avatar, "xl")}${avatar(t.seats[(me + 2) % 4]?.avatar, "xl")}</div>
+    ${won ? '<img class="art final-art-img" src="/decor/victoire.webp" alt="" draggable="false">' : `<div class="final-art">${avatar(t.seats[me]?.avatar, "xl")}${avatar(t.seats[(me + 2) % 4]?.avatar, "xl")}</div>`}
     <div class="ribbon">${won ? "Victoire !" : "Défaite…"}</div>
     <div class="final-scores"><div><small>Votre équipe</small><b>${won ? icon("crown") : ""}${fmt(g.scores[me % 2])}</b></div><i></i><div class="them"><small>Équipe adverse</small><b>${fmt(g.scores[1 - (me % 2)])}</b></div></div>
     ${r ? moneyLines(r) + `<div class="xp-line">✨ +${r.xp} XP${r.badges?.length ? ` · ${r.badges.map((b) => `${b.icon} ${e(b.name)}`).join(", ")}` : ""}${r.challenges?.length ? ` · 🎯 ${r.challenges.map(e).join(", ")}` : ""}</div>` : ""}
@@ -873,7 +873,27 @@ function render() {
   if (collection) $(".collecting")?.getAnimations({ subtree: true }).forEach((a) => (a.currentTime = performance.now() - collection.startedAt));
   clock();
 }
+// Retour dans l'application : le serveur revérifie l'éligibilité au bonus (au plus une fois par minute).
+let lastCheckin = 0;
+function checkin() {
+  if (!state?.player.account || ws?.readyState !== 1 || Date.now() - lastCheckin < 60_000) return;
+  lastCheckin = Date.now();
+  cmd("checkin");
+}
+document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && checkin());
+addEventListener("focus", checkin);
+addEventListener("pageshow", checkin);
+const hms = (ms) => {
+  const t = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(t / 3600)} h ${String(Math.floor((t % 3600) / 60)).padStart(2, "0")} min ${String(t % 60).padStart(2, "0")} s`;
+};
 function clock() {
+  document.querySelectorAll("[data-countdown]").forEach((el) => {
+    const left = Number(el.dataset.countdown) - Date.now();
+    el.textContent = left > 0 ? hms(left) : "maintenant";
+    // Échéance atteinte en restant connecté : on redemande le bonus, une seule fois.
+    if (left <= 0) checkin();
+  });
   document.querySelectorAll("[data-deadline]").forEach((el) => {
     const d = Number(el.dataset.deadline);
     const n = Math.max(0, Math.ceil((d - Date.now()) / 1000));
@@ -887,6 +907,20 @@ setInterval(() => {
   const m = state?.table?.chat?.at(-1);
   if (m && state.table.game && Date.now() - m.at > 5000 && Date.now() - m.at < 5600) render();
 }, 500);
+
+// Petite pluie de pièces : « Bonus de connexion : +200 crédits ! » et nouveau solde.
+function showBonus(m) {
+  document.querySelector(".bonus-pop")?.remove();
+  const el = document.createElement("div");
+  el.className = "bonus-pop";
+  el.setAttribute("role", "status");
+  el.innerHTML = `<div class="bp-coins" aria-hidden="true">${Array.from({ length: 10 }, (_, i) => `<i class="k${i}"></i>`).join("")}</div>
+    <div class="bp-card"><span class="big-coin"></span><b>Bonus de connexion : +${fmt(m.amount)} crédits !</b><small>Nouveau solde : ${fmt(m.balance)} crédits</small></div>`;
+  document.body.append(el);
+  tone([523, 659, 784, 1046], 0.09, 0.05);
+  el.addEventListener("click", () => el.remove());
+  setTimeout(() => el.remove(), 3600);
+}
 
 // ———————————————————————————————————————————————————————————— comptes et profil
 async function loadAuthConfig() {
@@ -1010,7 +1044,7 @@ function walletModal() {
     `<div class="wallet">
       <div class="wallet-hero"><span class="big-coin"></span><div><small>Solde</small><b>${fmt(w.balance / 2)}</b><span>crédits de jeu</span></div></div>
       <div class="wallet-split"><div><small>Disponible</small><b>${fmt(w.available / 2)}</b></div><div><small>Engagé en partie</small><b>${fmt(w.reserved / 2)}</b></div></div>
-      ${acc ? (w.dailyReady ? btn("🎁 Recevoir le bonus du jour", "daily", "cta small wide") : `<p class="daily-done">🎁 Bonus du jour reçu · prochain dans ${countdown(w.nextReset)}</p>`) : `<div class="account-box guest"><b>Créez un compte</b><p class="muted small">Recevez vos crédits de bienvenue et le bonus quotidien, sur le site et dans l’application.</p>${btn("Créer un compte", "auth", "pill small", 'data-mode="register"')}</div>`}
+      ${acc ? `<p class="daily-done">🎁 Bonus de connexion : +${fmt(w.loginBonus?.amount ?? 200)} crédits toutes les 24 h · prochain dans <b data-countdown="${w.loginBonus?.next ?? 0}"></b></p>` : `<div class="account-box guest"><b>Créez un compte</b><p class="muted small">Recevez vos crédits de bienvenue et le bonus quotidien, sur le site et dans l’application.</p>${btn("Créer un compte", "auth", "pill small", 'data-mode="register"')}</div>`}
       <div class="row">${btn("🪙 Boutique", "shop", "pill small")}${btn("📜 Historique", "history", "chip-btn")}${btn("🤖 Entraînement gratuit", "practice", "chip-btn")}</div>
       <p class="muted small center">Les crédits servent uniquement à jouer : ils ne peuvent être ni retirés, ni transférés, ni convertis en argent.</p>
     </div>`,
@@ -1056,7 +1090,6 @@ function fundsModal(stake) {
       ${cheaper.slice(0, 3).map((t) => btn(`${t.stake ? `🪙 ${fmt(t.stake)}` : "Gratuite"} · ${e(t.name)}`, "join", "menu-item", `data-table="${t.id}"`)).join("") || btn("⚡ Partie rapide gratuite", "quick", "menu-item")}
       ${btn("🪙 Boutique de crédits", "shop", "menu-item")}
       ${btn("🤖 Entraînement gratuit", "practice", "menu-item")}
-      ${state.player.wallet.dailyReady && state.player.account ? btn("🎁 Bonus du jour", "daily", "menu-item") : ""}
     </div></div>`,
     "confirm-modal",
   );
@@ -1380,12 +1413,6 @@ document.addEventListener("click", async (ev) => {
     case "history":
       historyModal();
       break;
-    case "daily":
-      cmd("daily");
-      tone([523, 659, 784, 1046], 0.09, 0.05);
-      toast("🎁 Bonus du jour ajouté à votre portefeuille !");
-      closeModal();
-      break;
     case "buy": {
       try {
         const c = shopConfig ?? {};
@@ -1628,6 +1655,7 @@ async function adminRequest(data) {
       <div class="admin-stats"><div><b>${d.players.length}</b><small>joueurs</small></div><div><b>${d.tables.length}</b><small>tables</small></div><div><b>${open.length}</b><small>signalements</small></div><div><b>${alerts.length}</b><small>alertes</small></div></div>
       <p class="muted small">Crédits en circulation : ${fmt(d.economy.circulating)} · engagés : ${fmt(d.economy.reserved)} · achats ${d.economy.purchases ? "ouverts" : "fermés"} (web ${d.economy.stripe ? "✓" : "—"}, iOS ${d.economy.apple ? "✓" : "—"}, Android ${d.economy.google ? "✓" : "—"})</p>
       ${btn(d.settings.maintenance ? "Rouvrir les entrées" : "Suspendre les nouvelles entrées", "maintenance", "chip-btn", `data-enabled="${!d.settings.maintenance}"`)}
+      <form id="bonus-form" class="form inline"><label>Bonus de connexion (crédits / 24 h)<input name="amount" type="number" min="0" max="100000" step="1" value="${d.settings.loginBonus ?? d.economy.loginBonus}" required></label><button class="pill small">Enregistrer</button></form>
       <h3>Alertes à examiner</h3><p class="muted small">Indices combinés, jamais une preuve : aucune sanction automatique.</p>
       ${alerts.map((x) => `<div class="admin-card"><b>${e(x.kind)}</b><small>${when(x.at)} · ${x.names.map(e).join(", ")}</small><ul>${x.indicators.map((i) => `<li>${e(i)}</li>`).join("")}</ul>${btn("Marquer comme examinée", "reviewAlert", "chip-btn", `data-id="${x.id}"`)}</div>`).join("") || "<p>Aucune alerte.</p>"}
       <h3>Signalements</h3>
@@ -1690,6 +1718,10 @@ document.addEventListener("submit", async (ev) => {
         cmd("report", d);
         toast("Merci, signalement envoyé");
         break;
+      case "bonus-form":
+        await adminRequest({ type: "loginBonus", amount: Number(d.amount) });
+        toast("Montant du bonus de connexion enregistré");
+        return;
       case "admin-form":
         adminToken = d.key;
         f.reset();
@@ -1765,6 +1797,7 @@ async function connect() {
         render();
         if (first && pendingInvite && !state.table) joinModal(pendingInvite);
       }
+      if (msg.type === "bonus") showBonus(msg);
       if (msg.type === "ack" && pendingAcks[msg.id]) {
         pendingAcks[msg.id](msg);
         delete pendingAcks[msg.id];
