@@ -31,7 +31,7 @@ Ce document décrit ce qui est **en place** dans le dépôt et ce qui demande en
 | Suppression du compte et des données | `POST /api/auth/delete` | ✅ |
 | Connexion Apple / Google (vérification du jeton OpenID, RS256 + JWKS) | `POST /api/auth/oidc` | ✅ code, ⚙️ clés à fournir |
 | Fusion invité → compte (parties et place reprises) | `src/accounts.js` | ✅ |
-| Avatars illustrés (16) + robots (4) | `public/avatars/` | ✅ |
+| Avatars illustrés du graphiste (9, repris des maquettes) + robots (4) | `public/avatars/` | ✅ |
 | Photo personnelle recadrée (JPEG 256 px, ≤ 400 Ko) | `POST /api/avatar`, servie sur `/u/…` | ✅ |
 | Envoi des e-mails | Resend si configuré, sinon journal serveur | ⚙️ |
 

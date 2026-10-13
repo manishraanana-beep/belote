@@ -384,6 +384,10 @@ function verifyPage() {
 function featureCard(action, data, cls, title, sub, art) {
   return `<button type="button" class="feature ${cls}" data-action="${action}" ${data}><span class="f-art">${art}</span><span class="f-text"><b>${title}</b><small>${sub}</small></span><span class="f-go">${icon("chevron")}</span></button>`;
 }
+function nextTourLine() {
+  const t = (state.tournaments ?? []).find((x) => ["soon", "open", "closed", "ready", "running"].includes(x.stage));
+  return t ? `${e(t.name)} · ${dt(t.start)}` : "Élimination directe sur inscription";
+}
 function homePage() {
   const p = state.player;
   const pending = p.friendIn.length;
@@ -400,6 +404,7 @@ function homePage() {
     <div class="features">
       ${featureCard("go", 'data-page="tables"', "f-public", "Tables publiques", "Jouez avec d’autres joueurs", '<img src="/decor/f-publiques.webp" alt="">')}
       ${featureCard("go", 'data-page="vip"', "f-vip", "Tables VIP", "Une expérience exclusive", '<img src="/decor/f-vip.webp" alt="">')}
+      ${featureCard("go", 'data-page="tournaments"', "f-tour", "Tournois", nextTourLine(), '<img src="/decor/club-vip.webp" alt="">')}
       ${featureCard("practice", "", "f-bots", "Entraînement", "Progressez à votre rythme", '<img src="/decor/f-robot.webp" alt="">')}
     </div>
     <div class="quick-row">
@@ -531,7 +536,7 @@ function vipPage() {
   return shell(
     `<div class="vip-hero"><img class="art vh-art" src="/decor/club-vip.webp" alt="" draggable="false">
       <p class="vh-title"><b>${e(p.name)}</b> vous accueille au Club VIP !</p></div>
-    <div class="stack">${btn(`${icon("crown")} Créer une table privée`, "go", "gold-btn wide", 'data-page="vipCreate"')}${btn(`${icon("link")} Rejoindre avec un code`, "joinCode", "line-btn wide")}</div>
+    <div class="stack">${btn(`${icon("crown")} Créer une table privée`, "go", "gold-btn wide", 'data-page="vipCreate"')}${btn(`${icon("link")} Rejoindre avec un code`, "joinCode", "line-btn wide")}${btn(`${icon("trophy")} Tournois`, "go", "line-btn wide", 'data-page="tournaments"')}</div>
     <h2 class="section orn-title">Mes tables privées</h2>
     <div class="list">${p.myTables.map((t) => `<button type="button" class="vip-row" data-action="enterTable" data-id="${t.id}">${avatar(p.avatar, "lg ring")}<span class="vr-main"><b>${e(t.name)}</b><span class="mini-avs">${t.avatars.map((a) => avatar(a)).join("")}${t.players < 4 ? '<i class="plus">+</i>' : ""}</span></span><span class="vr-count">${icon("users")} ${t.players}/4</span>${icon("chevron", "tiny")}</button>`).join("") || '<p class="empty">Créez votre première table privée et invitez vos amis.</p>'}</div>`,
     { vip: true, tabs: true, right: btn(icon("menu"), "go", "round-btn", 'data-page="settings" aria-label="Menu"') },
@@ -557,10 +562,194 @@ function vipCreatePage() {
     { vip: true },
   );
 }
+// ———————————————————————————————————————————————————————————— tournois (style Night VIP)
+const myTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+const dt = (ts, opts = {}) => new Date(ts).toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", ...opts });
+const hm = (ts) => new Date(ts).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+const STAGES = { soon: "Bientôt", open: "Inscriptions ouvertes", closed: "Inscriptions closes", ready: "Équipes formées", running: "En cours", finished: "Terminé", cancelled: "Annulé" };
+function tourChip(t) {
+  return `<span class="tour-chip ${t.stage}">${STAGES[t.stage] ?? t.stage}</span>`;
+}
+function rewardsText(t) {
+  const lines = [];
+  const names = (ids) => ids.map((x) => REWARD_NAMES[x] ?? x).join(", ");
+  if (t.rewards.winner.length) lines.push(`🏆 Vainqueurs : ${names(t.rewards.winner)}`);
+  if (t.rewards.finalist.length) lines.push(`🥈 Finalistes : ${names(t.rewards.finalist)}`);
+  if (t.rewards.participant.length) lines.push(`🎟️ Participants : ${names(t.rewards.participant)}`);
+  return lines;
+}
+const REWARD_NAMES = {
+  "tournoi-vainqueur": "badge Champion de tournoi",
+  "tournoi-finaliste": "badge Finaliste",
+  "tournoi-participant": "badge Tournoyeur",
+  "frame-champion": "cadre d’avatar Couronne de champion",
+  "back-velours": "dos de cartes Velours VIP",
+  "felt-velours": "tapis Velours violet",
+};
+const minLine = (t) => `Solde minimum requis : ${fmt(t.minBalance)} jetons. Inscription gratuite, aucun jeton prélevé.`;
+function tournamentsPage() {
+  const list = state.tournaments ?? [];
+  const unread = (state.player.inbox ?? []).filter((n) => !n.read).length;
+  const card = (t) => `<button type="button" class="tour-card" data-action="go" data-page="tournament" data-id="${t.id}">
+      <span class="tc-trophy">🏆</span>
+      <span class="tc-main"><b>${e(t.name)}</b><small>${dt(t.start)} · ${t.teams} équipes</small>
+      <span class="tc-meta">${tourChip(t)}${t.me ? `<span class="tour-chip mine">${t.me.waitlist ? "Liste d’attente" : "Inscrit"}</span>` : ""}<span>${icon("users")} ${Math.max(0, t.places.capacity - t.places.used)} place${t.places.capacity - t.places.used > 1 ? "s" : ""}</span></span></span>
+      ${icon("chevron", "tiny")}</button>`;
+  const live = list.filter((t) => ["running"].includes(t.stage));
+  const next = list.filter((t) => ["soon", "open", "closed", "ready"].includes(t.stage));
+  const past = list.filter((t) => ["finished", "cancelled"].includes(t.stage));
+  return shell(
+    `<h1 class="page-title">Tournois</h1><p class="lead">Élimination directe, sur inscription. Horaires affichés dans votre fuseau (${e(myTz())}).</p>
+    ${live.length ? `<h2 class="section orn-title">En cours</h2><div class="list">${live.map(card).join("")}</div>` : ""}
+    <h2 class="section orn-title">À venir</h2><div class="list">${next.map(card).join("") || '<p class="empty">Aucun tournoi programmé pour le moment.</p>'}</div>
+    ${past.length ? `<h2 class="section orn-title">Récents</h2><div class="list">${past.map(card).join("")}</div>` : ""}`,
+    { vip: true, tabs: true, sub: "Tournois", right: btn(`${icon("bell")}${unread ? `<i class="badge-n">${unread}</i>` : ""}`, "inbox", "round-btn", 'aria-label="Notifications"') },
+  );
+}
+function tournamentPage() {
+  const t = (state.tournaments ?? []).find((x) => x.id === page.params.id);
+  if (!t) return shell('<p class="empty">Ce tournoi n’est plus disponible.</p>', { vip: true });
+  const acc = state.player.account;
+  const free = Math.max(0, t.places.capacity - t.places.used);
+  const info = (ic, label, value) => `<div class="ti-row">${icon(ic)}<span>${label}</span><b>${value}</b></div>`;
+  let actions = "";
+  if (t.stage === "open" && !t.me)
+    actions = acc
+      ? `${btn(`${icon("user")} M’inscrire seul`, "tourRegister", "gold-btn wide")}${btn(`${icon("users")} M’inscrire avec un ami`, "tourPartnerPick", "line-btn wide")}<p class="hint mid">Seul ? Une équipe vous sera proposée avec un autre joueur inscrit seul.</p>`
+      : btn("Créer un compte pour s’inscrire", "go", "gold-btn wide", 'data-page="register"');
+  if (t.me?.invitedBy)
+    actions = `<div class="notice-box">${icon("users")} <span><b>${e(t.me.invitedBy)}</b> vous propose de faire équipe.</span></div><div class="row2">${btn("Accepter", "tourPartnerYes", "gold-btn")}${btn("Refuser", "tourPartnerNo", "line-btn")}</div>`;
+  else if (t.me && ["soon", "open", "closed"].includes(t.stage)) {
+    const canConfirm = Date.now() >= t.confirmOpen && Date.now() < t.confirmBy;
+    actions = `<div class="status-box ${t.me.waitlist ? "wait" : "ok"}">${icon(t.me.waitlist ? "clock" : "check")}<div><b>${t.me.waitlist ? "Liste d’attente" : "Vous êtes inscrit"}</b><small>${t.me.partner ? `En équipe avec ${e(t.me.partner)}` : "Inscription seul : équipe formée avant le départ"}</small></div></div>
+      ${t.me.confirmed ? `<div class="status-box ok">${icon("check")}<div><b>Présence confirmée</b><small>Restez disponible pour le départ à ${hm(t.start)}.</small></div></div>` : canConfirm ? `${btn(`${icon("check")} Confirmer ma présence`, "tourConfirm", "gold-btn wide")}<p class="hint mid">Avant ${hm(t.confirmBy)} · reste <b data-countdown="${t.confirmBy}"></b></p>` : `<p class="hint mid">Confirmation de présence de ${hm(t.confirmOpen)} à ${hm(t.confirmBy)}.</p>`}
+      ${btn("Me désinscrire", "tourUnregister", "line-btn wide small")}`;
+  }
+  const lobby =
+    ["closed", "ready"].includes(t.stage) || (t.me && Date.now() >= t.confirmOpen && t.stage === "open")
+      ? `<h2 class="section orn-title">Salon d’attente</h2>
+        <div class="lobby-card"><div><b>${t.ready}</b><small>équipes prêtes</small></div><div><b>${t.confirmedCount}</b><small>présences confirmées</small></div><div><b>${free}</b><small>places restantes</small></div><div><b data-countdown="${t.start}"></b><small>avant le départ</small></div></div>`
+      : "";
+  const mine = t.next
+    ? `<div class="next-match ${t.next.status}">${icon("cards")}<div><small>${e(t.next.round)}</small><b>${t.next.against ? `Contre ${e(t.next.against.name)}` : "Adversaire à venir"}</b><span>${t.next.status === "playing" ? "Votre table est prête !" : "En attente des résultats du tour"}</span></div>${t.next.status === "playing" && state.table?.id === t.next.tableId ? btn("Rejoindre", "go", "gold-btn small", 'data-page="home"') : ""}</div>`
+    : "";
+  return shell(
+    `<div class="tour-hero"><span class="th-cup">🏆</span><h1 class="page-title">${e(t.name)}</h1>${tourChip(t)}</div>
+    ${t.description ? `<p class="lead">${e(t.description)}</p>` : ""}
+    ${t.stage === "cancelled" ? `<div class="status-box ko">${icon("shield")}<div><b>Tournoi annulé</b><small>${e(t.cancelReason ?? "")}</small></div></div>` : ""}
+    ${t.champion ? `<div class="champion">${t.champion.avatars.map((a) => avatar(a, "lg ring")).join("")}<div><small>Vainqueurs</small><b>${e(t.champion.name)}</b></div></div>` : ""}
+    <div class="tour-info">
+      ${info("clock", "Départ", `${dt(t.start, { weekday: "long" })}`)}
+      ${info("users", "Format", `${t.teams} équipes · élimination directe`)}
+      ${["running", "finished"].includes(t.stage) ? info("star", "Équipes", `${t.rounds?.[0]?.matches.reduce((n, m) => n + (m.a ? 1 : 0) + (m.b ? 1 : 0), 0) ?? 0} engagées`) : info("star", "Places", `${free} disponible${free > 1 ? "s" : ""} sur ${t.places.capacity}${t.places.waitlist ? ` · ${t.places.waitlist} en attente` : ""}`)}
+      ${info("link", "Inscriptions", `${dt(t.regOpen)} → ${dt(t.regClose)}`)}
+      ${info("check", "Présence", `de ${hm(t.confirmOpen)} à ${hm(t.confirmBy)}`)}
+    </div>
+    <div class="access-box">${icon("coin")}<span>${minLine(t)}</span></div>
+    ${mine}
+    <div class="stack">${actions}</div>
+    ${lobby}
+    ${t.rounds ? bracketView(t) : ""}
+    <h2 class="section orn-title">Règles des tables</h2>
+    <ul class="rule-list">
+      <li>Objectif : ${fmt(t.rules.target)} points · temps par tour ${t.rules.turnSeconds} s · contrée ${t.rules.flyingCounter ? "à la volée" : "à son tour"}</li>
+      <li>Mêmes règles sur toutes les tables du tournoi ; équipes fixes après le départ, les gagnants passent au tour suivant.</li>
+      <li>Coupure de connexion : reprise possible pendant ${Math.round(t.rules.reconnectSeconds / 60) || 1} min ; au-delà de ${Math.round(t.rules.forfeitSeconds / 60)} min d’absence ou en cas d’abandon, l’équipe perd par forfait.</li>
+      <li>Temps de jeu dépassé : passe ou première carte autorisée jouée automatiquement. Aucun robot ne participe.</li>
+      <li>Équipes insuffisantes (moins de ${t.minTeams}) : ${t.insufficient === "cancel" ? "tournoi annulé" : `report de ${t.postponeMinutes} min`}, inscrits prévenus.</li>
+      <li>Aucune mise : les rencontres ne débitent aucun jeton.</li>
+    </ul>
+    <h2 class="section orn-title">Récompenses</h2>
+    <ul class="rule-list">${rewardsText(t).map((l) => `<li>${e(l)}</li>`).join("") || "<li>Le plaisir du jeu !</li>"}</ul>
+    <p class="hint mid">Heure de référence : ${new Date(t.start).toLocaleString("fr-FR", { timeZone: t.timeZone, hour: "2-digit", minute: "2-digit", timeZoneName: "short" })} (${e(t.timeZone)})</p>`,
+    { vip: true, sub: "Tournoi", cls: "page-tour" },
+  );
+}
+// Tableau des rencontres, un tour à la fois (onglets) : lisible sur téléphone.
+function bracketView(t) {
+  const current = Math.max(0, t.rounds.findIndex((r) => r.matches.some((m) => ["waiting", "playing"].includes(m.status))));
+  const sel = Math.min(page.params.round ?? (t.stage === "finished" ? t.rounds.length - 1 : current), t.rounds.length - 1);
+  const side = (x, m) => (x ? `<div class="side ${m.winner === x.id ? "win" : m.winner ? "lose" : ""} ${x.mine ? "mine" : ""}"><span class="mini-avs">${x.avatars.map((a) => avatar(a)).join("")}</span><b>${e(x.name)}</b></div>` : `<div class="side empty"><b>${m.status === "bye" ? "Exempté" : "—"}</b></div>`);
+  const status = (m) => ({ waiting: "À venir", playing: "En jeu", done: m.score ? `${m.score[0]} – ${m.score[1]}` : "Terminé", forfeit: "Forfait", bye: "Qualifié d’office", empty: "" })[m.status];
+  return `<h2 class="section orn-title">Tableau des rencontres</h2>
+    <div class="seg tabs round-tabs">${t.rounds.map((r, i) => btn(e(r.name), "bracketRound", i === sel ? "on" : "", `data-round="${i}"`)).join("")}</div>
+    <div class="bracket">${t.rounds[sel].matches
+      .filter((m) => m.status !== "empty")
+      .map((m) => `<div class="match-card ${m.status}">${side(m.a, m)}<span class="vs">${e(status(m) ?? "")}</span>${side(m.b, m)}${m.forfeit ? `<small class="ff">${e(m.forfeit)}</small>` : ""}</div>`)
+      .join("")}</div>`;
+}
+function inboxModal() {
+  const list = state.player.inbox ?? [];
+  modal(
+    `<div class="modal-head"><span class="modal-icon">🔔</span><h2>Notifications</h2></div>
+    <ul class="inbox">${list.map((n) => `<li class="${n.read ? "" : "unread"}"><b>${e(n.title)}</b><small>${e(n.body ?? "")}</small><span>${when(n.at)}</span>${n.tournament ? btn("Voir", "go", "chip-btn", `data-page="tournament" data-id="${n.tournament}"`) : ""}</li>`).join("") || '<li class="empty">Aucune notification.</li>'}</ul>
+    ${pushState() === "ask" ? btn(`${icon("bell")} Activer les notifications sur cet appareil`, "enablePush", "gold-btn wide") : `<p class="hint mid">${pushState() === "on" ? "Notifications activées sur cet appareil." : pushState() === "denied" ? "Notifications refusées dans le navigateur : les rappels restent visibles ici." : "Les rappels s’affichent ici et dans l’application."}</p>`}`,
+    "sheet-modal",
+  );
+  cmd("readInbox");
+}
+function fundsTourModal(m) {
+  modal(
+    `<div class="confirm"><span class="confirm-icon">🪙</span><h2>Solde insuffisant</h2>
+    <p>Solde minimum requis : <b>${fmt(m.required)}</b> jetons. Inscription gratuite, aucun jeton prélevé.</p>
+    <div class="duo small"><div><small>Votre solde</small><b>${fmt(m.balance)}</b></div><div><small>Il manque</small><b>${fmt(m.missing)}</b></div></div>
+    <div class="row">${btn("Boutique", "shop", "gold-btn")}${btn("Fermer", "close", "line-btn")}</div></div>`,
+    "confirm-modal",
+  );
+}
+function partnerModal() {
+  const friends = state.player.friends ?? [];
+  modal(
+    `<h2>Avec quel ami ?</h2><p class="lead">Votre ami recevra une proposition à accepter.</p>
+    <ul class="friends">${friends.map((f) => `<li class="friend">${avatar(f.avatar)}<div><b>${e(f.name)}</b><small>${e(f.tag ?? "")}</small></div>${btn("Choisir", "tourRegisterWith", "gold-btn small", `data-id="${f.id}"`)}</li>`).join("") || '<li class="empty">Ajoutez d’abord des amis (Profil › Amis).</li>'}</ul>`,
+    "sheet-modal",
+  );
+}
+
+// ———————————————— notifications push (navigateur, iPhone/iPad en application installée, Android)
+let pushInfo = null;
+function pushState() {
+  const native = window.Capacitor?.Plugins?.PushNotifications;
+  if (native) return localStorage.getItem("pushNative") === "on" ? "on" : "ask";
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return "unsupported";
+  if (Notification.permission === "denied") return "denied";
+  if (Notification.permission === "granted" && state?.player.push?.web) return "on";
+  return "ask";
+}
+// Demandée au moment de l'inscription : si elle est refusée, les rappels restent dans l'application.
+async function ensurePush() {
+  try {
+    const native = window.Capacitor?.Plugins?.PushNotifications;
+    if (native) {
+      const perm = await native.requestPermissions();
+      if (perm.receive !== "granted") return;
+      native.addListener("registration", async (t) => {
+        await fetch("/api/push/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "fcm", token: t.value, platform: window.Capacitor.getPlatform?.() }) });
+        localStorage.setItem("pushNative", "on");
+      });
+      native.addListener("pushNotificationActionPerformed", (a) => a.notification?.data?.url && (location.href = a.notification.data.url));
+      await native.register();
+      return;
+    }
+    if (pushState() !== "ask") return;
+    pushInfo ??= await (await fetch("/api/push/config")).json();
+    if (!pushInfo.vapidPublicKey) return; // push non configuré sur le serveur : boîte de notifications seulement
+    if ((await Notification.requestPermission()) !== "granted") return;
+    const reg = await navigator.serviceWorker.register("/sw.js");
+    await navigator.serviceWorker.ready;
+    const key = Uint8Array.from(atob(pushInfo.vapidPublicKey.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+    const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }));
+    await fetch("/api/push/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "web", subscription: sub.toJSON() }) });
+    toast("Notifications activées");
+  } catch (err) {
+    console.warn("Notifications indisponibles :", err);
+  }
+}
+
 function pageView() {
   const guest = !state.player.account;
   if (!page.name) page = { name: guest && !localStorage.getItem("welcomed") ? "welcome" : "home", params: {} };
-  const views = { welcome: welcomePage, register: registerPage, login: loginPage, forgot: forgotPage, reset: resetPage, verify: verifyPage, home: homePage, tables: tablesPage, profile: profilePage, avatar: avatarPage, history: historyPage, rules: () => rulesPage(), settings: settingsPage, legal: legalPage, vip: vipPage, vipCreate: vipCreatePage };
+  const views = { welcome: welcomePage, register: registerPage, login: loginPage, forgot: forgotPage, reset: resetPage, verify: verifyPage, home: homePage, tables: tablesPage, profile: profilePage, avatar: avatarPage, history: historyPage, rules: () => rulesPage(), settings: settingsPage, legal: legalPage, vip: vipPage, vipCreate: vipCreatePage, tournaments: tournamentsPage, tournament: tournamentPage };
   return (views[page.name] ?? homePage)();
 }
 
@@ -725,12 +914,17 @@ function finalResult(g, t, me) {
     <div class="ribbon">${won ? "Victoire !" : "Défaite…"}</div>
     <div class="final-scores"><div><small>Votre équipe</small><b>${won ? icon("crown") : ""}${fmt(g.scores[me % 2])}</b></div><i></i><div class="them"><small>Équipe adverse</small><b>${fmt(g.scores[1 - (me % 2)])}</b></div></div>
     ${r ? moneyLines(r) + `<div class="xp-line">✨ +${r.xp} XP${r.badges?.length ? ` · ${r.badges.map((b) => `${b.icon} ${e(b.name)}`).join(", ")}` : ""}${r.challenges?.length ? ` · 🎯 ${r.challenges.map(e).join(", ")}` : ""}</div>` : ""}
-    <div class="votes">${t.seats.map((s) => `<span class="vote ${s && votes[s.id] ? "ok" : ""}" title="${e(s?.name ?? "")}">${avatar(s?.avatar)}<i>${s && votes[s.id] ? "✓" : "…"}</i></span>`).join("")}</div>
+    ${
+      t.tournament
+        ? `<p class="op-note">${won ? "Qualifiés ! Votre prochaine table s’ouvrira dès la fin du tour : vous serez prévenus." : "Fin du parcours dans ce tournoi. Merci d’avoir joué !"}</p>
+      ${btn(`${icon("trophy")} Voir le tableau du tournoi`, "backToTour", "gold-btn wide")}`
+        : `<div class="votes">${t.seats.map((s) => `<span class="vote ${s && votes[s.id] ? "ok" : ""}" title="${e(s?.name ?? "")}">${avatar(s?.avatar)}<i>${s && votes[s.id] ? "✓" : "…"}</i></span>`).join("")}</div>
     ${t.stake ? `<p class="op-note">${e(stakeRisk(t.stake))}</p>` : ""}
     ${blocked.length ? `<p class="warn">Solde insuffisant pour ${blocked.map(e).join(", ")}. ${btn("Boutique", "shop", "inline-link")} · ${btn("Tables moins chères", "cheaper", "inline-link")}</p>` : ""}
     ${mine ? '<p class="waiting-vote">En attente des autres joueurs…</p>' : btn(`${icon("refresh")} Rejouer avec cette table`, "rematchYes", "gold-btn wide")}
     ${btn(`${icon("home")} Retour au salon${t.vip ? " VIP" : ""}`, "rematchNo", "line-btn wide")}
-    ${btn(`${icon("logout")} Quitter la table`, "leave", "line-btn wide small")}
+    ${btn(`${icon("logout")} Quitter la table`, "leave", "line-btn wide small")}`
+    }
   </div></div>`;
 }
 function moneyLines(r) {
@@ -830,7 +1024,7 @@ function render() {
   }
   const t = state.table,
     g = t?.game;
-  const vipTheme = (t?.vip && !t.practice) || (!t && ["vip", "vipCreate"].includes(page.name));
+  const vipTheme = (t?.vip && !t.practice) || (!t && ["vip", "vipCreate", "tournaments", "tournament"].includes(page.name));
   document.body.className = `${g ? "in-game" : t ? "in-room" : "in-lobby"} ${vipTheme ? "night-vip" : "club-pop"} ${state.player.settings.animations ? "" : "calm"}`;
   sound = state.player.settings.sounds;
   const dealKey = g ? t.gameId + ":" + g.deal : null;
@@ -1183,6 +1377,13 @@ function resultModal(r) {
   modal(`<div class="confirm"><span class="confirm-icon">${r.delta > 0 ? "🎉" : "🃏"}</span><h2>Résultat de « ${e(r.table)} »</h2><p class="muted">Vous aviez quitté la partie : un robot l’a terminée à votre place.</p>${moneyLines(r)}${btn("OK", "dismissResult", "cta small")}</div>`, "confirm-modal");
 }
 const pendingAcks = {};
+// Commande avec suite : le rappel ne s'exécute qu'en cas de succès (les erreurs s'affichent seules).
+function ask(type, data, then) {
+  if (ws?.readyState !== 1) return toast("Connexion en cours…");
+  const id = crypto.randomUUID();
+  pendingAcks[id] = then;
+  ws.send(JSON.stringify({ id, type, data }));
+}
 
 // ———————————————————————————————————————————————————————————— création de table
 function createModal(r = DEFAULT_RULES, editing = false) {
@@ -1256,8 +1457,84 @@ document.addEventListener("click", async (ev) => {
       break;
     case "go":
       if (el.dataset.page === "home" || el.dataset.page === "tables" || el.dataset.page === "profile") pageStack = [];
-      go(el.dataset.page, el.dataset.tab ? { tab: el.dataset.tab } : {});
+      go(el.dataset.page, { ...(el.dataset.tab ? { tab: el.dataset.tab } : {}), ...(el.dataset.id ? { id: el.dataset.id } : {}) });
       break;
+    case "tourNew":
+      tourForm(null);
+      break;
+    case "tourEdit":
+      tourForm(adminData.tournaments.find((x) => x.id === el.dataset.id));
+      break;
+    case "tourAdminBack":
+      $("#admin-tours").innerHTML = tourAdmin(adminData);
+      break;
+    case "tourPublish":
+      await adminRequest({ type: "tourPublish", id: el.dataset.id });
+      break;
+    case "tourDuplicate":
+      await adminRequest({ type: "tourDuplicate", id: el.dataset.id });
+      toast("Copie créée en brouillon");
+      break;
+    case "tourPostpone": {
+      const t = adminData.tournaments.find((x) => x.id === el.dataset.id);
+      $("#admin-tours").innerHTML = `<form id="tour-postpone-form" class="form"><input type="hidden" name="id" value="${t.id}"><p><b>${e(t.name)}</b> · départ actuel ${e(t.local.start.replace("T", " "))} (${e(t.timeZone)})</p><label>Nouveau départ (${e(t.timeZone)})<input type="datetime-local" name="start" value="${t.local.start}" required></label><p class="muted small">Toutes les dates sont décalées d’autant ; rappels reprogrammés et inscrits informés.</p><div class="row"><button class="pill small">Reporter</button>${btn("Retour", "tourAdminBack", "chip-btn ghost")}</div></form>`;
+      break;
+    }
+    case "tourCancel": {
+      const t = adminData.tournaments.find((x) => x.id === el.dataset.id);
+      $("#admin-tours").innerHTML = `<form id="tour-cancel-form" class="form"><input type="hidden" name="id" value="${t.id}"><p>Annuler <b>${e(t.name)}</b> ? Les ${t.places.used} inscrits seront prévenus.</p><label>Motif<input name="reason" maxlength="200" value="Annulé par l’organisateur"></label><div class="row"><button class="pill small danger">Annuler le tournoi</button>${btn("Retour", "tourAdminBack", "chip-btn ghost")}</div></form>`;
+      break;
+    }
+    case "tourDetails": {
+      const t = adminData.tournaments.find((x) => x.id === el.dataset.id);
+      $("#admin-tours").innerHTML = `<p><b>${e(t.name)}</b> · ${TOUR_LABELS[t.status]}</p><h4>Inscriptions</h4><ul class="admin-list">${t.regs.map((r) => `<li>${r.names.map(e).join(" & ")}${r.partnerName ? ` (+ ${e(r.partnerName)} invité)` : ""}${r.waitlist ? " · liste d’attente" : ""} · présence ${r.confirmed.length}/${r.names.length}</li>`).join("") || "<li>Aucune</li>"}</ul>
+        <h4>Journal</h4><ul class="admin-list">${t.log.slice().reverse().map((l) => `<li>${when(l.at)} · ${e(l.kind)} · ${e(l.by)}</li>`).join("")}</ul>${btn("Retour", "tourAdminBack", "chip-btn ghost")}`;
+      break;
+    }
+    case "inbox":
+      inboxModal();
+      break;
+    case "enablePush":
+      await ensurePush();
+      closeModal();
+      render();
+      break;
+    case "bracketRound":
+      page.params.round = Number(el.dataset.round);
+      render();
+      break;
+    case "tourRegister":
+    case "tourRegisterWith":
+      ask("tourRegister", { id: page.params.id, ...(a === "tourRegisterWith" ? { partner: el.dataset.id } : {}) }, () => {
+        closeModal();
+        toast("Inscription enregistrée !");
+        tone([523, 659, 784], 0.08, 0.05);
+        ensurePush();
+      });
+      break;
+    case "tourPartnerPick":
+      partnerModal();
+      break;
+    case "tourPartnerYes":
+    case "tourPartnerNo":
+      ask("tourPartner", { id: page.params.id, accept: a === "tourPartnerYes" }, () => a === "tourPartnerYes" && ensurePush());
+      break;
+    case "tourUnregister":
+      modal(`<div class="confirm"><span class="confirm-icon">🎟️</span><h2>Se désinscrire ?</h2><p>Votre place sera proposée à la liste d’attente.</p><div class="row">${btn("Rester inscrit", "close", "chip-btn ghost")}${btn("Me désinscrire", "tourUnregisterYes", "danger-btn")}</div></div>`, "confirm-modal");
+      break;
+    case "tourUnregisterYes":
+      closeModal();
+      ask("tourUnregister", { id: page.params.id }, () => toast("Désinscription enregistrée"));
+      break;
+    case "tourConfirm":
+      ask("tourConfirm", { id: page.params.id }, () => toast("Présence confirmée, à tout à l’heure !"));
+      break;
+    case "backToTour": {
+      const tid = state.table?.tournament?.id;
+      cmd("leave");
+      if (tid) go("tournament", { id: tid });
+      break;
+    }
     case "back":
       if (state.table) cmd("leave");
       else back();
@@ -1572,7 +1849,7 @@ document.addEventListener("click", async (ev) => {
     case "quitGame":
       sheet = null;
       render();
-      modal(`<div class="confirm"><span class="confirm-icon">🚪</span><h2>Quitter la partie ?</h2><p>Un robot prendra votre place.</p><div class="row">${btn("Rester", "close", "chip-btn ghost")}${btn("Quitter", "confirmLeave", "danger-btn")}</div></div>`, "confirm-modal");
+      modal(`<div class="confirm"><span class="confirm-icon">🚪</span><h2>Quitter la partie ?</h2><p>${state.table?.tournament ? "Tournoi : quitter la rencontre fait perdre votre équipe par forfait." : "Un robot prendra votre place."}</p><div class="row">${btn("Rester", "close", "chip-btn ghost")}${btn("Quitter", "confirmLeave", "danger-btn")}</div></div>`, "confirm-modal");
       break;
     case "confirmLeave":
       closeModal();
@@ -1638,7 +1915,55 @@ document.addEventListener("keydown", (ev) => {
     render();
   }
 });
-let adminToken = "";
+let adminToken = "",
+  adminData = null;
+// ———————————————— administration des tournois : calendrier et programmation
+const TOUR_LABELS = { draft: "Brouillon", published: "Publié", running: "En cours", finished: "Terminé", cancelled: "Annulé" };
+function tourAdmin(d) {
+  const byDay = {};
+  for (const t of d.tournaments) (byDay[new Date(t.start).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })] ??= []).push(t);
+  return `<p class="muted small">Push navigateur ${d.push.web ? "✓ configuré" : "— clés VAPID manquantes"} · push iOS/Android ${d.push.native ? "✓ configuré" : "— Firebase non configuré"} · les rappels restent dans l’application dans tous les cas.</p>
+    ${btn("＋ Nouveau tournoi", "tourNew", "pill small")}
+    <div class="tour-cal">${Object.entries(byDay).map(([day, list]) => `<div class="cal-day"><b>${e(day)}</b>${list.map((t) => `<div class="admin-card"><b>${e(t.name)}</b><small>${new Date(t.start).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} (votre heure) · ${e(t.local.start.replace("T", " "))} ${e(t.timeZone)} · ${TOUR_LABELS[t.status]} · ${t.places.used}/${t.places.capacity} inscrits${t.places.waitlist ? ` · ${t.places.waitlist} en attente` : ""}</small>
+      <div class="row">${["draft", "published"].includes(t.status) && !t.rounds ? btn("Modifier", "tourEdit", "chip-btn", `data-id="${t.id}"`) : ""}${t.status === "draft" ? btn("Publier", "tourPublish", "chip-btn", `data-id="${t.id}"`) : ""}${["draft", "published"].includes(t.status) ? btn("Reporter", "tourPostpone", "chip-btn", `data-id="${t.id}"`) + btn("Annuler", "tourCancel", "chip-btn danger", `data-id="${t.id}"`) : ""}${btn("Dupliquer", "tourDuplicate", "chip-btn", `data-id="${t.id}"`)}${btn("Détails", "tourDetails", "chip-btn", `data-id="${t.id}"`)}</div></div>`).join("")}</div>`).join("") || "<p>Aucun tournoi programmé.</p>"}</div>`;
+}
+function tourForm(t) {
+  const d = adminData;
+  const now = new Date(Date.now() + 86400_000);
+  const pad = (n) => String(n).padStart(2, "0");
+  const day = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const v = t
+    ? { ...t, ...t.local }
+    : { name: "", description: "", timeZone: myTz(), teams: 8, minTeams: 4, minBalance: 50000, rules: { target: 1000, turnSeconds: 30, flyingCounter: true, reconnectSeconds: 120, forfeitSeconds: 300 }, insufficient: "postpone", postponeMinutes: 30, rewards: { winner: ["tournoi-vainqueur", "frame-champion"], finalist: ["tournoi-finaliste"], participant: ["tournoi-participant"] }, regOpen: `${day}T09:00`, regClose: `${day}T20:00`, confirmBy: `${day}T20:50`, start: `${day}T21:00` };
+  const sel = (name, opts, cur) => `<select name="${name}">${opts.map(([val, label]) => `<option value="${val}" ${String(val) === String(cur) ? "selected" : ""}>${label}</option>`).join("")}</select>`;
+  const rw = (kind, label) => `<fieldset><legend>${label}</legend>${d.rewards.map((r) => `<label class="check-line"><input type="checkbox" name="rw-${kind}" value="${r.id}" ${v.rewards[kind].includes(r.id) ? "checked" : ""}>${e(r.name)}</label>`).join("")}</fieldset>`;
+  $("#admin-tours").innerHTML = `<form id="tour-form" class="form">
+    <input type="hidden" name="id" value="${t?.id ?? ""}">
+    <label>Nom<input name="name" value="${e(v.name)}" minlength="3" maxlength="60" required></label>
+    <label>Description<input name="description" value="${e(v.description ?? "")}" maxlength="400"></label>
+    <label>Fuseau de référence<input name="timeZone" value="${e(v.timeZone)}" list="tz-list" required></label>
+    <datalist id="tz-list">${["Europe/Paris", "Europe/Brussels", "Europe/Zurich", "America/Montreal", "Indian/Reunion", "America/Martinique", "Pacific/Noumea", "UTC"].map((z) => `<option value="${z}">`).join("")}</datalist>
+    <div class="form-grid">
+      <label>Ouverture des inscriptions<input type="datetime-local" name="regOpen" value="${v.regOpen}" required></label>
+      <label>Fermeture des inscriptions<input type="datetime-local" name="regClose" value="${v.regClose}" required></label>
+      <label>Fin de la confirmation de présence<input type="datetime-local" name="confirmBy" value="${v.confirmBy}" required></label>
+      <label>Départ<input type="datetime-local" name="start" value="${v.start}" required></label>
+      <label>Équipes${sel("teams", [[8, "8 équipes"], [16, "16 équipes"], [32, "32 équipes"]], v.teams)}</label>
+      <label>Minimum pour lancer<input type="number" name="minTeams" min="2" max="32" value="${v.minTeams}"></label>
+      <label>Seuil de jetons<input type="number" name="minBalance" min="0" step="1000" value="${v.minBalance}"></label>
+      <label>Score cible${sel("target", [[500, "500"], [1000, "1 000"], [1500, "1 500"], [2000, "2 000"]], v.rules.target)}</label>
+      <label>Temps par tour (s)<input type="number" name="turnSeconds" min="10" max="120" value="${v.rules.turnSeconds}"></label>
+      <label>Reprise après coupure (s)<input type="number" name="reconnectSeconds" min="30" max="600" value="${v.rules.reconnectSeconds}"></label>
+      <label>Forfait après absence (s)<input type="number" name="forfeitSeconds" min="30" max="1800" value="${v.rules.forfeitSeconds}"></label>
+      <label>Équipes insuffisantes${sel("insufficient", [["postpone", "Reporter"], ["cancel", "Annuler"]], v.insufficient)}</label>
+      <label>Report de (min)<input type="number" name="postponeMinutes" min="5" max="10080" value="${v.postponeMinutes}"></label>
+    </div>
+    <label class="check-line"><input type="checkbox" name="flyingCounter" ${v.rules.flyingCounter ? "checked" : ""}>Contrée à la volée</label>
+    ${rw("winner", "Récompenses des vainqueurs")}${rw("finalist", "Récompenses des finalistes")}${rw("participant", "Récompenses de participation")}
+    <p class="muted small">Après le départ, seuls le nom et la description restent modifiables.</p>
+    <div class="row"><button class="chip-btn" name="publish" value="">Enregistrer le brouillon</button><button class="pill small" name="publish" value="1">${t?.status === "published" ? "Enregistrer" : "Publier"}</button>${btn("Retour", "tourAdminBack", "chip-btn ghost")}</div>
+  </form>`;
+}
 async function adminRequest(data) {
   try {
     const res = await fetch("/api/admin", {
@@ -1648,6 +1973,7 @@ async function adminRequest(data) {
     });
     if (!res.ok) throw Error(await res.text());
     const d = await res.json();
+    adminData = d;
     const row = (l, r) => `<div class="admin-row"><span>${l}</span>${r}</div>`;
     const open = d.reports.filter((r) => !r.resolved);
     const alerts = d.alerts.filter((x) => !x.reviewed);
@@ -1656,6 +1982,7 @@ async function adminRequest(data) {
       <p class="muted small">Crédits en circulation : ${fmt(d.economy.circulating)} · engagés : ${fmt(d.economy.reserved)} · achats ${d.economy.purchases ? "ouverts" : "fermés"} (web ${d.economy.stripe ? "✓" : "—"}, iOS ${d.economy.apple ? "✓" : "—"}, Android ${d.economy.google ? "✓" : "—"})</p>
       ${btn(d.settings.maintenance ? "Rouvrir les entrées" : "Suspendre les nouvelles entrées", "maintenance", "chip-btn", `data-enabled="${!d.settings.maintenance}"`)}
       <form id="bonus-form" class="form inline"><label>Bonus de connexion (crédits / 24 h)<input name="amount" type="number" min="0" max="100000" step="1" value="${d.settings.loginBonus ?? d.economy.loginBonus}" required></label><button class="pill small">Enregistrer</button></form>
+      <h3>Tournois</h3><div id="admin-tours">${tourAdmin(d)}</div>
       <h3>Alertes à examiner</h3><p class="muted small">Indices combinés, jamais une preuve : aucune sanction automatique.</p>
       ${alerts.map((x) => `<div class="admin-card"><b>${e(x.kind)}</b><small>${when(x.at)} · ${x.names.map(e).join(", ")}</small><ul>${x.indicators.map((i) => `<li>${e(i)}</li>`).join("")}</ul>${btn("Marquer comme examinée", "reviewAlert", "chip-btn", `data-id="${x.id}"`)}</div>`).join("") || "<p>Aucune alerte.</p>"}
       <h3>Signalements</h3>
@@ -1718,6 +2045,39 @@ document.addEventListener("submit", async (ev) => {
         cmd("report", d);
         toast("Merci, signalement envoyé");
         break;
+      case "tour-form": {
+        const f2 = new FormData(f);
+        const data = {
+          name: d.name,
+          description: d.description,
+          timeZone: d.timeZone,
+          regOpen: d.regOpen,
+          regClose: d.regClose,
+          confirmBy: d.confirmBy,
+          start: d.start,
+          teams: Number(d.teams),
+          minTeams: Number(d.minTeams),
+          minBalance: Number(d.minBalance),
+          rules: { target: Number(d.target), turnSeconds: Number(d.turnSeconds), flyingCounter: d.flyingCounter === "on" },
+          reconnectSeconds: Number(d.reconnectSeconds),
+          forfeitSeconds: Number(d.forfeitSeconds),
+          insufficient: d.insufficient,
+          postponeMinutes: Number(d.postponeMinutes),
+          rewards: { winner: f2.getAll("rw-winner"), finalist: f2.getAll("rw-finalist"), participant: f2.getAll("rw-participant") },
+          publish: d.publish === "1",
+        };
+        await adminRequest(d.id ? { type: "tourUpdate", id: d.id, data } : { type: "tourCreate", data });
+        toast(data.publish ? "Tournoi publié" : "Brouillon enregistré");
+        return;
+      }
+      case "tour-postpone-form":
+        await adminRequest({ type: "tourPostpone", id: d.id, start: d.start });
+        toast("Tournoi reporté, inscrits prévenus");
+        return;
+      case "tour-cancel-form":
+        await adminRequest({ type: "tourCancel", id: d.id, reason: d.reason });
+        toast("Tournoi annulé, inscrits prévenus");
+        return;
       case "bonus-form":
         await adminRequest({ type: "loginBonus", amount: Number(d.amount) });
         toast("Montant du bonus de connexion enregistré");
@@ -1766,6 +2126,16 @@ document.addEventListener("submit", async (ev) => {
 });
 
 // ———————————————————————————————————————————————————————————— connexion
+function handleDeepLink() {
+  // Lien d'une notification : /?tournoi=<id> ouvre le tournoi (après connexion si nécessaire).
+  const q = new URLSearchParams(location.search);
+  if (q.get("tournoi")) {
+    page = { name: "tournament", params: { id: q.get("tournoi") } };
+    pageStack = [{ name: "tournaments", params: {} }];
+    localStorage.setItem("welcomed", "1");
+    history.replaceState(null, "", "/");
+  }
+}
 function handleHash() {
   const h = location.hash;
   if (h === "#verified") toast("Adresse e-mail confirmée, merci !");
@@ -1782,6 +2152,7 @@ async function connect() {
     if (!session.ok) return toast("Accès au profil indisponible. Contactez l’administrateur.");
     ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
     ws.onopen = () => {
+      ws.send(JSON.stringify({ id: crypto.randomUUID(), type: "timezone", data: { timeZone: myTz() } }));
       if (retry) toast("Connexion rétablie · partie restaurée");
       retry = 0;
     };
@@ -1798,6 +2169,12 @@ async function connect() {
         if (first && pendingInvite && !state.table) joinModal(pendingInvite);
       }
       if (msg.type === "bonus") showBonus(msg);
+      if (msg.type === "notice") {
+        state.player.inbox = [msg.notice, ...(state.player.inbox ?? [])];
+        toast(`🔔 ${msg.notice.title}`);
+        tone([660, 880], 0.08, 0.05);
+        render();
+      }
       if (msg.type === "ack" && pendingAcks[msg.id]) {
         pendingAcks[msg.id](msg);
         delete pendingAcks[msg.id];
@@ -1822,6 +2199,11 @@ async function connect() {
       if (msg.type === "ack" && msg.invitation)
         rulesModal(msg.invitation.rules, `<p class="muted small">Table « ${e(msg.invitation.name)} »</p>${btn("Accepter et demander une place", "confirmVip", "cta small wide")}`);
       if (msg.type === "error") {
+        if (msg.code === "funds") {
+          delete pendingAcks[msg.id];
+          return fundsTourModal(msg);
+        }
+        delete pendingAcks[msg.id];
         if (/Solde insuffisant/.test(msg.message)) fundsModal(state.table?.stake ?? 100);
         toast(msg.message);
       }
@@ -1837,4 +2219,5 @@ async function connect() {
 }
 loadAuthConfig();
 handleHash();
+handleDeepLink();
 connect();

@@ -865,10 +865,11 @@ test("tournoi programmé : départ automatique, vraies tables sans robots, forfa
     // Coupure longue d'un joueur de l'équipe impaire : forfait au-delà du délai annoncé.
     const db = f.app.db;
     const quitter = ps.find((p) => db.tables[t.id].seats.findIndex((s) => s.id === p.state.player.id) === 1);
+    const watcher = ps.find((p) => p !== quitter);
     quitter.ws.close();
-    await delay(50);
+    for (let i = 0; i < 100 && !db.tables[t.id].seats[1].disconnectedAt; i++) await delay(10);
     db.tables[t.id].seats[1].disconnectedAt = Date.now() - 301_000;
-    await ps[0].wait((c) => c.state.tournaments[0].status === "finished");
+    await watcher.wait((c) => c.state.tournaments[0].status === "finished");
     const tour = db.tournaments[tid];
     assert.equal(tour.rounds[0].find((m) => m.tableId === t.id).status, "forfeit");
     const champ = tour.teamsList.find((x) => x.id === tour.champion);

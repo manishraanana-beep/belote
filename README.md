@@ -5,7 +5,10 @@ Application française jouable à quatre en temps réel ou contre trois robots, 
 ## Nouveautés
 
 - **Comptes** communs au site et aux applications : e-mail (vérification, mot de passe oublié, suppression), Apple/Google à configurer — voir `docs/ARCHITECTURE-APPLIS.md`.
-- **Crédits virtuels** : portefeuille, bonus de bienvenue et quotidien, boutique (désactivée par défaut), mises 100 à 1 000, réservation, rubicon, journal — voir `docs/CREDITS-ET-STORES.md`.
+- **Graphisme du graphiste** : avatars et illustrations repris directement des maquettes « Club Pop » et « Night VIP ».
+- **Bonus de connexion** : 200 crédits (réglable dans l’administration) à la première connexion puis toutes les 24 h, un seul par compte sur le site, iOS et Android, attribué par le serveur — voir `docs/CREDITS-ET-STORES.md`.
+- **Tournois** sur inscription (8, 16 ou 32 équipes, élimination directe), programmés depuis l’administration, rappels et notifications push — voir `docs/TOURNOIS-ET-NOTIFICATIONS.md`.
+- **Crédits virtuels** : portefeuille, bonus de bienvenue, boutique (désactivée par défaut), mises 100 à 1 000, réservation, rubicon, journal — voir `docs/CREDITS-ET-STORES.md`.
 - **Social** : amis, favoris, statut masquable, invitations détaillées, revanche à quatre confirmations, réactions prédéfinies avec délai, masquage, blocage, signalement avec contexte.
 - **Progression** : défis quotidiens, expérience, niveaux d’activité, badges, collection de cadres, dos de cartes et décors (purement visuels).
 - **Modération** : signalements et alertes anti-abus multi-indices dans l’administration, annulation technique d’une partie.

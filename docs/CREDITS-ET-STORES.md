@@ -4,7 +4,18 @@
 
 - **Unité** : les montants sont stockés en demi-crédits entiers (`src/economy.js`), pour partager exactement une somme impaire.
 - **Portefeuille** : solde, crédits engagés, disponible = solde − engagés. Commun au site et aux applications (il suit le compte).
-- **Bonus** : crédits de bienvenue à la création du compte (une fois par adresse e-mail, même après suppression), bonus quotidien. Montants configurables.
+- **Bonus** : crédits de bienvenue à la création du compte (une fois par adresse e-mail, même après suppression) et **bonus de connexion** (ci-dessous). Montants configurables.
+
+### Bonus de connexion (remplace l'ancien bonus quotidien)
+
+- **Montant** : 200 crédits par défaut (`BELOTE_LOGIN_BONUS`), modifiable à tout moment dans l'administration (« Bonus de connexion »). `0` le désactive.
+- **Attribution** : immédiate à la première connexion d'un compte, puis à la première ouverture ou connexion survenant **au moins 24 h après la dernière attribution**. Aucun cumul des jours d'absence.
+- **Un seul par compte et par période**, que le joueur utilise le site, l'iPhone ou Android, même connecté sur plusieurs appareils en même temps : le serveur vérifie et inscrit le bonus dans la même opération (pas de double attribution possible), avec **l'heure du serveur** (UTC), jamais celle du téléphone.
+- **Joueur resté connecté** : l'application renvoie un « retour » au serveur quand elle redevient visible (changement d'onglet, appli réactivée) et quand le compte à rebours de l'accueil arrive à zéro ; l'éligibilité est revérifiée sans déconnexion.
+- **Journal** : chaque bonus est une écriture « Bonus de connexion » de l'historique du portefeuille.
+- **Partie en cours** : seul le solde augmente ; les crédits déjà engagés ne bougent pas, le bonus sert aux parties suivantes.
+- **Affichage** : pluie de pièces « Bonus de connexion : +200 crédits ! », nouveau solde, compte à rebours avant le prochain bonus sur l'accueil et dans le portefeuille.
+- Distinct du cadeau de bienvenue et des récompenses de défis.
 - **Mises** : 100, 200, 500 ou 1 000 crédits par joueur, ou partie gratuite. Il faut au moins la mise *disponible* pour entrer.
 - **Réservation au lancement** : `min(disponible, 3 × mise)` par joueur, figée pour la partie. Un achat ou un bonus reçu ensuite ne change rien.
 - **Règlement** (une seule fois, clé `settle:<partie>:<joueur>`) :
@@ -50,7 +61,7 @@ vrais services (aucun compte développeur disponible ici) : à valider en bac à
 5. **Suppression du compte** dans l'app (règle 5.1.1(v)) : déjà fournie. **Sign in with Apple** à proposer si Google est proposé sur iOS
    (règle 4.8).
 
-Tant que ces points ne sont pas validés, laissez `BELOTE_PURCHASES` vide : les crédits de bienvenue, le bonus quotidien et les défis
+Tant que ces points ne sont pas validés, laissez `BELOTE_PURCHASES` vide : les crédits de bienvenue, le bonus de connexion et les défis
 permettent de jouer.
 
 Sources consultées : [App Store Review Guidelines](https://developer.apple.com/app-store/review/guidelines/),
@@ -62,7 +73,7 @@ Sources consultées : [App Store Review Guidelines](https://developer.apple.com/
 | Variable | Défaut |
 |---|---|
 | `BELOTE_SIGNUP_BONUS` | 2000 |
-| `BELOTE_DAILY_BONUS` | 200 |
-| `BELOTE_DAY_START_UTC` | 3 (renouvellement quotidien des bonus et défis) |
+| `BELOTE_LOGIN_BONUS` | 200 (bonus de connexion toutes les 24 h, modifiable dans l'administration) |
+| `BELOTE_DAY_START_UTC` | 3 (renouvellement quotidien des défis) |
 | `BELOTE_CHALLENGES` | défis par défaut (JSON : `id`, `label`, `goal`, `reward.credits/xp/cosmetic`) |
 | `BELOTE_ALERT_*` | seuils de détection (voir `src/integrity.js`) |
