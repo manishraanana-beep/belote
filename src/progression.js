@@ -92,7 +92,7 @@ export function createProgression({ db, economy, env = process.env, maxSameLineu
   function unlocked(p, item) {
     const g = prog(p),
       u = item.unlock;
-    if (u.type === "free") return true;
+    if (u.type === "free" || g.owned[item.id]) return true; // attribué explicitement (administration, récompense)
     if (u.type === "level") return levelInfo(g.xp).index >= u.value;
     if (u.type === "badge") return !!g.badges[u.value];
     return !!g.owned[item.id]; // défi, événement : attribué explicitement

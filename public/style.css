@@ -1215,3 +1215,10 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .splash-img { width: min(70vw, 320px); height: auto; }
 @media (orientation: landscape) and (max-height: 520px) { .gt-logo .logo-img { width: 90px; } }
 @media (min-width: 900px) and (min-height: 600px) { .gt-logo .logo-img { width: 170px; } }
+/* Couleur du tapis choisie dans la Collection, aussi sur l'arrière-plan des téléphones */
+@media (max-aspect-ratio: 4/5) {
+  .screen.game.felt-ocean { background-image: url(/decor/salle-table-ocean.webp); }
+  .screen.game.felt-bordeaux { background-image: url(/decor/salle-table-bordeaux.webp); }
+  .screen.game.felt-lagon { background-image: url(/decor/salle-table-lagon.webp); }
+  .screen.game.felt-velours { background-image: url(/decor/salle-table-velours.webp); }
+}
