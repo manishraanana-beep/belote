@@ -15,6 +15,7 @@ import { createEconomy, economyConfig, STAKES, toCredits, toUnits } from "./econ
 import { createProgression, TOURNAMENT_REWARDS } from "./progression.js";
 import { createTournaments, validTimeZone } from "./tournaments.js";
 import { pushConfig, sendFcm, sendWebPush } from "./push.js";
+import { createShop, isShopAvatar } from "./shop.js";
 import { createIntegrity, integrityConfig } from "./integrity.js";
 import { stripeCheckout, stripeEvent, verifyAppleTransaction, verifyGooglePurchase } from "./purchases.js";
 import path from "node:path";
@@ -132,6 +133,8 @@ export function createApp({
     console.error("ATTENTION : aucun volume Railway attaché. Les comptes et les crédits seront effacés au prochain déploiement. Ajoutez un volume au service (Settings › Volumes).");
   const economy = createEconomy(db, economyConfig(env));
   const progression = createProgression({ db, economy, env });
+  const shop = createShop({ db, economy });
+  const avatarOk = (v, p) => validAvatar(v, p) || (isShopAvatar(v) && !!p && shop.owns(p, v));
   const integrity = createIntegrity(db, integrityConfig(env));
   const pushCfg = pushConfig(env);
   const tournaments = createTournaments({
@@ -154,10 +157,10 @@ export function createApp({
   mkdirSync(photoDir, { recursive: true, mode: 0o700 });
   // Anciens avatars (symboles) : remplacés par un avatar illustré.
   for (const p of Object.values(db.players))
-    if (!validAvatar(p.avatar, p)) p.avatar = AVATARS[0];
+    if (!avatarOk(p.avatar, p)) p.avatar = AVATARS[0];
   for (const t of Object.values(db.tables))
     for (const s of t.seats)
-      if (s && !validAvatar(s.avatar, db.players[s.id]) && !BOT_AVATARS.includes(s.avatar))
+      if (s && !avatarOk(s.avatar, db.players[s.id]) && !BOT_AVATARS.includes(s.avatar))
         s.avatar = s.bot ? BOT_AVATARS[0] : AVATARS[0];
   const tagOf = () => "MB-" + randomBytes(4).toString("hex").slice(0, 6).toUpperCase();
   function socialDefaults(p) {
@@ -467,6 +470,7 @@ export function createApp({
       inbox: (p.inbox ?? []).slice(0, 20),
       push: { web: p.push?.web?.length ?? 0, native: p.push?.fcm?.length ?? 0 },
       progress: progression.view(p),
+      shop: shop.view(p),
       settings: p.settings,
       hidden: Object.keys(p.hidden),
       blocked: Object.keys(p.blocked),
@@ -776,7 +780,7 @@ export function createApp({
     consume(pid);
     const d = msg.data ?? {},
       t = db.tables[p.tableId];
-    let changed;
+    let changed, reply;
     switch (msg.type) {
       case "profile":
         if (d.name !== undefined) {
@@ -786,7 +790,7 @@ export function createApp({
           p.name = name;
         }
         if (d.avatar !== undefined) {
-          check(validAvatar(d.avatar, p), "Avatar inconnu");
+          check(avatarOk(d.avatar, p), "Avatar inconnu");
           p.avatar = d.avatar;
         }
         if (t) {
@@ -1101,7 +1105,7 @@ export function createApp({
         break;
       case "react": {
         check(t, "Rejoignez une table");
-        const r = REACTIONS.find((x) => x.id === d.id);
+        const r = REACTIONS.find((x) => x.id === d.id) ?? (shop.item(String(d.id))?.kind === "emoji" && shop.owns(p, String(d.id)) ? { id: String(d.id) } : null);
         check(r, "Réaction inconnue");
         check(Date.now() - (p.lastReact ?? 0) >= reactionCooldownMs, "Doucement ! Attendez quelques secondes");
         p.lastReact = Date.now();
@@ -1114,12 +1118,26 @@ export function createApp({
         if (["all", "friends", "none"].includes(d.invites)) p.settings.invites = d.invites;
         if (typeof d.animations === "boolean") p.settings.animations = d.animations;
         if (typeof d.sounds === "boolean") p.settings.sounds = d.sounds;
+        if (typeof d.emojis === "boolean") p.settings.emojis = d.emojis;
         break;
       case "dismissResult":
         delete p.lastResult;
         break;
       case "equip":
-        progression.equip(p, d.id);
+        if (shop.item(String(d.id))) {
+          const it = shop.item(String(d.id));
+          check(shop.owns(p, it.id), "Achetez d’abord cet article");
+          check(it.kind === "back" || it.kind === "felt", "Article non équipable");
+          progression.prog(p).equipped[it.kind] = it.id;
+        } else progression.equip(p, d.id);
+        break;
+      case "shopBuy": {
+        const r = shop.buy(p, String(d.id));
+        reply = { bought: r.item.id, balance: r.balance };
+        break;
+      }
+      case "shopFavorites":
+        shop.setFavorites(p, d.ids);
         break;
       case "timezone":
         if (validTimeZone(d.timeZone)) p.timeZone = d.timeZone;
@@ -1325,7 +1343,7 @@ export function createApp({
     p.seen.push(msg.id);
     p.seen = p.seen.slice(-200);
     broadcast();
-    return { ok: true };
+    return reply ?? { ok: true };
   }
   const mime = {
     ".html": "text/html; charset=utf-8",
@@ -1747,6 +1765,8 @@ export function createApp({
             }
             for (const [k, v] of Object.entries(db.sessions ?? {})) if (v.playerId === p.id) delete db.sessions[k];
             retirePlayer(p);
+          } else if (d.type === "shopItem") {
+            shop.update(String(d.id), d);
           } else if (d.type === "deleteTable") {
             const t = db.tables[d.id];
             check(t, "Table introuvable");
@@ -1794,6 +1814,7 @@ export function createApp({
           storage: { ephemeral, since: db.createdAt },
           tournaments: tournaments.adminList(),
           rewards: TOURNAMENT_REWARDS,
+          shop: shop.catalog(),
           push: { web: !!(pushCfg.vapidPublic && pushCfg.vapidPrivate), native: !!pushCfg.fcm },
           economy: {
             loginBonus: economy.config.loginBonus,
@@ -1823,6 +1844,7 @@ export function createApp({
       (/^avatars\/[a-z-]+\.svg$/.test(rel) && BOT_AVATARS.includes(rel.slice(8, -4))) ||
       /^fonts\/[a-z0-9-]+\.woff2$/.test(rel) && existsSync(path.join(root, "public", rel)) ||
       /^decor\/[a-z0-9-]+\.(?:svg|webp)$/.test(rel) ||
+      /^shop\/(?:avatars|emoji|backs|felts|frames)\/[a-z0-9-]+\.webp$/.test(rel) ||
       /^icons\/icon-(?:192|512|maskable)\.png$/.test(rel);
     if ((!allowed.includes(rel) && !cardFile) || !existsSync(path.join(root, "public", rel))) {
       res.writeHead(404);
@@ -1876,7 +1898,7 @@ export function createApp({
         const result = command(p.id, msg);
         send(ws, { type: "ack", id: msg.id, ...result });
       } catch (e) {
-        send(ws, { type: "error", id: msg?.id, message: e.message, ...(e.code ? { code: e.code, balance: e.balance, missing: e.missing, required: e.required } : {}) });
+        send(ws, { type: "error", id: msg?.id, message: e.message, ...(e.code ? { code: e.code, balance: e.balance, missing: e.missing, required: e.required, price: e.price } : {}) });
         broadcast();
       }
     });

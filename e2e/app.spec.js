@@ -259,7 +259,7 @@ test("compte : accueil, inscription, choix d’avatar, vérification, profil", a
   await expect(page.locator(".page-home")).toBeVisible();
   await expect(page.locator('.notice-row:has-text("Confirmez")')).toHaveCount(0);
   await page.reload();
-  await page.locator('.tabbar [data-page="profile"]').click();
+  await page.locator(".me-row .me").click();
   await expect(page.locator(".profile-hero h1")).toHaveText("Sophie");
   await expect(page.locator(".profile-hero img").first()).toHaveAttribute("src", "/avatars/chat.webp");
   await page.screenshot({ path: `${shots}profil.png` });

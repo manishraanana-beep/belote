@@ -1062,3 +1062,39 @@ test("back office : fiche client, crédits manuels, modification et suppression"
     await f.close();
   }
 });
+
+test("boutique : achat unique, solde insuffisant, jetons engagés, équipement et emojis", async () => {
+  const f = await fixture({ adminKey: "test-admin", env: { BELOTE_LOGIN_BONUS: "0", BELOTE_SIGNUP_BONUS: "1200" } });
+  try {
+    const a = await member(f, "boutique@exemple.fr");
+    const p = f.app.db.players[a.state.player.id];
+    assert.equal(p.wallet.balance, 2400);
+    // Deux requêtes identiques : un seul débit.
+    await a.command("shopBuy", { id: "av-03" });
+    await a.command("shopBuy", { id: "av-03" }, "error");
+    assert.equal(p.wallet.balance, 400);
+    assert.equal(f.app.db.ledger.filter((x) => x.pid === p.id && x.type === "achat").length, 1);
+    await a.command("profile", { avatar: "av-03" });
+    assert.equal(p.avatar, "av-03");
+    await a.command("profile", { avatar: "av-04" }, "error");
+    // Solde insuffisant : rien n'est débité.
+    const err = await a.command("shopBuy", { id: "dos-vert" }, "error");
+    assert.equal(err.code, "shopFunds");
+    assert.equal(err.missing, 1300);
+    // Jetons engagés en partie : non dépensables.
+    p.wallet.balance += 500; // 450 jetons, dont 200 engagés en partie
+    p.wallet.reserved = 400;
+    await a.command("shopBuy", { id: "emo-01" }, "error");
+    p.wallet.reserved = 0;
+    await a.command("shopBuy", { id: "emo-01" });
+    assert.ok(f.app.db.players[p.id].progress.favorites.includes("emo-01"));
+    await a.command("equip", { id: "tapis-rouge" }, "error");
+    // Article masqué par l'administration : invisible pour les autres, conservé par son possesseur.
+    const r = await fetch(f.base + "/api/admin", { method: "POST", headers: { Authorization: "Bearer test-admin", "Content-Type": "application/json" }, body: JSON.stringify({ type: "shopItem", id: "emo-01", hidden: true, price: 350 }) });
+    assert.equal(r.status, 200);
+    await a.wait((c) => c.state.player.shop.items.some((x) => x.id === "emo-01" && x.owned));
+    assert.equal((await fetch(f.base + "/shop/avatars/av-03.webp")).status, 200);
+  } finally {
+    await f.close();
+  }
+});

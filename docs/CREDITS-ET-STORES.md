@@ -77,3 +77,11 @@ Sources consultées : [App Store Review Guidelines](https://developer.apple.com/
 | `BELOTE_DAY_START_UTC` | 3 (renouvellement quotidien des défis) |
 | `BELOTE_CHALLENGES` | défis par défaut (JSON : `id`, `label`, `goal`, `reward.credits/xp/cosmetic`) |
 | `BELOTE_ALERT_*` | seuils de détection (voir `src/integrity.js`) |
+
+## Boutique Prestige (goodies)
+
+- Articles vendus à l’unité, payés en jetons (crédits) : 10 avatars classiques (1 000), 5 avatars cadre doré (2 500), 5 avatars couronnés (5 000), 5 dos de cartes (1 500), 5 couleurs de table (3 000), 20 emojis (300). Aucun pack.
+- Catalogue : `src/shop.js` ; visuels découpés dans `public/shop/` (avatars, emoji, backs, felts, frames).
+- Achat (`shopBuy`) : vérifie le solde disponible (hors jetons engagés), débite et attribue dans la même opération ; clé de journal `shop:<joueur>:<article>` = jamais de double débit. Chaque achat apparaît dans l’historique du portefeuille.
+- Purement cosmétique. Dos de cartes et couleur de table : visibles seulement chez le joueur. Emojis : 8 favoris au plus, une réaction toutes les 4 s, masquables dans les réglages.
+- Administration (`/admin`, onglet Boutique) : nom, prix, ordre, visibilité. Masquer un article ne le retire pas à ses possesseurs.

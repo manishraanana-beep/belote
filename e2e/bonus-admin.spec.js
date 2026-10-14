@@ -101,3 +101,16 @@ test("back office : reste connecté après rechargement, déconnexion", async ({
   await page.locator('[data-action="adminLogout"]').click();
   await expect(page.locator("#admin-form")).toBeVisible();
 });
+
+test("back office : modification d’un article de la boutique", async ({ page }) => {
+  await page.goto("/admin");
+  await page.locator('#admin-form [name="key"]').fill("cle-e2e");
+  await page.locator("#admin-form .pill").click();
+  await page.locator('[data-tab="boutique"]').click();
+  const f = page.locator('.shop-item-form[data-id="emo-02"]');
+  await f.locator('[name="price"]').fill("350");
+  await f.locator('[name="name"]').fill("Clin d’œil malin");
+  await f.locator(".pill").click();
+  await expect(page.locator('.shop-item-form[data-id="emo-02"] [name="price"]')).toHaveValue("350");
+  await page.screenshot({ path: "test-results/screens/admin-boutique.png" });
+});

@@ -59,7 +59,9 @@ const avatarUrl = (v) =>
     ? `/u/${v.slice(2)}.jpg`
     : /^robot-[a-z]+$/.test(v ?? "")
       ? `/avatars/${v}.svg`
-      : `/avatars/${AVATARS.includes(v) ? v : "jacques"}.webp`;
+      : /^av-(?:\d\d|or-\d|roi-\d)$/.test(v ?? "")
+        ? `/shop/avatars/${v}.webp`
+        : `/avatars/${AVATARS.includes(v) ? v : "jacques"}.webp`;
 const avatar = (v, cls = "") => `<img class="avatar ${cls}" src="${avatarUrl(v)}" alt="" draggable="false">`;
 const btn = (text, action, cls = "", data = "", disabled = false) =>
   `<button type="button" class="${cls}" data-action="${action}" ${data} ${disabled ? "disabled" : ""}>${text}</button>`;
@@ -180,6 +182,158 @@ function invitesBlock() {
     ${btn("Voir", "inviteOpen", "pill small", `data-id="${i.id}"`)}${btn("✕", "inviteDecline", "chip-btn ghost", `data-id="${i.id}" aria-label="Refuser"`)}
   </article>`).join("")}</section>`;
 }
+// ———————————————————————————————————————————————————————————— boutique Prestige
+const SHOP_FILTERS = [["all", "Tout"], ["avatars", "Avatars"], ["cartes", "Cartes"], ["decors", "Décors"], ["emojis", "Emojis"], ["owned", "Possédés"]];
+const FILTER_CATS = { avatars: ["classic", "gold", "crown"], cartes: ["back"], decors: ["felt"], emojis: ["emoji"] };
+const CAT_ART = { classic: "av-04", gold: "av-or-4", crown: "av-roi-2", back: "dos-violet", felt: "tapis-violet", emoji: "emo-02" };
+const shopItem = (id) => state.player.shop?.items.find((x) => x.id === id);
+const ownedShop = (kind) => (state.player.shop?.items ?? []).filter((x) => x.owned && (!kind || x.kind === kind));
+const favEmojis = () => (state.player.shop?.favorites ?? []).map(shopItem).filter(Boolean);
+const jetons = (n) => `${fmt(n).replace(/\s/g, "\u00a0")} jetons`;
+function itemStatus(it) {
+  if (!it.owned) return "available";
+  const p = state.player;
+  const on = it.kind === "avatar" ? p.avatar === it.id : it.kind === "emoji" ? p.shop.favorites.includes(it.id) : p.progress.equipped[it.kind] === it.id;
+  return on ? "equipped" : "owned";
+}
+const STATUS_LABEL = { available: "Disponible", owned: "Possédé", equipped: "Équipé" };
+function catArt(cat) {
+  const it = shopItem(CAT_ART[cat]);
+  if (cat === "back") {
+    const backs = ["dos-violet", "dos-rouge", "dos-violet", "dos-bleu"].map(shopItem).filter(Boolean);
+    return `<span class="sart sa-fan">${backs.map((b, i) => `<img class="f${i}" src="${b.img}" alt="">`).join("")}</span>`;
+  }
+  return it ? `<span class="sart sa-${cat}"><img src="${it.img}" alt=""></span>` : "";
+}
+function boutiquePage() {
+  const p = state.player,
+    f = page.params.f ?? "all",
+    cat = page.params.cat;
+  const cats = state.player.shop?.categories ?? [];
+  const chips = `<div class="shop-chips" role="tablist">${SHOP_FILTERS.map(([k, l]) => btn(l, "shopFilter", `shop-chip ${f === k && !cat ? "on" : ""}`, `data-f="${k}" role="tab"`)).join("")}</div>`;
+  let body;
+  if (f === "all" && !cat)
+    body = `<div class="shop-grid">${cats
+      .map((c) => {
+        const prices = (p.shop?.items ?? []).filter((x) => x.cat === c.id).map((x) => x.price);
+        const price = prices.length ? Math.min(...prices) : c.price;
+        return `<article class="shop-card cat-${c.id}"><h3>${e(c.name)}</h3>${catArt(c.id)}<p class="price"><i class="coin"></i>${jetons(price)}</p>${btn("Voir", "shopCat", "shop-voir", `data-cat="${c.id}"`)}</article>`;
+      })
+      .join("")}</div>`;
+  else {
+    const list = (p.shop?.items ?? []).filter((x) => (cat ? x.cat === cat : f === "owned" ? x.owned : FILTER_CATS[f]?.includes(x.cat)));
+    const title = cat ? cats.find((c) => c.id === cat)?.name : SHOP_FILTERS.find(([k]) => k === f)?.[1];
+    body = `${cat ? `<button type="button" class="shop-back" data-action="shopFilter" data-f="all">${icon("back", "tiny")} Toutes les catégories</button>` : ""}<h2 class="shop-sub">${e(title ?? "")}</h2>
+      <div class="shop-grid sg-items">${
+        list
+          .map((it) => {
+            const st = itemStatus(it);
+            return `<article class="shop-card item k-${it.kind} st-${st}"><h3>${e(it.name)}</h3><span class="sart sa-${it.cat}"><img src="${it.img}" alt=""></span>${st === "available" ? `<p class="price"><i class="coin"></i>${jetons(it.price)}</p>` : `<p class="status ${st}">${st === "equipped" ? icon("check", "tiny") : ""}${STATUS_LABEL[st]}</p>`}${btn("Voir", "shopItem", "shop-voir", `data-id="${it.id}"`)}</article>`;
+          })
+          .join("") || `<p class="empty">${f === "owned" ? "Vous ne possédez encore aucun article de la boutique." : "Aucun article."}</p>`
+      }</div>`;
+  }
+  return shell(
+    `<div class="shop-head">
+      <span class="shop-logo"><img src="/decor/logo.webp" alt="Belote Prestige"></span>
+      <button type="button" class="shop-balance" data-action="wallet" aria-label="Portefeuille"><i class="coin big"></i><b>${jetons(p.wallet.available / 2)}</b><i class="plus">+</i></button>
+      <h1>La boutique Prestige</h1>
+      ${btn("Acheter des jetons", "shop", "shop-buy-coins")}
+      <p class="shop-tagline">Personnalisez votre jeu · Achats à l’unité</p>
+    </div>
+    ${chips}${body}
+    <p class="shop-foot">${icon("check", "tiny")} Goodies conservés · Aucun avantage de jeu</p>`,
+    { backBtn: false, tabs: true, cls: "page-boutique" },
+  );
+}
+// Aperçu « en situation » : l'article tel qu'il apparaîtra pendant une partie.
+function shopPreview(it) {
+  const p = state.player;
+  if (it.kind === "avatar") return `<div class="pv-scene felt-scene"><div class="pv-seat">${avatar(it.id, "pv-av")}<b>${e(p.name)}</b></div></div>`;
+  if (it.kind === "back") return `<div class="pv-scene felt-scene"><div class="pv-backs-fan">${[0, 1, 2, 3, 4].map((i) => `<img class="b${i}" src="${it.img}" alt="">`).join("")}</div></div>`;
+  if (it.kind === "felt") return `<div class="pv-scene"><div class="pv-table"><img class="pv-felt-img" src="${it.img}" alt=""><span class="pv-cards">${["AS", "10H", "KD", "9C"].map((c) => `<img src="${cardImage(c)}" alt="">`).join("")}</span></div></div>`;
+  return `<div class="pv-scene felt-scene"><div class="pv-seat">${avatar(p.avatar, "pv-av")}<b>${e(p.name)}</b><span class="pv-emo"><img src="${it.img}" alt=""></span></div></div>`;
+}
+function shopItemModal(id) {
+  const it = shopItem(id);
+  if (!it) return;
+  const st = itemStatus(it);
+  const fav = state.player.shop.favorites;
+  const action =
+    st === "available"
+      ? btn(`Acheter · ${jetons(it.price)}`, "shopBuyAsk", "gold-btn wide", `data-id="${it.id}"`)
+      : it.kind === "emoji"
+        ? st === "equipped"
+          ? btn("Retirer de mes favoris", "shopUse", "line-btn wide", `data-id="${it.id}"`)
+          : btn(fav.length >= 8 ? "Favoris complets (8 au maximum)" : "Utiliser · ajouter aux favoris", "shopUse", "gold-btn wide", `data-id="${it.id}"`, fav.length >= 8)
+        : st === "equipped"
+          ? `<p class="status equipped big">${icon("check", "tiny")} Équipé</p>`
+          : btn("Utiliser", "shopUse", "gold-btn wide", `data-id="${it.id}"`);
+  modal(
+    `<div class="shop-modal"><h2>${e(it.name)}</h2><p class="muted">${e(state.player.shop.categories.find((c) => c.id === it.cat)?.name ?? "")}</p>
+      ${it.kind === "felt" ? "" : `<div class="shop-modal-art sa-${it.cat}"><img src="${it.img}" alt=""></div>`}
+      ${shopPreview(it)}
+      <div class="shop-modal-meta"><span><i class="coin"></i>${jetons(it.price)}</span><span class="status ${st}">${STATUS_LABEL[st]}</span></div>
+      ${action}
+      <p class="muted small">${it.kind === "back" || it.kind === "felt" ? "Visible uniquement sur votre écran : les autres joueurs gardent leurs propres choix." : it.kind === "emoji" ? "Apparaît quelques secondes près de votre avatar, sans masquer les cartes." : "Visible par tous les joueurs à votre table."} Purement cosmétique, aucun avantage de jeu.</p></div>`,
+    "sheet-modal shop-item-modal",
+  );
+}
+function shopFundsModal(it, missing) {
+  modal(
+    `<div class="confirm"><span class="confirm-icon">🪙</span><h2>Solde insuffisant</h2>
+    <p>${e(it.name)} coûte <b>${jetons(it.price)}</b>. Il vous manque <b>${jetons(missing)}</b>.</p>
+    <p class="muted small">Les jetons engagés dans une partie en cours ne peuvent pas être dépensés.</p>
+    <div class="stack">${btn("Acheter des jetons", "shop", "gold-btn wide")}${btn("Plus tard", "close", "line-btn wide")}</div></div>`,
+    "confirm-modal",
+  );
+}
+function shopBuyAsk(id) {
+  const it = shopItem(id),
+    p = state.player;
+  if (!p.account) {
+    go("register");
+    return toast("Créez un compte pour acheter dans la boutique");
+  }
+  const avail = p.wallet.available / 2;
+  if (avail < it.price) return shopFundsModal(it, it.price - avail);
+  modal(
+    `<div class="confirm"><div class="shop-modal-art sa-${it.cat} small"><img src="${it.img}" alt=""></div><h2>Acheter ${e(it.name)} ?</h2>
+    <div class="buy-lines"><div><span>Prix</span><b>${jetons(it.price)}</b></div><div><span>Solde disponible</span><b>${jetons(avail)}</b></div><div class="after"><span>Solde après achat</span><b>${jetons(avail - it.price)}</b></div></div>
+    <div class="stack">${btn("Confirmer l’achat", "shopBuy", "gold-btn wide", `data-id="${it.id}"`)}${btn("Annuler", "close", "line-btn wide")}</div></div>`,
+    "confirm-modal",
+  );
+}
+let shopBuying = false;
+function shopBuy(id) {
+  if (shopBuying) return; // double appui : une seule requête
+  shopBuying = true;
+  setTimeout(() => (shopBuying = false), 3000);
+  ask("shopBuy", { id }, () => {
+    shopBuying = false;
+    tone([523, 659, 784], 0.08, 0.05);
+    toast("Achat réussi !");
+    reopenWhen(id, (it) => it.owned);
+  });
+}
+// La fiche se rouvre dès que l'état synchronisé du serveur reflète l'achat ou l'équipement.
+function reopenWhen(id, ready, tries = 40) {
+  const it = shopItem(id);
+  if ((it && ready(it)) || tries <= 0) return shopItemModal(id);
+  setTimeout(() => reopenWhen(id, ready, tries - 1), 75);
+}
+function shopUse(id) {
+  const it = shopItem(id);
+  if (it.kind === "avatar") cmd("profile", { avatar: id });
+  else if (it.kind === "emoji") {
+    const fav = state.player.shop.favorites;
+    cmd("shopFavorites", { ids: fav.includes(id) ? fav.filter((x) => x !== id) : [...fav, id] });
+  } else cmd("equip", { id });
+  toast(it.kind === "emoji" ? "Favoris mis à jour" : "C’est équipé !");
+  const before = itemStatus(it);
+  reopenWhen(id, (x) => itemStatus(x) !== before);
+}
+
 // ———————————————————————————————————————————————————————————— salon d'attente
 // Joueurs connectés à proposer : une touche les invite ; sans réponse, un robot prend la place.
 function onlineBlock(t, me, free) {
@@ -199,7 +353,7 @@ function sheetView(g, t, me) {
   const close = btn("✕", "closeSheet", "sheet-close", 'aria-label="Fermer"');
   let body = "";
   if (sheet === "react")
-    body = `<h3>Réactions</h3><div class="react-grid">${REACTIONS.map((r) => btn(`<b>${r.emoji}</b>${r.text ? `<small>${e(r.text)}</small>` : ""}`, "sendReaction", "react-btn", `data-id="${r.id}"`)).join("")}</div><p class="muted small">Messages prédéfinis : impossible d’y décrire sa main. Une réaction toutes les quelques secondes.</p>`;
+    body = `${favEmojis().length ? `<h3>Mes emojis</h3><div class="react-grid emo-grid">${favEmojis().map((it) => btn(`<img src="${it.img}" alt="${e(it.name)}">`, "sendReaction", "react-btn emo", `data-id="${it.id}"`)).join("")}</div>` : ""}<h3>Réactions</h3><div class="react-grid">${REACTIONS.map((r) => btn(`<b>${r.emoji}</b>${r.text ? `<small>${e(r.text)}</small>` : ""}`, "sendReaction", "react-btn", `data-id="${r.id}"`)).join("")}</div><p class="muted small">Messages prédéfinis : impossible d’y décrire sa main. Une réaction toutes les quelques secondes.</p>`;
   if (sheet?.startsWith("player:")) body = playerSheet(sheet.slice(7));
   if (sheet === "menu")
     body = `<h3>Menu de la partie</h3><div class="menu-list">
@@ -289,6 +443,8 @@ const ICONS = {
   check: '<path d="m5 12 5 5 9-10"/>',
   gift: '<rect x="4" y="9" width="16" height="11" rx="1"/><path d="M3 9h18v-3H3zM12 6v14M12 6c-2-3-6-3-6 0M12 6c2-3 6-3 6 0"/>',
   coin: '<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4"/>',
+  shop: '<path d="M4 9h16l-1.5-4h-13zM5 9v10h14V9M9 19v-5h6v5M4 9c0 1.7 1.3 3 3 3s2.7-1.3 2.7-3c0 1.7 1.2 3 2.3 3s2.3-1.3 2.3-3c0 1.7 1 3 2.7 3s3-1.3 3-3"/>',
+  smile: '<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c1.8 2 5.2 2 7 0M9 9.5h.01M15 9.5h.01"/>',
 };
 const icon = (name, cls = "") => `<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] ?? ""}</svg>`;
 const logo = (sub = "") => `<div class="logo"><img class="logo-img" src="/decor/logo.webp" alt="Belote Prestige" draggable="false">${sub ? `<em>${sub}</em>` : ""}</div>`;
@@ -315,7 +471,7 @@ function shell(body, { backBtn = true, tabs = false, vip = false, cls = "", righ
 }
 function tabBar() {
   const t = (name, label, ic) => `<button type="button" class="tab ${page.name === name || (name === "home" && ["home", "vip"].includes(page.name)) ? "on" : ""}" data-action="go" data-page="${name}">${icon(ic)}<span>${label}</span></button>`;
-  return `<nav class="tabbar" aria-label="Navigation">${t("home", "Accueil", "home")}${t("tables", "Tables", "cards")}${t("profile", "Profil", "user")}</nav>`;
+  return `<nav class="tabbar" aria-label="Navigation">${t("home", "Accueil", "home")}${t("tables", "Jouer", "cards")}${t("boutique", "Boutique", "shop")}</nav>`;
 }
 const field = (ic, name, type, label, extra = "") =>
   `<label class="field">${icon(ic)}<input name="${name}" type="${type}" placeholder="${label}" aria-label="${label}" ${extra}>${type === "password" ? `<button type="button" class="eye" data-action="peek" aria-label="Afficher le mot de passe">${icon("eye")}</button>` : ""}</label>`;
@@ -425,7 +581,7 @@ function homePage() {
     <div class="quick-row">
       ${btn(`${icon("target")} Défis${p.progress.challenges.some((c) => !c.done) ? '<i class="dot"></i>' : ""}`, "challenges", "chip")}
       ${btn(`${icon("users")} Amis${pending ? `<i class="badge-n">${pending}</i>` : ""}`, "friends", "chip")}
-      ${btn(`${icon("coin")} Boutique`, "shop", "chip")}
+      ${btn(`${icon("coin")} Boutique`, "go", "chip", 'data-page="boutique"')}
     </div>
     <div class="stat-strip"><div>${icon("trophy")}<b>${p.stats.wins}</b><small>Victoires</small></div><div>${icon("chart")}<b>${p.stats.games}</b><small>Parties</small></div></div>`,
     { backBtn: false, tabs: true, cls: "page-home", right: btn(icon("menu"), "go", "round-btn", 'data-page="settings" aria-label="Menu"') },
@@ -484,7 +640,7 @@ function profilePage() {
     <div class="list">${p.history.slice(0, 3).map(gameRow).join("") || '<p class="empty">Votre première partie vous attend.</p>'}</div>
     ${p.history.length > 3 ? btn("Voir tout l’historique", "go", "text-link", 'data-page="history"') : ""}
     <div class="menu-card">
-      ${menuLink("coin", "Portefeuille", "wallet")}${menuLink("users", "Amis", "friends")}${menuLink("target", "Défis du jour", "challenges")}${menuLink("trophy", "Niveau et badges", "progress")}${menuLink("star", "Collection", "collection")}${menuLink("chart", "Mes parties", "go", 'data-page="history"')}
+      ${menuLink("coin", "Portefeuille", "wallet")}${menuLink("users", "Amis", "friends")}${menuLink("target", "Défis du jour", "challenges")}${menuLink("trophy", "Niveau et badges", "progress")}${menuLink("star", "Personnalisation", "go", 'data-page="boutique" data-f="owned"')}${menuLink("chart", "Mes parties", "go", 'data-page="history"')}
     </div>`,
     { tabs: true, backBtn: false, right: btn(icon("menu"), "go", "round-btn", 'data-page="settings" aria-label="Réglages"') },
   );
@@ -503,7 +659,7 @@ function avatarPage() {
     <div class="seg">${btn("Avatars illustrés", "avatarTab", tab === "illus" ? "on" : "", 'data-tab="illus"')}${btn("Ma photo", "avatarTab", tab === "photo" ? "on" : "", 'data-tab="photo"')}</div>
     ${
       tab === "illus"
-        ? `<div class="avatar-grid big">${AVATARS.map((a) => `<button type="button" class="av-pick ${a === pick ? "on" : ""}" data-action="pickAvatar" data-avatar="${a}" aria-label="Avatar ${a}">${avatar(a)}${a === pick ? `<i class="tick">${icon("check")}</i>` : ""}</button>`).join("")}</div>
+        ? `<div class="avatar-grid big">${[...AVATARS, ...ownedShop("avatar").map((x) => x.id)].map((a) => `<button type="button" class="av-pick ${a === pick ? "on" : ""}" data-action="pickAvatar" data-avatar="${a}" aria-label="Avatar ${a}">${avatar(a)}${a === pick ? `<i class="tick">${icon("check")}</i>` : ""}</button>`).join("")}</div>
           ${btn("Utiliser cet avatar", "useAvatar", "gold-btn wide", `data-avatar="${pick}"`)}`
         : `<div class="photo-zone">${p.photo ? avatar(p.photo, "xxl ring") : '<span class="ph-empty">📷</span>'}</div>${p.photo ? btn("Utiliser ma photo", "useAvatar", "gold-btn wide", `data-avatar="${p.photo}"`) : ""}`
     }
@@ -546,6 +702,7 @@ function settingsPage() {
     <div class="menu-card">
       ${toggle("sounds", "sound", "Sons", s.sounds)}
       ${toggle("animations", "star", "Animations", s.animations)}
+      ${toggle("emojis", "smile", "Emojis des joueurs pendant les parties", s.emojis !== false)}
       <label class="toggle-row">${icon("bell")}<span>Notifications</span><input type="checkbox" data-local="notifications" ${localStorage.getItem("notifications") !== "off" ? "checked" : ""}><i class="sw"></i></label>
       <div class="menu-link static">${icon("globe")}<span>Langue</span><em>Français</em></div>
     </div>
@@ -793,7 +950,7 @@ function pageView() {
   // Visiteur non connecté : à chaque arrivée, choix « Se connecter » / « Créer un compte » / « Découvrir ».
   // Un joueur déjà connecté est reconnu (session d'un an) et arrive directement à l'accueil.
   if (!page.name) page = { name: guest && !sessionStorage.getItem("discover") ? "welcome" : "home", params: {} };
-  const views = { welcome: welcomePage, register: registerPage, login: loginPage, forgot: forgotPage, reset: resetPage, verify: verifyPage, home: homePage, tables: tablesPage, profile: profilePage, avatar: avatarPage, history: historyPage, rules: () => rulesPage(), settings: settingsPage, legal: legalPage, vip: vipPage, vipCreate: vipCreatePage, tournaments: tournamentsPage, tournament: tournamentPage };
+  const views = { welcome: welcomePage, register: registerPage, login: loginPage, forgot: forgotPage, reset: resetPage, verify: verifyPage, home: homePage, tables: tablesPage, profile: profilePage, avatar: avatarPage, history: historyPage, rules: () => rulesPage(), settings: settingsPage, legal: legalPage, vip: vipPage, vipCreate: vipCreatePage, tournaments: tournamentsPage, tournament: tournamentPage, boutique: boutiquePage };
   return (views[page.name] ?? homePage)();
 }
 
@@ -894,6 +1051,10 @@ function auctionStrip(g, t, me) {
 function reactionBubble(t, s) {
   if (!s || state.player.hidden.includes(s.id)) return "";
   const r = (t.reactions ?? []).filter((x) => x.pid === s.id && Date.now() - x.at < 3500).at(-1);
+  if (r?.reaction.startsWith("emo-")) {
+    const it = shopItem(r.reaction);
+    return it && state.player.settings.emojis !== false ? `<span class="reaction-pop emo"><img src="${it.img}" alt="${e(it.name)}"></span>` : "";
+  }
   const def = r && REACTIONS.find((x) => x.id === r.reaction);
   return def ? `<span class="reaction-pop"><b>${def.emoji}</b>${def.text ? `<small>${e(def.text)}</small>` : ""}</span>` : "";
 }
@@ -1085,7 +1246,7 @@ function gameView() {
   const myBid = g.phase === "bidding" && g.turn === me;
   const eq = state.player.progress.equipped;
   const vip = t.vip && !t.practice;
-  return `<div class="screen game ${vip ? "theme-vip" : "theme-club"} ${myBid ? "bidding-me" : ""} ${eq.back} ${vip ? "" : eq.felt}">
+  return `<div class="screen game ${vip ? "theme-vip" : "theme-club"} ${myBid ? "bidding-me" : ""} ${eq.back} ${eq.felt?.startsWith("tapis-") ? `${eq.felt} tapis` : vip ? "" : eq.felt}">
     <div class="ambient" aria-hidden="true"><i class="lamp l1"></i><i class="lamp l2"></i><i class="leaf f1"></i><i class="leaf f2"></i></div>
     ${topBar(g, t, me)}
     <main class="arena">
@@ -1597,8 +1758,8 @@ document.addEventListener("click", async (ev) => {
       go(el.dataset.mode === "register" ? "register" : "login");
       break;
     case "go":
-      if (el.dataset.page === "home" || el.dataset.page === "tables" || el.dataset.page === "profile") pageStack = [];
-      go(el.dataset.page, { ...(el.dataset.tab ? { tab: el.dataset.tab } : {}), ...(el.dataset.id ? { id: el.dataset.id } : {}) });
+      if (["home", "tables", "profile", "boutique"].includes(el.dataset.page) && !el.dataset.f) pageStack = [];
+      go(el.dataset.page, { ...(el.dataset.tab ? { tab: el.dataset.tab } : {}), ...(el.dataset.id ? { id: el.dataset.id } : {}), ...(el.dataset.f ? { f: el.dataset.f } : {}) });
       break;
     case "tourNew":
       tourForm(null);
@@ -1860,6 +2021,26 @@ document.addEventListener("click", async (ev) => {
       break;
     case "shop":
       shopModal();
+      break;
+    case "shopFilter":
+      page = { ...page, params: { f: el.dataset.f } };
+      render();
+      break;
+    case "shopCat":
+      page = { ...page, params: { f: "all", cat: el.dataset.cat } };
+      render();
+      break;
+    case "shopItem":
+      shopItemModal(el.dataset.id);
+      break;
+    case "shopBuyAsk":
+      shopBuyAsk(el.dataset.id);
+      break;
+    case "shopBuy":
+      shopBuy(el.dataset.id);
+      break;
+    case "shopUse":
+      shopUse(el.dataset.id);
       break;
     case "history":
       historyModal();
@@ -2244,6 +2425,7 @@ async function adminRequest(data) {
       ["clients", "👥", `Clients`, d.players.length],
       ["tours", "🏆", "Tournois", upcoming.length],
       ["moderation", "🚩", "Modération", open.length + alerts.length],
+      ["boutique", "🛍️", "Boutique"],
       ["tables", "🃏", "Tables", d.tables.length],
       ["settings", "⚙️", "Réglages"],
     ];
@@ -2261,6 +2443,8 @@ async function adminRequest(data) {
       ${alerts.map((x) => `<div class="admin-card"><b>${e(x.kind)}</b><small>${when(x.at)} · ${x.names.map(e).join(", ")}</small><ul>${x.indicators.map((i) => `<li>${e(i)}</li>`).join("")}</ul>${btn("Marquer comme examinée", "reviewAlert", "chip-btn", `data-id="${x.id}"`)}</div>`).join("") || "<p>Aucune alerte.</p>"}
       <h3>Signalements</h3>
       ${open.map((r) => `<div class="admin-card"><b>${e(r.reason)}${r.targetName ? ` · ${e(r.targetName)}` : ""}</b><small>${when(r.at)} · par ${e(r.byName ?? r.by)}${r.gameId ? ` · partie ${e(r.gameId.slice(0, 8))}, donne ${r.deal ?? "—"}` : ""}</small>${r.comment ? `<p>${e(r.comment)}</p>` : ""}${r.context?.chat?.length ? `<p class="muted small">Messages : ${r.context.chat.map((m) => e(m.text)).join(" · ")}</p>` : ""}${r.context?.reactions?.length ? `<p class="muted small">${r.context.reactions.length} réaction(s) récente(s)</p>` : ""}${btn("Traiter", "resolveReport", "chip-btn", `data-id="${r.id}"`)}</div>`).join("") || "<p>Aucun signalement ouvert.</p>"}`)}
+      ${panel("boutique", `<h2>Boutique</h2><p class="muted small">Nom, prix (jetons), ordre d’affichage et visibilité. Un article masqué reste acquis à ceux qui le possèdent.</p>
+        <div class="shop-admin">${d.shop.map((it) => `<form class="form inline shop-item-form" data-id="${it.id}"><img src="${it.img}" alt=""><label>Nom<input name="name" value="${e(it.name)}" maxlength="40" required></label><label>Prix<input name="price" type="number" min="0" max="1000000" value="${it.price}" required></label><label>Ordre<input name="order" type="number" step="1" value="${it.order}"></label><label class="check-line"><input type="checkbox" name="hidden" ${it.hidden ? "checked" : ""}>Masqué</label><button class="pill small">Enregistrer</button></form>`).join("")}</div>`)}
       ${panel("tables", `<h2>Tables</h2>${d.tables.map((t) => row(`${e(t.name)} · ${e(t.status)}${t.stake ? ` · 🪙 ${t.stake}` : ""}`, t.engaged ? btn("Annuler (incident)", "cancelGame", "chip-btn danger", `data-id="${t.id}"`) : btn("Supprimer", "deleteTable", "chip-btn", `data-id="${t.id}"`, t.status === "Partie en cours"))).join("") || "<p>Aucune table.</p>"}`)}
       ${panel("settings", `<h2>Réglages</h2>
         <div class="admin-card"><b>Nouvelles entrées</b><small>Bloque l’arrivée de nouveaux joueurs aux tables (maintenance).</small>${btn(d.settings.maintenance ? "Rouvrir les entrées" : "Suspendre les nouvelles entrées", "maintenance", "chip-btn", `data-enabled="${!d.settings.maintenance}"`)}</div>
@@ -2277,6 +2461,10 @@ document.addEventListener("submit", async (ev) => {
   const f = ev.target;
   ev.preventDefault();
   const d = Object.fromEntries(new FormData(f, ev.submitter));
+  if (f.classList.contains("shop-item-form")) {
+    if (await adminRequest({ type: "shopItem", id: f.dataset.id, name: d.name, price: Number(d.price), order: Number(d.order), hidden: d.hidden === "on" })) toast("Article enregistré");
+    return;
+  }
   try {
     switch (f.id) {
       case "bid-form":
@@ -2505,6 +2693,13 @@ async function connect() {
       if (msg.type === "ack" && msg.invitation)
         rulesModal(msg.invitation.rules, `<p class="muted small">Table « ${e(msg.invitation.name)} »</p>${btn("Accepter et demander une place", "confirmVip", "cta small wide")}`);
       if (msg.type === "error") {
+        shopBuying = false;
+        if (msg.code === "shopFunds") {
+          shopBuying = false;
+          delete pendingAcks[msg.id];
+          const it = state.player.shop.items.find((x) => x.price === msg.price) ?? { name: "Cet article", price: msg.price };
+          return shopFundsModal(it, msg.missing);
+        }
         if (msg.code === "funds") {
           delete pendingAcks[msg.id];
           return fundsTourModal(msg);

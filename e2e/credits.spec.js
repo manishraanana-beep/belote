@@ -60,10 +60,13 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   await expect(A.locator("#modal .daily-done")).toContainText("Bonus de connexion");
   await A.screenshot({ path: `${shots}portefeuille.png` });
   await A.keyboard.press("Escape");
-  await A.locator(".quick-row [data-action='shop']").click();
+  await A.locator('.tabbar [data-page="boutique"]').click();
+  await A.locator(".shop-buy-coins").click();
   await expect(A.locator(".pack")).toHaveCount(4);
-  await A.screenshot({ path: `${shots}boutique.png` });
+  await A.screenshot({ path: `${shots}achat-jetons.png` });
   await A.locator('.pack [data-pack="pack-1000"]').click();
+  await A.keyboard.press("Escape");
+  await A.locator('.tabbar [data-page="home"]').click();
   await expect(A.locator(".wallet-chip")).toContainText("1 800");
   await A.locator(".wallet-chip").click();
   await A.locator('#modal [data-action="history"]').click();
@@ -211,15 +214,14 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   await expect(A.locator(".challenges li")).toHaveCount(3);
   await A.screenshot({ path: `${shots}defis.png` });
   await A.keyboard.press("Escape");
-  await A.locator('.tabbar [data-page="profile"]').click();
+  await A.locator('.tabbar [data-page="home"]').click();
+  await A.locator(".me-row .me").click();
   await A.locator(".menu-card [data-action='progress']").click();
   await expect(A.locator(".badge.on").first()).toBeVisible();
   await A.screenshot({ path: `${shots}niveau-badges.png` });
   await A.keyboard.press("Escape");
-  await A.locator(".menu-card [data-action='collection']").click();
-  await A.locator('#modal [data-kind="felt"]').first().click();
-  await A.screenshot({ path: `${shots}collection.png` });
-  await A.keyboard.press("Escape");
+  await A.locator(".menu-card [data-page='boutique'][data-f='owned']").click();
+  await expect(A.locator(".shop-chip.on")).toHaveText("Possédés");
 
   // Administration : signalements avec contexte de partie.
   await A.goto("/admin");
