@@ -1054,7 +1054,8 @@ function floatingAction(g, me) {
   return "";
 }
 function handView(g, me, t) {
-  const hand = [...g.hand].sort((a, b) => HAND_ORDER.indexOf(a.slice(-1)) - HAND_ORDER.indexOf(b.slice(-1)) || RANKS.indexOf(a.slice(0, -1)) - RANKS.indexOf(b.slice(0, -1)));
+  const pending = sentCard && g.version === sentCard.version && Date.now() < sentCard.until ? sentCard.card : null;
+  const hand = g.hand.filter((c) => c !== pending).sort((a, b) => HAND_ORDER.indexOf(a.slice(-1)) - HAND_ORDER.indexOf(b.slice(-1)) || RANKS.indexOf(a.slice(0, -1)) - RANKS.indexOf(b.slice(0, -1)));
   if (selected && !hand.includes(selected)) selected = null;
   const myTurn = g.phase === "playing" && g.turn === me && !collection;
   const glow = g.phase === "bidding" && g.turn === me;
@@ -1112,7 +1113,12 @@ document.addEventListener("pointerdown", () => (pressing = true), true);
 // Jeu d'une carte dès l'appui du doigt (sans attendre le relâchement) : la carte part aussitôt
 // vers le centre, le serveur confirme ensuite et le pli s'affiche.
 let playedOnDown = null,
-  lastDownPlay = 0;
+  lastDownPlay = 0,
+  sentCard = null; // carte envoyée, masquée de la main jusqu'à la réponse du serveur (pas de retour visuel)
+const markSent = (card, version) => {
+  sentCard = { card, version, until: Date.now() + 2500 };
+  setTimeout(() => sentCard?.card === card && Date.now() >= sentCard.until && (sentCard = null, render()), 2600);
+};
 document.addEventListener("pointerdown", (ev) => {
   const el = ev.target.closest?.(".hand .hcard");
   const t = state?.table,
@@ -1124,6 +1130,7 @@ document.addEventListener("pointerdown", (ev) => {
   playedOnDown = c;
   lastDownPlay = Date.now();
   el.classList.add("flying");
+  markSent(c, g.version);
   cmd("action", { version: g.version, action: { type: "play", card: c } });
   setTimeout(() => playedOnDown === c && (playedOnDown = null), 1500);
 });
@@ -2018,8 +2025,8 @@ document.addEventListener("click", async (ev) => {
         toast("Cette carte n’est pas autorisée ici");
         break;
       }
+      markSent(c, g.version);
       cmd("action", { version: g.version, action: { type: "play", card: c } });
-      selected = c; // la carte ressort pendant l'envoi
       render();
       break;
     }
