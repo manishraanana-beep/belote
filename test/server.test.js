@@ -325,6 +325,7 @@ test("HTTP : application disponible, origine hostile bloquée, administration au
       403,
     );
     assert.equal((await fetch(f.base + "/api/admin")).status, 403);
+    assert.equal((await fetch(f.base + "/admin")).status, 200);
     assert.equal(
       (
         await fetch(f.base + "/api/admin", {

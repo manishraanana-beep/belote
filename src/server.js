@@ -1807,7 +1807,7 @@ export function createApp({
         }),
       );
     }
-    const rel = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
+    const rel = url.pathname === "/" || url.pathname === "/admin" ? "index.html" : url.pathname.slice(1);
     const allowed = [
       "index.html",
       "app.js",

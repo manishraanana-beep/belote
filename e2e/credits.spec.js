@@ -222,8 +222,7 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   await A.keyboard.press("Escape");
 
   // Administration : signalements avec contexte de partie.
-  await A.locator('.round-btn[data-page="settings"]').click();
-  await A.locator('[data-action="admin"]').click();
+  await A.goto("/admin");
   await A.locator('#admin-form [name="key"]').fill("cle-e2e");
   await A.locator("#admin-form .pill").click();
   await expect(A.locator("#admin-result")).toContainText("Spam");

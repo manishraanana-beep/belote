@@ -29,8 +29,7 @@ test("bonus de connexion : animation, solde synchronisé sur deux appareils, un 
 test("administration : réglage du bonus, création d’un tournoi au calendrier", async ({ page }) => {
   await page.addInitScript(() => sessionStorage.setItem("discover", "1"));
   await page.goto("/");
-  await page.locator('.round-btn[data-page="settings"]').click();
-  await page.locator('[data-action="admin"]').click();
+  await page.goto("/admin");
   await page.locator('#admin-form [name="key"]').fill("cle-e2e");
   await page.locator("#admin-form .pill").click();
   await page.locator('#bonus-form [name="amount"]').fill("250");
@@ -71,8 +70,7 @@ test("back office : recherche d’un client, crédit manuel et modification de l
   await page.goto("/");
   expect(await page.evaluate(async (email) => (await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "motdepasse" }) })).ok, email)).toBe(true);
   await page.reload();
-  await page.locator('.round-btn[data-page="settings"]').click();
-  await page.locator('[data-action="admin"]').click();
+  await page.goto("/admin");
   await page.locator('#admin-form [name="key"]').fill("cle-e2e");
   await page.locator("#admin-form .pill").click();
   await page.locator("#client-search").fill(email);

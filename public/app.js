@@ -556,7 +556,7 @@ function settingsPage() {
       ${menuLink("doc", "Confidentialité", "go", 'data-page="legal"')}
     </div>
     ${p.account ? `${btn(`${icon("logout")} Se déconnecter`, "logout", "line-btn wide")}${btn(`${icon("trash")} Supprimer mon compte`, "deleteAccount", "danger-line wide")}` : btn("Créer un compte", "go", "gold-btn wide", 'data-page="register"')}
-    <p class="foot-link">${btn("Administration", "admin", "inline-link")} · <a class="inline-link" href="/cards-LICENSE.txt">Crédits des cartes</a></p>`,
+    <p class="foot-link"><a class="inline-link" href="/cards-LICENSE.txt">Crédits des cartes</a></p>`,
   );
 }
 function legalPage() {
@@ -2478,7 +2478,13 @@ async function connect() {
     setTimeout(connect, 3000);
   }
 }
-loadAuthConfig();
-handleHash();
-handleDeepLink();
-connect();
+// Back office : page séparée (/admin), jamais affichée dans l'application des joueurs.
+if (location.pathname.replace(/\/$/, "") === "/admin") {
+  document.title = "Administration — Belote Prestige";
+  $("#app").innerHTML = `<main class="admin-page"><h1>Administration</h1><p class="muted">Accès réservé (clé BELOTE_ADMIN_KEY du serveur).</p><form id="admin-form" class="form inline"><label>Clé d’administration<input name="key" type="password" required autocomplete="off"></label><button class="pill small">Ouvrir</button></form><div id="admin-result"></div></main>`;
+} else {
+  loadAuthConfig();
+  handleHash();
+  handleDeepLink();
+  connect();
+}
