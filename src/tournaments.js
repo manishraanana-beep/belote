@@ -75,6 +75,13 @@ export function normalize(input, rewardIds) {
     rewards[k] = [...new Set(Array.isArray(rw[k]) ? rw[k] : [])];
     for (const x of rewards[k]) check(rewardIds.includes(x), "Récompense inconnue");
   }
+  // Enjeux en crédits (offerts par la Maison, aucun droit d'entrée).
+  const pz = d.prizes ?? {};
+  const prizes = {};
+  for (const k of ["winner", "finalist"]) {
+    prizes[k] = Number(pz[k] ?? 0);
+    check(Number.isInteger(prizes[k]) && prizes[k] >= 0 && prizes[k] <= 1_000_000, "Enjeu invalide");
+  }
   const insufficient = d.insufficient === "cancel" ? "cancel" : "postpone";
   const postponeMinutes = Number(d.postponeMinutes ?? 30);
   check(Number.isInteger(postponeMinutes) && postponeMinutes >= 5 && postponeMinutes <= 7 * 24 * 60, "Délai de report invalide");
@@ -103,6 +110,7 @@ export function normalize(input, rewardIds) {
     minBalance,
     rules,
     rewards,
+    prizes,
     insufficient,
     postponeMinutes,
     minTeams,
@@ -518,6 +526,19 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
     give(tour.teamsList.flatMap((t) => t.pids), "participant");
     give([final.a, final.b].filter(Boolean).flatMap((x) => team(tour, x).pids), "finalist");
     if (winnerId) give(team(tour, winnerId).pids, "winner");
+    // Enjeux : le vainqueur reçoit le premier prix, l'équipe finaliste battue le second.
+    tour.prizes ??= { winner: 0, finalist: 0 };
+    const pay = (pids, kind) => {
+      for (const pid of pids) {
+        const p = player(pid);
+        if (p && tour.prizes[kind] > 0) hooks.prize?.(p, tour.prizes[kind], `tournoi:${tour.id}:${kind}:${pid}`, tour.name);
+      }
+    };
+    if (winnerId) {
+      pay(team(tour, winnerId).pids, "winner");
+      const loser = [final.a, final.b].find((x) => x && x !== winnerId);
+      if (loser) pay(team(tour, loser).pids, "finalist");
+    }
     const champ = winnerId ? team(tour, winnerId) : null;
     for (const t of tour.teamsList) notify(tour, t.pids, "fin", `${tour.name} : ${champ ? `victoire de ${champ.name}` : "terminé"}`, t.id === winnerId ? "Félicitations, vous remportez le tournoi !" : "Merci pour votre participation.");
   }
@@ -567,6 +588,7 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
       minBalance: tour.minBalance,
       rules: { ...tour.rules, reconnectSeconds: tour.reconnectSeconds, forfeitSeconds: tour.forfeitSeconds },
       rewards: tour.rewards,
+      prizes: tour.prizes ?? { winner: 0, finalist: 0 },
       insufficient: tour.insufficient,
       postponeMinutes: tour.postponeMinutes,
       places: { used: used(tour), capacity: capacity(tour), waitlist: tour.regs.filter((r) => r.waitlist).reduce((a, r) => a + r.pids.length, 0) },

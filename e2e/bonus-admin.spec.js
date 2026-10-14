@@ -64,3 +64,26 @@ test("connexion avec une adresse inconnue : création du compte proposée", asyn
   await page.locator('[data-action="createFromLogin"]').click();
   await expect(page.locator(".page-title")).toHaveText("Choisir mon avatar");
 });
+
+test("back office : recherche d’un client, crédit manuel et modification de la fiche", async ({ page }) => {
+  const email = `client${Date.now()}@exemple.fr`;
+  await page.addInitScript(() => sessionStorage.setItem("discover", "1"));
+  await page.goto("/");
+  expect(await page.evaluate(async (email) => (await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "motdepasse" }) })).ok, email)).toBe(true);
+  await page.reload();
+  await page.locator('.round-btn[data-page="settings"]').click();
+  await page.locator('[data-action="admin"]').click();
+  await page.locator('#admin-form [name="key"]').fill("cle-e2e");
+  await page.locator("#admin-form .pill").click();
+  await page.locator("#client-search").fill(email);
+  await expect(page.locator(".client-row:not([hidden])")).toHaveCount(1);
+  await page.locator('.client-row:not([hidden]) [data-action="clientOpen"]').click();
+  await page.locator('#client-credit-form [name="amount"]').fill("1500");
+  await page.locator('#client-credit-form [name="reason"]').fill("Geste commercial");
+  await page.locator("#client-credit-form .pill").click();
+  await expect(page.locator(".client-ledger")).toContainText("Geste commercial");
+  await page.locator('#client-edit-form [name="name"]').fill("Client VIP");
+  await page.locator("#client-edit-form .pill").click();
+  await expect(page.locator(".client-head")).toContainText("Client VIP");
+  await page.screenshot({ path: "test-results/screens/back-office-client.png" });
+});
