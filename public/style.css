@@ -1274,3 +1274,16 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .seat.p2 .bubble { left: calc(100% + 6px); top: 20%; translate: none; }
 .seat.p1 .bubble, .seat.p3 .bubble { left: 50%; right: auto; top: -26px; translate: -50% 0; }
 .my-bubble { left: 12px; translate: none; bottom: 2px; }
+
+/* Back office administrateur : plein écran, liste des clients et fiche */
+#modal.admin-modal { width: min(980px, 100vw); max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0 auto; border-radius: 0; overflow-y: auto; }
+.client-search { width: 100%; padding: 10px 12px; border-radius: 10px; margin: 6px 0 10px; }
+.client-list { display: grid; gap: 4px; max-height: 60vh; overflow-y: auto; }
+.client-row[hidden] { display: none; }
+.client-row small { opacity: .7; }
+.client-head { display: flex; gap: 12px; align-items: center; margin: 10px 0; }
+.client-head > div { display: grid; gap: 2px; }
+.client-sheet h4 { margin: 16px 0 6px; }
+.client-ledger { max-height: 40vh; overflow-y: auto; }
+.client-ledger .pos { color: #4caf7a; }
+.client-ledger .neg { color: #e06060; }

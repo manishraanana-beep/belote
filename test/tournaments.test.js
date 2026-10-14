@@ -29,6 +29,7 @@ function setup({ players = 40, balance = 60000 } = {}) {
       },
       endTable: (id) => delete tables[id],
       award: (p, r) => awards.push([p.id, r]),
+      prize: (p, credits, key) => awards.push([p.id, "prize", credits, key]),
     },
   });
   const local = (ms) => utcToZoned(ms, "Europe/Paris");
@@ -208,7 +209,7 @@ test("équipes insuffisantes : report puis annulation selon la règle choisie", 
 
 test("départ automatique sans administrateur, exemptions, progression jusqu’à la finale et récompenses uniques", () => {
   const s = setup();
-  const tour = s.tours.create(s.base({ minTeams: 4 }));
+  const tour = s.tours.create(s.base({ minTeams: 4, prizes: { winner: 1000, finalist: 300 } }));
   s.advance(HOUR);
   for (let i = 0; i < 12; i++) s.tours.register(tour.id, "p" + i); // 6 équipes pour un tableau de 8
   s.at(tour.start - 10 * MIN);
@@ -239,6 +240,10 @@ test("départ automatique sans administrateur, exemptions, progression jusqu’�
   );
   assert.equal(s.awards.filter(([, r]) => r === "tournoi-participant").length, 12);
   assert.equal(s.awards.filter(([, r]) => r === "tournoi-finaliste").length, 4);
+  const prizes = s.awards.filter(([, r]) => r === "prize");
+  assert.deepEqual(prizes.filter((x) => x[2] === 1000).map(([p]) => p).sort(), [...champ.pids].sort());
+  assert.equal(prizes.filter((x) => x[2] === 300).length, 2);
+  assert.throws(() => s.tours.create(s.base({ prizes: { winner: -5 } })), /Enjeu invalide/);
   // Un second « fin » éventuel n'attribue rien de plus.
   const before = s.awards.length;
   s.tours.matchFinished("table-inconnue", 0, [0, 0]);

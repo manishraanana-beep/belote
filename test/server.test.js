@@ -1024,3 +1024,40 @@ test("mise choisie : joueurs regroupés sans invitation, départ automatique à 
     await f.close();
   }
 });
+
+test("back office : fiche client, crédits manuels, modification et suppression", async () => {
+  const f = await fixture({ adminKey: "test-admin", env: { BELOTE_LOGIN_BONUS: "0", BELOTE_SIGNUP_BONUS: "100" } });
+  try {
+    const admin = async (data, status = 200) => {
+      const r = await fetch(f.base + "/api/admin", {
+        method: "POST",
+        headers: { Authorization: "Bearer test-admin", "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      assert.equal(r.status, status, await r.clone().text());
+      return status === 200 ? r.json() : r.text();
+    };
+    const a = await member(f, "alice@exemple.fr");
+    await member(f, "bob@exemple.fr");
+    const id = a.state.player.id;
+    const before = f.app.db.players[id].wallet.balance;
+    await admin({ type: "playerCredit", id, amount: 250, reason: "Geste" });
+    assert.equal(f.app.db.players[id].wallet.balance, before + 500);
+    await admin({ type: "playerCredit", id, amount: -50 });
+    assert.equal(f.app.db.players[id].wallet.balance, before + 400);
+    await admin({ type: "playerCredit", id, amount: -1e6 }, 400);
+    const detail = await (await fetch(f.base + "/api/admin?player=" + id, { headers: { Authorization: "Bearer test-admin" } })).json();
+    assert.equal(detail.account.email, "alice@exemple.fr");
+    assert.equal(detail.ledger[0].amount, -50);
+    assert.equal(detail.ledger[1].label, "Geste");
+    await admin({ type: "playerUpdate", id, name: "Alicia", email: "bob@exemple.fr" }, 400);
+    await admin({ type: "playerUpdate", id, name: "Alicia", email: "alicia@exemple.fr", verified: true });
+    assert.equal(f.app.db.players[id].name, "Alicia");
+    assert.equal(f.app.db.accounts[f.app.db.players[id].accountId].email, "alicia@exemple.fr");
+    const d = await admin({ type: "playerDelete", id });
+    assert.ok(!d.players.some((p) => p.id === id));
+    assert.ok(!Object.values(f.app.db.accounts).some((x) => x.email === "alicia@exemple.fr"));
+  } finally {
+    await f.close();
+  }
+});

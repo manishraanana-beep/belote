@@ -10,7 +10,7 @@ import {
   unlinkSync,
 } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { createAccounts, createMailer } from "./accounts.js";
+import { createAccounts, createMailer, normalizeEmail } from "./accounts.js";
 import { createEconomy, economyConfig, STAKES, toCredits, toUnits } from "./economy.js";
 import { createProgression, TOURNAMENT_REWARDS } from "./progression.js";
 import { createTournaments, validTimeZone } from "./tournaments.js";
@@ -144,6 +144,10 @@ export function createApp({
       launchMatch: (tour, m, a, b) => launchMatch(tour, m, a, b),
       endTable: (tableId) => endTournamentTable(tableId),
       award: (p, reward) => progression.award(p, reward),
+      prize: (p, credits, key, name) => {
+        if (economy.post(p, key, "tournoi", toUnits(credits), { label: `Enjeu — ${name}` }))
+          deliver(p.id, { title: "Gain de tournoi", body: `${credits} crédits crédités pour « ${name} ».`, kind: "gain" });
+      },
     },
   });
   const photoDir = path.join(dataDir, "avatars");
@@ -1705,6 +1709,44 @@ export function createApp({
             if (p.banned)
               for (const ws of connections.get(p.id) ?? [])
                 ws.close(1008, "Profil suspendu");
+          } else if (d.type === "playerCredit") {
+            const p = db.players[d.id];
+            check(p, "Joueur introuvable");
+            const amount = Number(d.amount);
+            check(Number.isFinite(amount) && amount !== 0 && Math.abs(amount) <= 1_000_000 && Number.isInteger(amount * 2), "Montant invalide");
+            const units = toUnits(amount);
+            check(units > 0 || economy.available(p) + units >= 0, "Solde disponible insuffisant");
+            economy.post(p, `admin:${randomBytes(9).toString("base64url")}`, "admin", units, { label: clean(d.reason || (units > 0 ? "Crédit manuel" : "Débit manuel"), 120) });
+            deliver(p.id, { title: units > 0 ? "Crédits ajoutés" : "Crédits retirés", body: `${Math.abs(amount)} crédits ${units > 0 ? "ajoutés à" : "retirés de"} votre compte par l’administration.`, kind: "admin" });
+          } else if (d.type === "playerUpdate") {
+            const p = db.players[d.id];
+            check(p, "Joueur introuvable");
+            if (d.name !== undefined) {
+              const name = clean(d.name, 24);
+              check(name.length >= 2, "Pseudo trop court");
+              check(!nameTaken(name, p.id), "Ce pseudo est déjà pris");
+              p.name = name;
+            }
+            if (d.avatar !== undefined) p.avatar = clean(d.avatar, 8) || p.avatar;
+            const acc = p.accountId && db.accounts[p.accountId];
+            if (acc && d.email !== undefined) {
+              const email = normalizeEmail(d.email);
+              check(!Object.values(db.accounts).some((a) => a !== acc && a.email === email), "Adresse e-mail déjà utilisée");
+              acc.email = email;
+            }
+            if (acc && typeof d.verified === "boolean") acc.verified = d.verified;
+          } else if (d.type === "playerDelete") {
+            const p = db.players[d.id];
+            check(p, "Joueur introuvable");
+            const t = db.tables[p.tableId];
+            check(!(t?.game && t.game.phase !== "finished" && t.money && !t.money.settled), "Joueur engagé dans une partie à crédits en cours");
+            if (p.accountId) {
+              const accId = p.accountId;
+              delete db.accounts[accId];
+              for (const [k, v] of Object.entries(db.tokens ?? {})) if (v.accountId === accId) delete db.tokens[k];
+            }
+            for (const [k, v] of Object.entries(db.sessions ?? {})) if (v.playerId === p.id) delete db.sessions[k];
+            retirePlayer(p);
           } else if (d.type === "deleteTable") {
             const t = db.tables[d.id];
             check(t, "Table introuvable");
@@ -1725,9 +1767,26 @@ export function createApp({
       }
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Cache-Control", "no-store");
+      const detailId = url.searchParams.get("player");
+      if (detailId && req.method === "GET") {
+        const p = db.players[detailId];
+        if (!p) {
+          res.writeHead(404);
+          return res.end("Joueur introuvable");
+        }
+        return res.end(
+          JSON.stringify({
+            ...playerView(p),
+            tableId: p.tableId ?? null,
+            createdAt: p.createdAt ?? null,
+            online: connections.has(p.id),
+            ledger: economy.history(p, 200).map((e) => ({ ...e, amount: toCredits(e.amount), balance: toCredits(e.balance) })),
+          }),
+        );
+      }
       return res.end(
         JSON.stringify({
-          players: Object.values(db.players).map(playerView),
+          players: Object.values(db.players).map((p) => ({ ...playerView(p), online: connections.has(p.id) })),
           tables: Object.values(db.tables).map((t) => ({ ...publicTable(t), engaged: !!(t.money && !t.money.settled) })),
           reports: db.reports,
           alerts: db.alerts.map((a) => ({ ...a, names: a.players.map((x) => db.players[x]?.name ?? x) })),

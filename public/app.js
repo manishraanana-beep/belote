@@ -611,6 +611,8 @@ function tourChip(t) {
 function rewardsText(t) {
   const lines = [];
   const names = (ids) => ids.map((x) => REWARD_NAMES[x] ?? x).join(", ");
+  if (t.prizes?.winner) lines.push(`💰 Enjeu vainqueurs : ${t.prizes.winner} crédits par joueur`);
+  if (t.prizes?.finalist) lines.push(`💰 Enjeu finalistes : ${t.prizes.finalist} crédits par joueur`);
   if (t.rewards.winner.length) lines.push(`🏆 Vainqueurs : ${names(t.rewards.winner)}`);
   if (t.rewards.finalist.length) lines.push(`🥈 Finalistes : ${names(t.rewards.finalist)}`);
   if (t.rewards.participant.length) lines.push(`🎟️ Participants : ${names(t.rewards.participant)}`);
@@ -2054,7 +2056,23 @@ document.addEventListener("click", async (ev) => {
       modal('<div class="modal-head"><span class="modal-icon">🚩</span><h2>Signaler un problème</h2></div><form id="report-form" class="form"><label>Que s’est-il passé ?<textarea name="reason" maxlength="500" required></textarea></label><button class="cta small wide">Envoyer</button></form>', "sheet-modal");
       break;
     case "admin":
-      modal('<h2>Administration</h2><p class="muted">Accès réservé (clé BELOTE_ADMIN_KEY du serveur).</p><form id="admin-form" class="form"><label>Clé d’administration<input name="key" type="password" required autocomplete="off"></label><button class="pill small">Ouvrir</button></form><div id="admin-result"></div>', "sheet-modal");
+      modal('<h2>Administration</h2><p class="muted">Accès réservé (clé BELOTE_ADMIN_KEY du serveur).</p><form id="admin-form" class="form"><label>Clé d’administration<input name="key" type="password" required autocomplete="off"></label><button class="pill small">Ouvrir</button></form><div id="admin-result"></div>', "sheet-modal admin-modal");
+      break;
+    case "clientOpen":
+      await openClient(el.dataset.id);
+      break;
+    case "clientBack":
+      adminClient = null;
+      if ($("#admin-clients")) $("#admin-clients").innerHTML = clientList(adminData);
+      break;
+    case "clientSuspend":
+      await adminRequest({ type: "suspend", id: el.dataset.id, enabled: el.dataset.enabled === "true" });
+      break;
+    case "clientDelete":
+      if (confirm(`Supprimer définitivement « ${el.dataset.name} » ? Compte, crédits et historique seront effacés.`)) {
+        adminClient = null;
+        if (await adminRequest({ type: "playerDelete", id: el.dataset.id })) toast("Client supprimé");
+      }
       break;
     case "suspendPlayer":
       await adminRequest({ type: "suspend", id: el.dataset.id, enabled: el.dataset.enabled === "true" });
@@ -2133,11 +2151,55 @@ function tourForm(t) {
       <label>Report de (min)<input type="number" name="postponeMinutes" min="5" max="10080" value="${v.postponeMinutes}"></label>
     </div>
     <label class="check-line"><input type="checkbox" name="flyingCounter" ${v.rules.flyingCounter ? "checked" : ""}>Contrée à la volée</label>
+    <fieldset><legend>Enjeux (crédits offerts à chaque joueur, sans droit d’entrée)</legend><div class="form-grid"><label>🏆 Vainqueurs<input type="number" name="prizeWinner" min="0" max="1000000" step="1" value="${v.prizes?.winner ?? 0}"></label><label>🥈 Finalistes<input type="number" name="prizeFinalist" min="0" max="1000000" step="1" value="${v.prizes?.finalist ?? 0}"></label></div></fieldset>
     ${rw("winner", "Récompenses des vainqueurs")}${rw("finalist", "Récompenses des finalistes")}${rw("participant", "Récompenses de participation")}
     <p class="muted small">Après le départ, seuls le nom et la description restent modifiables.</p>
     <div class="row"><button class="chip-btn" name="publish" value="">Enregistrer le brouillon</button><button class="pill small" name="publish" value="1">${t?.status === "published" ? "Enregistrer" : "Publier"}</button>${btn("Retour", "tourAdminBack", "chip-btn ghost")}</div>
   </form>`;
 }
+// ———————————————— back office : clients
+let adminClient = null;
+function clientList(d) {
+  const players = [...d.players].sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name));
+  return `<input id="client-search" class="client-search" type="search" placeholder="Rechercher un pseudo ou un e-mail" autocomplete="off">
+    <div class="client-list">${players.map((p) => `<div class="admin-row client-row" data-q="${e((p.name + " " + (p.account?.email ?? "") + " " + (p.tag ?? "")).toLowerCase())}"><span>${p.online ? "🟢" : "⚪"} <b>${e(p.name)}</b> <small>${e(p.account?.email ?? "invité")}${p.banned ? " · suspendu" : ""}</small></span><span class="row"><small>🪙 ${fmt(p.wallet.balance / 2)}</small>${btn("Fiche", "clientOpen", "chip-btn", `data-id="${p.id}"`)}</span></div>`).join("") || "<p>Aucun client.</p>"}</div>`;
+}
+async function openClient(id) {
+  try {
+    const res = await fetch("/api/admin?player=" + encodeURIComponent(id), { headers: { Authorization: "Bearer " + adminToken } });
+    if (!res.ok) throw Error(await res.text());
+    const c = await res.json();
+    adminClient = id;
+    const box = $("#admin-clients");
+    if (!box) return;
+    const w = c.wallet;
+    box.innerHTML = `<div class="client-sheet">
+      <div class="row">${btn("← Liste des clients", "clientBack", "chip-btn ghost")}</div>
+      <div class="client-head">${avatar(c.avatar)}<div><b>${e(c.name)}</b><small>${e(c.tag ?? "")} · ${c.online ? "en ligne" : "hors ligne"}${c.banned ? " · <b>suspendu</b>" : ""}</small><small>${c.account ? `${e(c.account.email)} · ${c.account.verified ? "e-mail vérifié" : "e-mail non vérifié"}${c.account.providers.length ? " · " + c.account.providers.map(e).join(", ") : ""}` : "Invité sans compte"}</small></div></div>
+      <div class="admin-stats"><div><b>${fmt(w.balance / 2)}</b><small>solde</small></div><div><b>${fmt(w.reserved / 2)}</b><small>engagés</small></div><div><b>${c.stats.games}</b><small>parties</small></div><div><b>${c.stats.wins ?? 0}</b><small>victoires</small></div></div>
+      <h4>Créditer / débiter</h4>
+      <form id="client-credit-form" class="form inline"><input type="hidden" name="cid" value="${c.id}"><label>Montant (crédits, négatif pour retirer)<input name="amount" type="number" step="0.5" min="-1000000" max="1000000" required></label><label>Motif<input name="reason" maxlength="120" placeholder="Geste commercial, correction…"></label><button class="pill small">Valider</button></form>
+      <h4>Fiche</h4>
+      <form id="client-edit-form" class="form"><input type="hidden" name="cid" value="${c.id}">
+        <div class="form-grid"><label>Pseudo<input name="name" value="${e(c.name)}" minlength="2" maxlength="24" required></label><label>Avatar<input name="avatar" value="${e(c.avatar)}" maxlength="8"></label>
+        ${c.account ? `<label>E-mail<input name="email" type="email" value="${e(c.account.email)}" required></label><label class="check-line"><input type="checkbox" name="verified" ${c.account.verified ? "checked" : ""}>E-mail vérifié</label>` : ""}</div>
+        <button class="pill small">Enregistrer la fiche</button></form>
+      <div class="row">${btn(c.banned ? "Réactiver le compte" : "Suspendre le compte", "clientSuspend", "chip-btn", `data-id="${c.id}" data-enabled="${!c.banned}"`)}${btn("Supprimer le client", "clientDelete", "chip-btn danger", `data-id="${c.id}" data-name="${e(c.name)}"`)}</div>
+      <h4>Journal des crédits</h4>
+      <div class="client-ledger">${c.ledger.map((x) => `<div class="admin-row"><span>${when(x.at)} · ${e(x.label ?? x.type)}</span><span class="${x.amount < 0 ? "neg" : "pos"}">${x.amount > 0 ? "+" : ""}${fmt(x.amount)} → ${fmt(x.balance)}</span></div>`).join("") || "<p class='muted small'>Aucun mouvement.</p>"}</div>
+      <h4>Dernières parties</h4>
+      <div>${(c.history ?? []).slice(0, 15).map((h) => `<div class="admin-row"><span>${h.at ? when(h.at) : ""} ${e(h.table ?? h.name ?? "")}</span><span>${h.won ? "Gagnée" : "Perdue"}${h.score ? ` · ${e(String(h.score))}` : ""}</span></div>`).join("") || "<p class='muted small'>Aucune partie.</p>"}</div>
+    </div>`;
+  } catch (err) {
+    adminClient = null;
+    toast(err.message);
+  }
+}
+document.addEventListener("input", (ev) => {
+  if (ev.target.id !== "client-search") return;
+  const q = ev.target.value.trim().toLowerCase();
+  for (const r of document.querySelectorAll(".client-row")) r.hidden = !!q && !r.dataset.q.includes(q);
+});
 async function adminRequest(data) {
   try {
     const res = await fetch("/api/admin", {
@@ -2163,7 +2225,8 @@ async function adminRequest(data) {
       <h3>Signalements</h3>
       ${open.map((r) => `<div class="admin-card"><b>${e(r.reason)}${r.targetName ? ` · ${e(r.targetName)}` : ""}</b><small>${when(r.at)} · par ${e(r.byName ?? r.by)}${r.gameId ? ` · partie ${e(r.gameId.slice(0, 8))}, donne ${r.deal ?? "—"}` : ""}</small>${r.comment ? `<p>${e(r.comment)}</p>` : ""}${r.context?.chat?.length ? `<p class="muted small">Messages : ${r.context.chat.map((m) => e(m.text)).join(" · ")}</p>` : ""}${r.context?.reactions?.length ? `<p class="muted small">${r.context.reactions.length} réaction(s) récente(s)</p>` : ""}${btn("Traiter", "resolveReport", "chip-btn", `data-id="${r.id}"`)}</div>`).join("") || "<p>Aucun signalement ouvert.</p>"}
       <h3>Tables</h3>${d.tables.map((t) => row(`${e(t.name)} · ${e(t.status)}${t.stake ? ` · 🪙 ${t.stake}` : ""}`, t.engaged ? btn("Annuler (incident)", "cancelGame", "chip-btn danger", `data-id="${t.id}"`) : btn("Supprimer", "deleteTable", "chip-btn", `data-id="${t.id}"`, t.status === "Partie en cours"))).join("")}
-      <h3>Joueurs</h3>${d.players.map((p) => row(`${e(p.name)} · ${e(p.tag ?? "")} · ${p.stats.games} parties`, btn(p.banned ? "Réactiver" : "Suspendre", "suspendPlayer", "chip-btn", `data-id="${p.id}" data-enabled="${!p.banned}"`))).join("")}`;
+      <h3>Clients (${d.players.length})</h3><div id="admin-clients">${clientList(d)}</div>`;
+    if (adminClient) await openClient(adminClient);
     return true;
   } catch (err) {
     toast(err.message);
@@ -2240,6 +2303,7 @@ document.addEventListener("submit", async (ev) => {
           forfeitSeconds: Number(d.forfeitSeconds),
           insufficient: d.insufficient,
           postponeMinutes: Number(d.postponeMinutes),
+          prizes: { winner: Number(d.prizeWinner || 0), finalist: Number(d.prizeFinalist || 0) },
           rewards: { winner: f2.getAll("rw-winner"), finalist: f2.getAll("rw-finalist"), participant: f2.getAll("rw-participant") },
           publish: d.publish === "1",
         };
@@ -2255,6 +2319,14 @@ document.addEventListener("submit", async (ev) => {
       case "tour-cancel-form":
         if (await adminRequest({ type: "tourCancel", id: d.tid, reason: d.reason }))
           toast("Tournoi annulé, inscrits prévenus");
+        return;
+      case "client-credit-form":
+        if (await adminRequest({ type: "playerCredit", id: d.cid, amount: Number(d.amount), reason: d.reason }))
+          toast("Solde mis à jour");
+        return;
+      case "client-edit-form":
+        if (await adminRequest({ type: "playerUpdate", id: d.cid, name: d.name, avatar: d.avatar, ...(d.email !== undefined ? { email: d.email, verified: d.verified === "on" } : {}) }))
+          toast("Fiche enregistrée");
         return;
       case "bonus-form":
         if (await adminRequest({ type: "loginBonus", amount: Number(d.amount) }))
