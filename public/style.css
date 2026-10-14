@@ -393,7 +393,7 @@ a { color: inherit; }
 .code { display: flex; align-items: center; gap: 12px; }
 .code b { font-family: var(--logo); font-size: 40px; color: var(--gold); letter-spacing: 0.04em; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
-.slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding-top: 14px; }
+.slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding-top: 14px; }
 .slot { position: relative; display: grid; justify-items: center; align-content: start; gap: 4px; text-align: center; }
 .slot-ring { position: relative; display: grid; place-items: center; width: 74px; height: 74px; border-radius: 50%; padding: 3px; background: var(--gold); box-shadow: 0 6px 14px #0006; }
 .slot-ring .avatar { width: 100%; height: 100%; }
@@ -1243,3 +1243,26 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .row-del > .vip-row { flex: 1; min-width: 0; }
 .del-btn { flex: none; color: #ff9a9a; }
 .vip-row.pub { border-color: var(--line); background: var(--panel); }
+
+/* Tables avec mise : cartes Émeraude (200), Saphir (500), Royale (1 000) */
+.stake-grid { display: grid; gap: 12px; }
+.stake-card { position: relative; display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 14px 14px 12px; border-radius: 22px; text-align: left; color: #fff; overflow: hidden; border: 2px solid var(--sc-edge); background: radial-gradient(circle at 85% 0, #ffffff30, transparent 45%), linear-gradient(135deg, var(--sc-1), var(--sc-2)); box-shadow: 0 10px 24px #0007, inset 0 1px 0 #ffffff40; transition: transform 0.15s; }
+.stake-card:active { transform: scale(0.98); }
+.stake-card::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(120deg, #ffffff07 0 6px, transparent 6px 14px); pointer-events: none; }
+.stake-card.emeraude { --sc-1: #1f8a63; --sc-2: #0c4a3a; --sc-edge: #6fe3b4; --chip: #2fbf86; }
+.stake-card.saphir { --sc-1: #2c63c9; --sc-2: #122a66; --sc-edge: #8fb4ff; --chip: #4f86f0; }
+.stake-card.royale { --sc-1: #b8861f; --sc-2: #5a2d0c; --sc-edge: #ffe08a; --chip: #e6a823; }
+.sc-chip { position: relative; z-index: 1; flex: none; display: grid; place-items: center; align-content: center; width: 74px; height: 74px; border-radius: 50%; background: radial-gradient(circle, var(--chip) 0 52%, transparent 53%), repeating-conic-gradient(#fff 0 18deg, var(--chip) 18deg 45deg); box-shadow: 0 0 0 3px #fff, 0 6px 14px #0008, inset 0 0 0 9px #0002; }
+.sc-chip b { font-family: var(--ui); font-weight: 800; font-size: 20px; line-height: 1; text-shadow: 0 1px 2px #0008; }
+.sc-chip small { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.9; }
+.sc-main { position: relative; z-index: 1; flex: 1; min-width: 0; display: grid; gap: 3px; }
+.sc-main b { font-family: var(--title); font-size: 21px; text-shadow: 0 2px 4px #0006; }
+.sc-main small { color: #ffffffd0; font-size: 13px; }
+.sc-meta { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #fff; }
+.sc-seats { display: flex; gap: 3px; }
+.sc-seats i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid #ffffffb0; }
+.sc-seats i.on { background: #fff; box-shadow: 0 0 6px #fff; }
+.sc-go { position: relative; z-index: 1; flex: none; padding: 9px 16px; border-radius: 999px; background: linear-gradient(180deg, var(--gold-1), var(--gold) 55%, var(--gold-2)); color: var(--gold-ink); font-family: var(--title); font-weight: 700; font-size: 16px; box-shadow: 0 4px 0 #9a6a14, 0 6px 12px #0006; }
+@media (max-width: 380px) { .sc-chip { width: 60px; height: 60px; } .sc-chip b { font-size: 16px; } .sc-main b { font-size: 18px; } .sc-go { padding: 8px 12px; font-size: 14px; } }
+.slots .slot-ring { width: min(76px, 19vw); height: min(76px, 19vw); }
+.slots .slot b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }

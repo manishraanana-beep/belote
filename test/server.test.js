@@ -11,7 +11,8 @@ import { view } from "../src/engine.js";
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 async function fixture(opts = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), "belote-test-"));
-  const app = createApp({ dataDir: dir, tickMs: 10, botDelay: 1, ...opts });
+  // Les tests utilisent aussi une table permanente gratuite (absente en production).
+  const app = createApp({ dataDir: dir, tickMs: 10, botDelay: 1, ...opts, env: { ...process.env, BELOTE_LOBBY_STAKES: "0,200,500,1000", ...(opts.env ?? {}) } });
   await new Promise((r) => app.server.listen(0, "127.0.0.1", r));
   const base = `http://127.0.0.1:${app.server.address().port}`;
   const clients = [];
@@ -989,8 +990,8 @@ test("tables permanentes à 200, 500 et 1 000 jetons ; suppression des tables cr
   const f = await fixture({ env: { BELOTE_LOGIN_BONUS: "0" } });
   try {
     const a = await member(f, "createur@exemple.fr");
-    const stakes = a.state.tables.filter((t) => t.lobby).map((t) => t.stake).sort((x, y) => x - y);
-    assert.deepEqual(stakes, [0, 200, 500, 1000]);
+    const stakes = a.state.tables.filter((t) => t.lobby && t.stake).map((t) => t.stake).sort((x, y) => x - y);
+    assert.deepEqual(stakes, [200, 500, 1000]);
     await a.command("create", { name: "Ma table publique", vip: false, rules: {} });
     const id = a.state.table.id;
     await a.wait((c) => c.state.player.myTables.some((t) => t.id === id && !t.vip));
@@ -1000,6 +1001,25 @@ test("tables permanentes à 200, 500 et 1 000 jetons ; suppression des tables cr
     assert.equal(f.app.db.tables[id], undefined);
     const lobby = a.state.tables.find((t) => t.lobby);
     await a.command("closeTable", { tableId: lobby.id }, "error"); // les tables permanentes restent
+  } finally {
+    await f.close();
+  }
+});
+test("mise choisie : joueurs regroupés sans invitation, départ automatique à quatre", async () => {
+  const f = await fixture({ env: { BELOTE_LOGIN_BONUS: "0" } });
+  try {
+    const ps = [];
+    for (let i = 0; i < 4; i++) ps.push(await member(f, `lobby${i}@exemple.fr`));
+    for (const p of ps.slice(0, 3)) await p.command("playLobby", { stake: 500 });
+    const id = ps[0].state.table.id;
+    for (const p of ps.slice(1, 3)) assert.equal(p.state.table.id, id, "même table");
+    assert.equal(ps[0].state.table.game, null);
+    await ps[3].command("playLobby", { stake: 500 });
+    for (const p of ps) await p.wait((c) => c.state.table?.game && c.state.table.id === id);
+    assert.equal(f.app.db.tables[id].money.stake, 1000); // 500 jetons en demi-unités
+    // Une nouvelle table à 500 est aussitôt proposée aux suivants.
+    await ps[0].wait((c) => c.state.tables.some((t) => t.lobby && t.stake === 500 && t.id !== id && t.available === 4));
+    await ps[0].command("playLobby", { stake: 333 }, "error");
   } finally {
     await f.close();
   }

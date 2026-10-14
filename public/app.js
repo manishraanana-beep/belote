@@ -436,10 +436,31 @@ function tablesPage() {
   return shell(
     `<h1 class="page-title">Tables publiques</h1>
     ${myPublic.length ? `<h2 class="section">Mes tables</h2><div class="list">${myPublic.map((t) => `<div class="row-del"><button type="button" class="vip-row pub" data-action="enterTable" data-id="${t.id}"><span class="vr-main"><b>${e(t.name)}</b><small>${t.stake ? `Mise ${fmt(t.stake)} jetons` : "Partie gratuite"}</small></span><span class="vr-count">${icon("users")} ${t.players}/4</span>${icon("chevron", "tiny")}</button>${btn(icon("trash"), "closeTableAsk", "round-btn small del-btn", `data-id="${t.id}" aria-label="Supprimer la table"`, t.playing)}</div>`).join("")}</div><h2 class="section">Toutes les tables</h2>` : ""}
-    <div class="list">${[...state.tables].sort((a, b) => b.lobby - a.lobby || (a.lobby ? a.stake - b.stake : 0)).map(tableCard).join("") || '<p class="empty">Aucune table ouverte : lancez « Jouer maintenant » !</p>'}</div>
+    ${stakeTables()}
+    ${state.tables.some((t) => !t.lobby) ? `<h2 class="section orn-title">Tables des joueurs</h2><div class="list">${state.tables.filter((t) => !t.lobby).map(tableCard).join("")}</div>` : ""}
     <div class="stack">${btn("Créer une table publique", "createPublic", "gold-btn wide")}${btn(`${icon("link")} Rejoindre avec un code`, "joinCode", "line-btn wide")}</div>`,
     { tabs: true, backBtn: false },
   );
+}
+// Tables permanentes avec mise : une carte par montant, « Jouer » regroupe les joueurs sans invitation.
+const STAKE_LOOK = { 200: ["emeraude", "Table Émeraude"], 500: ["saphir", "Table Saphir"], 1000: ["royale", "Table Royale"] };
+function stakeTables() {
+  const levels = [...new Set(state.tables.filter((t) => t.lobby && t.stake).map((t) => t.stake))].sort((a, b) => a - b);
+  if (!levels.length) return "";
+  return `<h2 class="section orn-title">Tables avec mise</h2><div class="stake-grid">${levels
+    .map((stake) => {
+      const open = state.tables.filter((t) => t.lobby && t.stake === stake && t.status !== "Partie en cours");
+      const waiting = Math.max(0, ...open.map((t) => 4 - t.available));
+      const playing = state.tables.filter((t) => t.lobby && t.stake === stake && t.status === "Partie en cours").length;
+      const [cls, title] = STAKE_LOOK[stake] ?? ["royale", `Table à ${fmt(stake)}`];
+      return `<button type="button" class="stake-card ${cls}" data-action="playLobby" data-stake="${stake}">
+        <span class="sc-chip"><b>${fmt(stake)}</b><small>jetons</small></span>
+        <span class="sc-main"><b>${title}</b><small>Mise ${fmt(stake)} · gain jusqu’à +${fmt(3 * stake)}</small>
+        <span class="sc-meta"><span class="sc-seats">${[0, 1, 2, 3].map((i) => `<i class="${i < waiting ? "on" : ""}"></i>`).join("")}</span>${waiting ? `${waiting}/4 en attente` : "Soyez le premier"}${playing ? ` · ${playing} en jeu` : ""}</span></span>
+        <span class="sc-go">Jouer</span>
+      </button>`;
+    })
+    .join("")}</div><p class="hint mid">4 joueurs avec compte, placés automatiquement ; la partie démarre dès que la table est complète.</p>`;
 }
 function tableCard(t) {
   const busy = t.status === "Partie en cours";
@@ -785,18 +806,20 @@ function roomView() {
       // Option « Compléter avec des robots » : le robot est déjà montré à sa place ; un ami qui arrive la prend.
       return `<div class="slot bot-wait"><div class="slot-ring">${avatar(["robot-bleu", "robot-corail", "robot-menthe", "robot-soleil"][i])}</div><b>Robot</b><span class="robot-tag">ROBOT</span><small class="hint">si personne ne vient</small></div>`;
     if (!s)
-      return `<div class="slot empty"><button type="button" class="slot-ring" data-action="${owner && !t.stake && !t.quick ? "bot" : "friends"}" data-seat="${i}" aria-label="Place libre">+</button><b>Place libre</b>${me >= 0 && !t.quick ? btn("S’asseoir", "seat", "mini-btn", `data-seat="${i}"`) : ""}</div>`;
+      return `<div class="slot empty"><button type="button" class="slot-ring" data-action="${owner && !t.stake && !t.quick ? "bot" : "friends"}" data-seat="${i}" aria-label="Place libre">+</button><b>Place libre</b>${me >= 0 && !t.quick && !t.lobby ? btn("S’asseoir", "seat", "mini-btn", `data-seat="${i}"`) : ""}</div>`;
     const pv = t.engagedPreview?.[i];
     return `<div class="slot ${i % 2 === (me < 0 ? 0 : me) % 2 ? "us" : "them"}">
       <div class="slot-ring">${t.owner === s.id ? '<span class="crown-top">♛</span>' : ""}${avatar(s.avatar)}</div>
       <b>${e(s.name)}</b>${s.bot ? '<span class="robot-tag">ROBOT</span>' : ""}
       ${t.stake && pv ? `<span class="engaged ${pv.enough && pv.account ? "" : "short"}">${pv.account ? (pv.enough ? `${coins(pv.engaged)}` : "Solde insuffisant") : "Compte requis"}</span>` : ""}
-      ${owner && i !== me && !t.quick ? btn("Retirer", "kick", "mini-btn ghost", `data-seat="${i}"`) : ""}
+      ${owner && i !== me && !t.quick && !t.lobby ? btn("Retirer", "kick", "mini-btn ghost", `data-seat="${i}"`) : ""}
     </div>`;
   };
   const top = t.quick
     ? `<h1 class="page-title">${free ? "On cherche des joueurs" : "C’est parti !"}</h1><p class="lead">${t.humans} joueur${t.humans > 1 ? "s" : ""} présent${t.humans > 1 ? "s" : ""}${free ? ` · ${free} place${free > 1 ? "s" : ""} en recherche` : ""}</p>${free ? `<div class="fill-timer">${icon("robot")} Robots dans <b data-deadline="${t.fillAt ?? 0}"></b></div>` : ""}`
-    : `<h1 class="page-title">${e(t.name)}</h1><p class="lead">${vip ? "Invitez vos amis pour commencer la partie." : `${fmt(t.rules.target)} points · contre ${t.rules.flyingCounter ? "à la volée" : "à son tour"}`}</p>`;
+    : t.lobby
+      ? `<h1 class="page-title">${e(t.name)}</h1><p class="lead">${free ? `On attend ${free} joueur${free > 1 ? "s" : ""} · la partie démarre toute seule à quatre` : "C’est parti !"}</p>`
+      : `<h1 class="page-title">${e(t.name)}</h1><p class="lead">${vip ? "Invitez vos amis pour commencer la partie." : `${fmt(t.rules.target)} points · contre ${t.rules.flyingCounter ? "à la volée" : "à son tour"}`}</p>`;
   const code =
     vip && t.code && owner
       ? `<div class="code-card"><small>Code d’invitation</small><div class="code"><b>${e(t.code)}</b>${btn(icon("copy"), "copyCode", "round-btn small", 'aria-label="Copier le code"')}</div>
@@ -808,8 +831,8 @@ function roomView() {
   const pending = owner
     ? t.pending.map((p) => `<div class="request">${icon("user")}<span><b>${e(p.name)}</b> demande une place</span>${btn("Accepter", "admit", "gold-btn small", `data-player="${p.id}"`)}${btn("Refuser", "reject", "mini-btn ghost", `data-player="${p.id}"`)}</div>`).join("")
     : "";
-  const actions = t.quick
-    ? ""
+  const actions = t.quick || t.lobby
+    ? btn(`${icon("logout")} Quitter la table`, "leave", "line-btn wide")
     : `${owner && free && !t.stake && !t.fillBots ? btn(`${icon("robot")} Ajouter un robot`, "bot", "gold-btn wide", `data-seat="${t.seats.indexOf(null)}"`) : ""}
       ${owner ? btn(`${icon("users")} Vous choisissez les équipes.`, "teams", "text-link") : ""}
       ${me >= 0 ? btn(`${icon("users")} Inviter un ami`, "friends", "line-btn wide") : ""}
@@ -822,7 +845,7 @@ function roomView() {
     ${onlineBlock(t, me, free)}
     ${stake}
     <div class="stack">${actions}</div>
-    <p class="foot-link">${btn(`${icon("doc")} Règles de la table`, "rulesInfo", "inline-link")}${owner && !t.quick ? ` · ${btn("Modifier", "editRules", "inline-link")}` : ""}</p>`,
+    <p class="foot-link">${btn(`${icon("doc")} Règles de la table`, "rulesInfo", "inline-link")}${owner && !t.quick && !t.lobby ? ` · ${btn("Modifier", "editRules", "inline-link")}` : ""}</p>`,
     { vip, cls: "page-room", right: btn(icon("menu"), "roomMenu", "round-btn", 'aria-label="Menu"'), sub: vip ? "VIP" : "" },
   );
 }
@@ -996,7 +1019,13 @@ function moneyLines(r) {
 // Maquette « Votre annonce ».
 function bidPanel(g, me, t) {
   const options = BIDS.filter((n) => !g.contract || n > g.contract.amount);
-  if (!options.includes(bidAmount)) bidAmount = options[0] ?? null;
+  // À chaque nouveau tour d'enchère : montant par défaut = le plus bas permis (80, ou juste au-dessus
+  // de la dernière enchère d'un joueur).
+  const key = `${t.gameId}:${g.deal}:${(g.auction ?? []).length}`;
+  if (bidKey !== key || !options.includes(bidAmount)) {
+    bidKey = key;
+    bidAmount = options[0] ?? null;
+  }
   const canCounter = g.contract && g.contract.seat % 2 !== me % 2;
   return `<div class="bid-zone">${auctionStrip(g, t, me)}
   <form id="bid-form" class="bid-panel" aria-label="Votre annonce">
@@ -1069,6 +1098,7 @@ function gameView() {
 
 // ———————————————————————————————————————————————————————————— rendu
 // Un rafraîchissement pendant un appui ferait perdre la touche : on le diffère au relâchement.
+let bidKey = null;
 let bannerKey = null,
   bannerUntil = 0;
 let pressing = false,
@@ -1796,9 +1826,21 @@ document.addEventListener("click", async (ev) => {
       joinModal();
       break;
     case "join": {
+      // Entrée directe, sans fenêtre de règles (consultables dans le salon).
       const target = state.tables.find((x) => x.id === el.dataset.table);
       if (needFunds(target.stake)) break;
-      joinConfirm(target, "confirmJoin", `data-table="${target.id}"`);
+      cmd("join", { tableId: target.id });
+      break;
+    }
+    case "playLobby": {
+      const stake = Number(el.dataset.stake);
+      if (!state.player.account) {
+        toast("Créez un compte pour jouer avec des jetons");
+        go("register");
+        break;
+      }
+      if (needFunds(stake)) break;
+      ask("playLobby", { stake }, () => toast(`Table à ${fmt(stake)} : en attente de joueurs…`));
       break;
     }
     case "wallet":
