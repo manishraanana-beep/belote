@@ -106,6 +106,7 @@ export function createProgression({ db, economy, env = process.env, maxSameLineu
   }
   return {
     challenges,
+    prog,
     view(p) {
       const g = prog(p);
       const today = g.daily[day()] ?? {};
