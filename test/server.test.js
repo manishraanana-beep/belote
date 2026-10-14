@@ -985,3 +985,22 @@ test("joueurs en ligne proposés, invitation sans réponse remplacée par des ro
     await f.close();
   }
 });
+test("tables permanentes à 200, 500 et 1 000 jetons ; suppression des tables créées", async () => {
+  const f = await fixture({ env: { BELOTE_LOGIN_BONUS: "0" } });
+  try {
+    const a = await member(f, "createur@exemple.fr");
+    const stakes = a.state.tables.filter((t) => t.lobby).map((t) => t.stake).sort((x, y) => x - y);
+    assert.deepEqual(stakes, [0, 200, 500, 1000]);
+    await a.command("create", { name: "Ma table publique", vip: false, rules: {} });
+    const id = a.state.table.id;
+    await a.wait((c) => c.state.player.myTables.some((t) => t.id === id && !t.vip));
+    await a.command("leave");
+    await a.command("closeTable", { tableId: id });
+    await a.wait((c) => !c.state.player.myTables.some((t) => t.id === id));
+    assert.equal(f.app.db.tables[id], undefined);
+    const lobby = a.state.tables.find((t) => t.lobby);
+    await a.command("closeTable", { tableId: lobby.id }, "error"); // les tables permanentes restent
+  } finally {
+    await f.close();
+  }
+});

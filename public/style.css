@@ -1239,3 +1239,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .online-row > span:not(.tag-ok) { flex: 1; min-width: 0; display: grid; }
 .online-row small { color: var(--muted); font-size: 12px; }
 .tag-ok { color: #7fe39a; font-weight: 700; font-size: 14px; }
+.row-del { display: flex; align-items: center; gap: 8px; }
+.row-del > .vip-row { flex: 1; min-width: 0; }
+.del-btn { flex: none; color: #ff9a9a; }
+.vip-row.pub { border-color: var(--line); background: var(--panel); }

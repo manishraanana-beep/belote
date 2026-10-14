@@ -262,8 +262,27 @@ export function createApp({
     db.tables[t.id] = t;
     return t;
   }
-  if (!Object.values(db.tables).some((t) => !t.vip))
-    table("Le Salon • Contrée", null);
+  // Tables publiques permanentes : partie gratuite et mises de 200, 500 et 1 000 jetons.
+  const LOBBY = [0, 200, 500, 1000];
+  for (const t of Object.values(db.tables))
+    if (!t.vip && !t.quick && !t.practice && !t.lobby && !t.createdBy && /^Le Salon/.test(t.name)) {
+      t.lobby = true;
+      t.name = "Le Salon • Partie gratuite";
+    }
+  function ensureLobby() {
+    for (const stake of LOBBY) {
+      const list = Object.values(db.tables).filter((t) => t.lobby && (t.stake ?? 0) === stake);
+      const open = list.filter((t) => (!t.game || t.game.phase === "finished") && t.seats.some((x) => !x));
+      if (!open.length) {
+        const t = table(stake ? `Table à ${stake.toLocaleString("fr-FR")} jetons` : "Le Salon • Partie gratuite", null, false, {}, stake);
+        t.lobby = true;
+      }
+      // Pas plus d'une table vide par montant.
+      const empty = list.filter((t) => !t.game && !t.seats.some(Boolean));
+      for (const t of empty.slice(1)) delete db.tables[t.id];
+    }
+  }
+  ensureLobby();
   // No live connection survives a server restart. Reservations restart with the configured grace.
   for (const t of Object.values(db.tables))
     for (const s of t.seats) if (s && !s.bot) s.disconnectedAt = Date.now();
@@ -360,6 +379,7 @@ export function createApp({
       stake: t.stake ?? 0,
       practice: !!t.practice,
       fillBots: !!t.fillBots,
+      lobby: !!t.lobby,
       humans: t.seats.filter((s) => s && !s.bot).length,
     };
   }
@@ -427,8 +447,8 @@ export function createApp({
       tag: p.tag,
       lastResult: p.lastResult ?? null,
       myTables: Object.values(db.tables)
-        .filter((t) => t.vip && !t.practice && t.host === p.id)
-        .map((t) => ({ id: t.id, name: t.name, code: t.code, stake: t.stake ?? 0, players: t.seats.filter(Boolean).length, avatars: t.seats.filter(Boolean).map((s) => s.avatar), playing: !!t.game && t.game.phase !== "finished" })),
+        .filter((t) => !t.practice && !t.lobby && (t.vip ? t.host === p.id : t.createdBy === p.id))
+        .map((t) => ({ id: t.id, name: t.name, vip: !!t.vip, code: t.code, stake: t.stake ?? 0, players: t.seats.filter(Boolean).length, avatars: t.seats.filter(Boolean).map((s) => s.avatar), playing: !!t.game && t.game.phase !== "finished" })),
       wallet: economy.view(p),
       timeZone: p.timeZone ?? null,
       inbox: (p.inbox ?? []).slice(0, 20),
@@ -659,8 +679,7 @@ export function createApp({
         t.fillAt = null;
         update(t);
       }
-      if (!Object.values(db.tables).some((x) => !x.vip && !x.quick))
-        table("Le Salon • Contrée", null);
+      ensureLobby();
       return;
     }
     if (force && !playing && seat < 0) return;
@@ -773,6 +792,7 @@ export function createApp({
           canStake(p, stake);
           changed = table(clean(d.name) || "Table privée", pid, !!d.vip, d.rules, stake);
           changed.fillBots = !!d.fillBots && !stake;
+          changed.createdBy = pid;
         }
         changed.seats[0] = { id: pid, name: p.name, avatar: p.avatar };
         p.tableId = changed.id;
@@ -796,7 +816,7 @@ export function createApp({
       case "enter": {
         // L'hôte rouvre une de ses tables privées.
         const target = db.tables[d.tableId];
-        check(target?.vip && target.host === pid, "Table introuvable");
+        check(target && !target.lobby && (target.host === pid || target.createdBy === pid), "Table introuvable");
         if (t && t !== target) leave(p);
         if (!target.seats.some((s) => s?.id === pid)) seatPlayer(target, p);
         target.owner = pid;
@@ -806,7 +826,7 @@ export function createApp({
       }
       case "closeTable": {
         const target = db.tables[d.tableId];
-        check(target?.vip && target.host === pid, "Table introuvable");
+        check(target && !target.lobby && (target.host === pid || target.createdBy === pid), "Table introuvable");
         check(!target.seats.some((s) => s && s.id !== pid && !s.bot) && (!target.game || target.game.phase === "finished"), "Des joueurs sont encore à cette table");
         if (p.tableId === target.id) p.tableId = null;
         delete db.tables[target.id];
@@ -1644,8 +1664,7 @@ export function createApp({
             for (const s of t.seats)
               if (s && !s.bot) db.players[s.id].tableId = null;
             delete db.tables[t.id];
-            if (!Object.values(db.tables).some((t) => !t.vip))
-              table("Le Salon • Contrée", null);
+            ensureLobby();
           } else throw Error("Commande inconnue");
           broadcast();
         } catch (e) {
@@ -1781,6 +1800,7 @@ export function createApp({
     if (now - lastTourTick >= 1000) {
       // Programmation des tournois : ouverture, rappels, présence, départ… sans administrateur.
       lastTourTick = now;
+      ensureLobby();
       try {
         tournaments.tick();
       } catch (e) {
