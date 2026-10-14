@@ -946,3 +946,21 @@ test("pseudos uniques : inscription et changement de pseudo refusés si déjà p
     await f.close();
   }
 });
+test("connexion : adresse inconnue signalée, mauvais mot de passe distingué", async () => {
+  const f = await fixture();
+  try {
+    await member(f, "connu@exemple.fr");
+    const s = await fetch(f.base + "/api/session", { method: "POST" });
+    const cookie = s.headers.get("set-cookie").split(";")[0];
+    const unknown = await api(f, cookie, "/api/auth/login", { email: "inconnu@exemple.fr", password: "motdepasse" });
+    assert.equal(unknown.status, 404);
+    assert.match(unknown.body.error, /Aucun compte/);
+    const wrong = await api(f, cookie, "/api/auth/login", { email: " CONNU@exemple.fr ", password: "mauvais!!" });
+    assert.equal(wrong.status, 401);
+    assert.match(wrong.body.error, /Mot de passe incorrect/);
+    const ok = await api(f, cookie, "/api/auth/login", { email: "Connu@Exemple.fr", password: "motdepasse" });
+    assert.equal(ok.status, 200);
+  } finally {
+    await f.close();
+  }
+});

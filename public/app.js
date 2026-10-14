@@ -112,7 +112,7 @@ async function api(path, body, raw = false) {
     body: raw ? body : JSON.stringify(body ?? {}),
   });
   const d = await res.json().catch(() => ({}));
-  if (!res.ok) throw Error(d.error ?? "Une erreur est survenue");
+  if (!res.ok) throw Object.assign(Error(d.error ?? "Une erreur est survenue"), { status: res.status });
   return d;
 }
 function tone(freqs, dur = 0.12, vol = 0.06) {
@@ -1570,6 +1570,17 @@ document.addEventListener("click", async (ev) => {
         <h4>Journal</h4><ul class="admin-list">${t.log.slice().reverse().map((l) => `<li>${when(l.at)} · ${e(l.kind)} · ${e(l.by)}</li>`).join("")}</ul>${btn("Retour", "tourAdminBack", "chip-btn ghost")}`;
       break;
     }
+    case "createFromLogin":
+      try {
+        await api("/api/auth/register", loginDraft);
+        closeModal();
+        localStorage.setItem("welcomed", "1");
+        toast("Compte créé, bienvenue !");
+        go("avatar", { onboarding: true });
+      } catch (err) {
+        toast(err.message);
+      }
+      break;
     case "inbox":
       inboxModal();
       break;
@@ -2003,6 +2014,7 @@ document.addEventListener("keydown", (ev) => {
     render();
   }
 });
+let loginDraft = null; // identifiants saisis à la connexion, réutilisés pour créer le compte
 let adminToken = "",
   adminData = null;
 // ———————————————— administration des tournois : calendrier et programmation
@@ -2180,7 +2192,15 @@ document.addEventListener("submit", async (ev) => {
         adminRequest();
         return;
       case "login-form":
-        await api("/api/auth/login", d);
+        try {
+          await api("/api/auth/login", d);
+        } catch (err) {
+          if (err.status !== 404) throw err;
+          // Adresse inconnue : on propose de créer le compte tout de suite avec ces identifiants.
+          loginDraft = d;
+          modal(`<div class="confirm"><span class="confirm-icon">✉️</span><h2>Nouvelle adresse</h2><p>Aucun compte n’existe pour <b>${e(d.email)}</b>. Voulez-vous le créer maintenant avec ce mot de passe ?</p><div class="stack">${btn("Créer mon compte", "createFromLogin", "gold-btn wide")}${btn("Corriger l’adresse", "close", "line-btn wide")}</div></div>`, "confirm-modal");
+          return;
+        }
         localStorage.setItem("welcomed", "1");
         toast("Heureux de vous revoir !");
         go("home");

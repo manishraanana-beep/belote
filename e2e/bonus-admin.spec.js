@@ -53,3 +53,14 @@ test("administration : réglage du bonus, création d’un tournoi au calendrier
   // Remise du bonus par défaut pour les autres tests.
   await page.evaluate(() => fetch("/api/admin", { method: "POST", headers: { Authorization: "Bearer cle-e2e", "Content-Type": "application/json" }, body: JSON.stringify({ type: "loginBonus", amount: 200 }) }));
 });
+
+test("connexion avec une adresse inconnue : création du compte proposée", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('.page-welcome [data-page="login"]').click();
+  await page.locator('#login-form [name="email"]').fill(`nouveau${Date.now()}@exemple.fr`);
+  await page.locator('#login-form [name="password"]').fill("motdepasse");
+  await page.locator("#login-form button.gold-btn").click();
+  await expect(page.locator("#modal")).toContainText("Aucun compte n’existe");
+  await page.locator('[data-action="createFromLogin"]').click();
+  await expect(page.locator(".page-title")).toHaveText("Choisir mon avatar");
+});

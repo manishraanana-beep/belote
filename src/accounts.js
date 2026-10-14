@@ -202,8 +202,10 @@ export function createAccounts({ db, mail, baseUrl, newPlayer, retirePlayer, onA
     login(guest, d) {
       const email = normalizeEmail(d.email);
       const acc = byEmail(email);
-      if (!acc?.password || typeof d.password !== "string" || !same(d.password, acc.password))
-        fail("Adresse ou mot de passe incorrect.", 401);
+      // L'adresse est reconnue en premier : l'appli peut proposer de créer le compte si elle est inconnue.
+      if (!acc) fail("Aucun compte avec cette adresse e-mail.", 404);
+      if (!acc.password) fail("Ce compte se connecte avec Apple ou Google.", 401);
+      if (typeof d.password !== "string" || !same(d.password, acc.password)) fail("Mot de passe incorrect.", 401);
       if (db.players[acc.playerId]?.banned) fail("Profil suspendu.", 403);
       return adopt(acc, guest);
     },
