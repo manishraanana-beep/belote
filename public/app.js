@@ -181,6 +181,18 @@ function invitesBlock() {
   </article>`).join("")}</section>`;
 }
 // ———————————————————————————————————————————————————————————— salon d'attente
+// Joueurs connectés à proposer : une touche les invite ; sans réponse, un robot prend la place.
+function onlineBlock(t, me, free) {
+  const list = state.online ?? [];
+  if (t.quick || me < 0 || !free) return "";
+  return `<h2 class="section">Joueurs en ligne <small class="muted">(${list.length})</small></h2>
+    <div class="list online-list">${
+      list
+        .map((o) => `<div class="online-row">${avatar(o.avatar)}<span><b>${e(o.name)}</b><small>${o.friend ? "Ami · " : ""}${o.busy ? "En partie" : "Disponible"}</small></span>${o.invited ? '<span class="tag-ok">Invité ✓</span>' : btn("Inviter", "inviteOnline", "gold-btn small", `data-id="${o.id}"`, o.busy)}</div>`)
+        .join("") || '<p class="empty">Personne d’autre n’est connecté pour l’instant.</p>'
+    }</div>
+    ${t.fillBots && !t.stake ? `<p class="hint mid">Sans réponse sous ${45} s, des robots complètent la table et la partie démarre.</p>` : ""}`;
+}
 // ———————————————————————————————————————————————————————————— table de jeu
 function sheetView(g, t, me) {
   if (!sheet) return "";
@@ -420,9 +432,11 @@ function homePage() {
   );
 }
 function tablesPage() {
+  const myPublic = state.player.myTables.filter((t) => !t.vip);
   return shell(
     `<h1 class="page-title">Tables publiques</h1>
-    <div class="list">${state.tables.map(tableCard).join("") || '<p class="empty">Aucune table ouverte : lancez « Jouer maintenant » !</p>'}</div>
+    ${myPublic.length ? `<h2 class="section">Mes tables</h2><div class="list">${myPublic.map((t) => `<div class="row-del"><button type="button" class="vip-row pub" data-action="enterTable" data-id="${t.id}"><span class="vr-main"><b>${e(t.name)}</b><small>${t.stake ? `Mise ${fmt(t.stake)} jetons` : "Partie gratuite"}</small></span><span class="vr-count">${icon("users")} ${t.players}/4</span>${icon("chevron", "tiny")}</button>${btn(icon("trash"), "closeTableAsk", "round-btn small del-btn", `data-id="${t.id}" aria-label="Supprimer la table"`, t.playing)}</div>`).join("")}</div><h2 class="section">Toutes les tables</h2>` : ""}
+    <div class="list">${[...state.tables].sort((a, b) => b.lobby - a.lobby || (a.lobby ? a.stake - b.stake : 0)).map(tableCard).join("") || '<p class="empty">Aucune table ouverte : lancez « Jouer maintenant » !</p>'}</div>
     <div class="stack">${btn("Créer une table publique", "createPublic", "gold-btn wide")}${btn(`${icon("link")} Rejoindre avec un code`, "joinCode", "line-btn wide")}</div>`,
     { tabs: true, backBtn: false },
   );
@@ -431,7 +445,7 @@ function tableCard(t) {
   const busy = t.status === "Partie en cours";
   const taken = 4 - t.available;
   return `<article class="table-card ${busy ? "busy" : ""}">
-    <div class="tc-main"><b>${e(t.name)}</b><small>${t.quick ? "Partie rapide · " : ""}${t.rules.target} points · ${t.stake ? `mise ${fmt(t.stake)}` : "gratuite"}</small></div>
+    <div class="tc-main"><b>${e(t.name)}</b><small>${t.quick ? "Partie rapide · " : ""}${t.rules.target} points · ${t.stake ? `mise ${fmt(t.stake)} jetons · 4 joueurs avec compte` : "gratuite"}</small></div>
     <span class="tc-count">${icon("users")} ${taken}/4</span>
     ${btn(busy ? "En jeu" : "Rejoindre", "join", "gold-btn small", `data-table="${t.id}"`, busy || !t.available)}
   </article>`;
@@ -541,7 +555,7 @@ function vipPage() {
       <p class="vh-title"><b>${e(p.name)}</b> vous accueille au Club VIP !</p></div>
     <div class="stack">${btn(`${icon("crown")} Créer une table privée`, "go", "gold-btn wide", 'data-page="vipCreate"')}${btn(`${icon("link")} Rejoindre avec un code`, "joinCode", "line-btn wide")}${btn(`${icon("trophy")} Tournois`, "go", "line-btn wide", 'data-page="tournaments"')}</div>
     <h2 class="section orn-title">Mes tables privées</h2>
-    <div class="list">${p.myTables.map((t) => `<button type="button" class="vip-row" data-action="enterTable" data-id="${t.id}">${avatar(p.avatar, "lg ring")}<span class="vr-main"><b>${e(t.name)}</b><span class="mini-avs">${t.avatars.map((a) => avatar(a)).join("")}${t.players < 4 ? '<i class="plus">+</i>' : ""}</span></span><span class="vr-count">${icon("users")} ${t.players}/4</span>${icon("chevron", "tiny")}</button>`).join("") || '<p class="empty">Créez votre première table privée et invitez vos amis.</p>'}</div>`,
+    <div class="list">${p.myTables.filter((t) => t.vip).map((t) => `<div class="row-del"><button type="button" class="vip-row" data-action="enterTable" data-id="${t.id}">${avatar(p.avatar, "lg ring")}<span class="vr-main"><b>${e(t.name)}</b><span class="mini-avs">${t.avatars.map((a) => avatar(a)).join("")}${t.players < 4 ? '<i class="plus">+</i>' : ""}</span></span><span class="vr-count">${icon("users")} ${t.players}/4</span>${icon("chevron", "tiny")}</button>${btn(icon("trash"), "closeTableAsk", "round-btn small del-btn", `data-id="${t.id}" aria-label="Supprimer la table"`, t.playing)}</div>`).join("") || '<p class="empty">Créez votre première table privée et invitez vos amis.</p>'}</div>`,
     { vip: true, tabs: true, right: btn(icon("menu"), "go", "round-btn", 'data-page="settings" aria-label="Menu"') },
   );
 }
@@ -804,6 +818,8 @@ function roomView() {
     `${top}${code}${pending}
     <h2 class="section">Joueurs (${players}/4)</h2>
     <div class="slots">${t.seats.map(slot).join("")}</div>
+    ${!t.quick && t.fillBots && !t.stake && t.fillAt && free ? `<div class="fill-timer">${icon("robot")} Robots dans <b data-deadline="${t.fillAt}"></b> si personne ne rejoint</div>` : ""}
+    ${onlineBlock(t, me, free)}
     ${stake}
     <div class="stack">${actions}</div>
     <p class="foot-link">${btn(`${icon("doc")} Règles de la table`, "rulesInfo", "inline-link")}${owner && !t.quick ? ` · ${btn("Modifier", "editRules", "inline-link")}` : ""}</p>`,
@@ -1585,6 +1601,9 @@ document.addEventListener("click", async (ev) => {
         toast(err.message);
       }
       break;
+    case "inviteOnline":
+      ask("invite", { id: el.dataset.id }, () => toast("Invitation envoyée"));
+      break;
     case "inbox":
       inboxModal();
       break;
@@ -1704,7 +1723,13 @@ document.addEventListener("click", async (ev) => {
     case "roomMenu":
       modal(`<h2>${e(t.name)}</h2><div class="menu-card">${menuLink("doc", "Règles de la table", "rulesInfo")}${t.owner === state.player.id && !t.quick ? menuLink("pen", "Modifier les règles", "editRules") : ""}${menuLink("users", "Inviter un ami", "friends")}${menuLink("logout", "Quitter la table", "leave")}${t.vip && t.host === state.player.id && t.seats.filter((s) => s && !s.bot).length <= 1 ? menuLink("trash", "Fermer définitivement la table", "closeTable", `data-id="${t.id}"`) : ""}</div>`, "sheet-modal");
       break;
+    case "closeTableAsk": {
+      const mt = state.player.myTables.find((x) => x.id === el.dataset.id);
+      modal(`<div class="confirm"><span class="confirm-icon">🗑️</span><h2>Supprimer cette table ?</h2><p>« ${e(mt?.name ?? "")} » disparaîtra de vos tables.</p><div class="row">${btn("Annuler", "close", "chip-btn ghost")}${btn("Supprimer", "closeTable", "danger-btn", `data-id="${el.dataset.id}"`)}</div></div>`, "confirm-modal");
+      break;
+    }
     case "closeTable":
+      closeModal();
       cmd("closeTable", { tableId: el.dataset.id });
       closeModal();
       break;
