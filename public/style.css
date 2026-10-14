@@ -1440,3 +1440,4 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .shop-chips { gap: 8px; }
 .shop-chip { padding: 8px 13px; font-size: clamp(14px, 3.6vw, 19px); }
 @media (min-width: 560px) { .shop-chip { flex: 1 0 auto; } }
+.tcard.seen { animation: none; }
