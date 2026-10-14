@@ -44,9 +44,9 @@ En développement : `npm run dev`. Aucun build ni base de données externe n’e
 - Atout : V, 9, A, 10, R, D, 8, 7 ; valeurs 20, 14, 11, 10, 4, 3, 0, 0. Hors atout : A, 10, R, D, V, 9, 8, 7 ; valeurs 11, 10, 4, 3, 2, 0, 0, 0. Dix de der : 10 ; total des points de cartes : 162.
 - Belote puis rebelote automatiquement à la pose du roi et de la dame d’atout ; 20 points attribués après les deux cartes.
 - Par défaut, réussite : `(points preneur + contrat) × multiplicateur + belote` ; défense : points défense + belote. Chute : `(162 + contrat) × multiplicateur + belote défense` ; belote preneur conservée. La belote compte par défaut pour atteindre le contrat ; elle n’est jamais multipliée.
-- Variante **contrat seul** : remplace les bases précédentes du bénéficiaire du contrat par sa valeur seule ; en réussite, les défenseurs gardent leurs points. Les options permettent aussi de perdre la belote à la chute, ou de l’exclure de la vérification du contrat.
+- Variante **contrat seul** : remplace les bases précédentes du bénéficiaire du contrat par sa valeur seule ; en réussite, les défenseurs gardent leurs points. Par défaut, la belote est perdue à la chute (option pour la conserver) et compte pour le contrat (option pour l’exclure).
 - Capot : le preneur doit gagner les huit plis. Valeur configurable (250 par défaut), utilisée comme base de contrat dans les formules ci-dessus. En mode points + contrat, un capot réussi sans belote et non contré rapporte donc 162 + 250 = 412.
-- Trois passes après une enchère commencent le jeu. Quatre passes sans enchère redistribuent avec le même donneur, ou le suivant selon l’option. Le donneur tourne après chaque donne terminée. L’entame appartient au joueur après le donneur.
+- Trois passes après une enchère commencent le jeu. Quatre passes sans enchère redistribuent avec le donneur suivant (par défaut), ou le même donneur selon l’option. Le donneur tourne après chaque donne terminée. L’entame appartient au joueur après le donneur.
 - Objectif configurable, 1000 par défaut. Si les deux équipes dépassent l’objectif, le plus grand score gagne. En cas d’égalité, une autre donne départage.
 
 Les règles sont affichées avant l’entrée et figées pendant toute la partie, une restriction volontairement plus forte que le gel pendant la donne.

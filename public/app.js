@@ -43,9 +43,9 @@ const DEFAULT_RULES = {
   reconnectSeconds: 90,
   capotValue: 250,
   scoring: "added",
-  allPass: "redeal",
+  allPass: "rotate",
   flyingCounter: true,
-  beloteRetained: true,
+  beloteRetained: false,
   beloteCountsContract: true,
 };
 const isRed = (s) => s === "H" || s === "D";
@@ -558,7 +558,7 @@ function vipCreatePage() {
       <label class="toggle-row">${icon("robot")}<span>Compléter avec des robots</span><input type="checkbox" name="fillBots" checked><i class="sw"></i></label>
       <label class="toggle-row">${icon("clock")}<span>Temps de réflexion par tour</span><select name="turnSeconds">${[15, 20, 30, 45, 60].map((n) => `<option value="${n}" ${n === 30 ? "selected" : ""}>${n} s</option>`).join("")}</select></label>
       <div class="lbl">Mise par joueur<div class="seg radio">${[0, ...STAKES].map((n) => `<label><input type="radio" name="stake" value="${n}" ${n ? "" : "checked"}><span>${n ? fmt(n) : "Gratuit"}</span></label>`).join("")}</div><small class="hint">Avec crédits : quatre joueurs humains, rubicon jusqu’à 3 × la mise.</small></div>
-      <input type="hidden" name="counterWindowSeconds" value="${r.counterWindowSeconds}"><input type="hidden" name="reconnectSeconds" value="${r.reconnectSeconds}"><input type="hidden" name="capotValue" value="${r.capotValue}"><input type="hidden" name="scoring" value="${r.scoring}"><input type="hidden" name="allPass" value="${r.allPass}"><input type="hidden" name="beloteRetained" value="on"><input type="hidden" name="beloteCountsContract" value="on">
+      <input type="hidden" name="counterWindowSeconds" value="${r.counterWindowSeconds}"><input type="hidden" name="reconnectSeconds" value="${r.reconnectSeconds}"><input type="hidden" name="capotValue" value="${r.capotValue}"><input type="hidden" name="scoring" value="${r.scoring}"><input type="hidden" name="allPass" value="${r.allPass}">${r.beloteRetained ? '<input type="hidden" name="beloteRetained" value="on">' : ""}<input type="hidden" name="beloteCountsContract" value="on">
       <button class="gold-btn wide">${icon("crown")} Créer ma table</button>
     </form>
     ${btn(`${icon("back")} Retour`, "back", "line-btn wide")}`,
