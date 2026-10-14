@@ -2058,6 +2058,11 @@ document.addEventListener("click", async (ev) => {
     case "admin":
       modal('<h2>Administration</h2><p class="muted">Accès réservé (clé BELOTE_ADMIN_KEY du serveur).</p><form id="admin-form" class="form"><label>Clé d’administration<input name="key" type="password" required autocomplete="off"></label><button class="pill small">Ouvrir</button></form><div id="admin-result"></div>', "sheet-modal admin-modal");
       break;
+    case "adminTab":
+      adminTab = el.dataset.tab;
+      for (const b of document.querySelectorAll(".admin-tab")) b.classList.toggle("on", b.dataset.tab === adminTab);
+      for (const p of document.querySelectorAll(".admin-panel")) p.hidden = p.dataset.panel !== adminTab;
+      break;
     case "clientOpen":
       await openClient(el.dataset.id);
       break;
@@ -2148,6 +2153,7 @@ function tourForm(t) {
       <label>Reprise après coupure (s)<input type="number" name="reconnectSeconds" min="30" max="600" value="${v.rules.reconnectSeconds}"></label>
       <label>Forfait après absence (s)<input type="number" name="forfeitSeconds" min="30" max="1800" value="${v.rules.forfeitSeconds}"></label>
       <label>Équipes insuffisantes${sel("insufficient", [["postpone", "Reporter"], ["cancel", "Annuler"]], v.insufficient)}</label>
+      <label>Rappel avant le départ (heures)<input type="number" name="reminderHours" min="0" max="48" value="${v.reminderHours ?? 3}"></label>
       <label>Report de (min)<input type="number" name="postponeMinutes" min="5" max="10080" value="${v.postponeMinutes}"></label>
     </div>
     <label class="check-line"><input type="checkbox" name="flyingCounter" ${v.rules.flyingCounter ? "checked" : ""}>Contrée à la volée</label>
@@ -2158,7 +2164,8 @@ function tourForm(t) {
   </form>`;
 }
 // ———————————————— back office : clients
-let adminClient = null;
+let adminClient = null,
+  adminTab = "dash";
 function clientList(d) {
   const players = [...d.players].sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name));
   return `<input id="client-search" class="client-search" type="search" placeholder="Rechercher un pseudo ou un e-mail" autocomplete="off">
@@ -2213,19 +2220,35 @@ async function adminRequest(data) {
     const row = (l, r) => `<div class="admin-row"><span>${l}</span>${r}</div>`;
     const open = d.reports.filter((r) => !r.resolved);
     const alerts = d.alerts.filter((x) => !x.reviewed);
+    const online = d.players.filter((p) => p.online).length;
+    const upcoming = d.tournaments.filter((t) => ["draft", "published", "running"].includes(t.status));
+    const tabs = [
+      ["dash", "📊", "Tableau de bord"],
+      ["clients", "👥", `Clients`, d.players.length],
+      ["tours", "🏆", "Tournois", upcoming.length],
+      ["moderation", "🚩", "Modération", open.length + alerts.length],
+      ["tables", "🃏", "Tables", d.tables.length],
+      ["settings", "⚙️", "Réglages"],
+    ];
+    const panel = (id, html) => `<section class="admin-panel" data-panel="${id}" ${adminTab === id ? "" : "hidden"}>${html}</section>`;
     $("#admin-result").innerHTML = `
-      ${d.storage?.ephemeral ? '<p class="warn">⚠️ Données temporaires : aucun volume n’est attaché au service Railway. Comptes, crédits et parties sont effacés à chaque déploiement. Ajoutez un volume (Railway › service › Settings › Volumes, point de montage /data).</p>' : ""}
-      <div class="admin-stats"><div><b>${d.players.length}</b><small>joueurs</small></div><div><b>${d.tables.length}</b><small>tables</small></div><div><b>${open.length}</b><small>signalements</small></div><div><b>${alerts.length}</b><small>alertes</small></div></div>
-      <p class="muted small">Crédits en circulation : ${fmt(d.economy.circulating)} · engagés : ${fmt(d.economy.reserved)} · achats ${d.economy.purchases ? "ouverts" : "fermés"} (web ${d.economy.stripe ? "✓" : "—"}, iOS ${d.economy.apple ? "✓" : "—"}, Android ${d.economy.google ? "✓" : "—"})</p>
-      ${btn(d.settings.maintenance ? "Rouvrir les entrées" : "Suspendre les nouvelles entrées", "maintenance", "chip-btn", `data-enabled="${!d.settings.maintenance}"`)}
-      <form id="bonus-form" class="form inline"><label>Bonus de connexion (crédits / 24 h)<input name="amount" type="number" min="0" max="100000" step="1" value="${d.settings.loginBonus ?? d.economy.loginBonus}" required></label><button class="pill small">Enregistrer</button></form>
-      <h3>Tournois</h3><div id="admin-tours">${tourAdmin(d)}</div>
-      <h3>Alertes à examiner</h3><p class="muted small">Indices combinés, jamais une preuve : aucune sanction automatique.</p>
+      ${d.storage?.ephemeral ? '<p class="warn">⚠️ Données temporaires : aucun volume n’est attaché au service Railway. Ajoutez un volume (Railway › service › Settings › Volumes, point de montage /data).</p>' : ""}
+      <nav class="admin-tabs">${tabs.map(([id, ic, label, n]) => `<button type="button" class="admin-tab ${adminTab === id ? "on" : ""}" data-action="adminTab" data-tab="${id}"><span>${ic}</span>${label}${n ? `<i>${n}</i>` : ""}</button>`).join("")}</nav>
+      <div class="admin-body">
+      ${panel("dash", `<h2>Tableau de bord</h2>
+        <div class="admin-stats"><div><b>${d.players.length}</b><small>clients</small></div><div><b>${online}</b><small>en ligne</small></div><div><b>${d.tables.length}</b><small>tables</small></div><div><b>${upcoming.length}</b><small>tournois à venir</small></div><div><b>${fmt(d.economy.circulating)}</b><small>crédits en circulation</small></div><div><b>${fmt(d.economy.reserved)}</b><small>crédits engagés</small></div><div><b>${open.length}</b><small>signalements</small></div><div><b>${alerts.length}</b><small>alertes</small></div></div>
+        <p class="muted small">Achats ${d.economy.purchases ? "ouverts" : "fermés"} (web ${d.economy.stripe ? "✓" : "—"}, iOS ${d.economy.apple ? "✓" : "—"}, Android ${d.economy.google ? "✓" : "—"}) · Push navigateur ${d.push.web ? "✓" : "—"} · Push natif ${d.push.native ? "✓" : "—"} · Entrées ${d.settings.maintenance ? "suspendues" : "ouvertes"}</p>`)}
+      ${panel("clients", `<h2>Clients</h2><div id="admin-clients">${clientList(d)}</div>`)}
+      ${panel("tours", `<h2>Tournois</h2><div id="admin-tours">${tourAdmin(d)}</div>`)}
+      ${panel("moderation", `<h2>Modération</h2><h3>Alertes à examiner</h3><p class="muted small">Indices combinés, jamais une preuve : aucune sanction automatique.</p>
       ${alerts.map((x) => `<div class="admin-card"><b>${e(x.kind)}</b><small>${when(x.at)} · ${x.names.map(e).join(", ")}</small><ul>${x.indicators.map((i) => `<li>${e(i)}</li>`).join("")}</ul>${btn("Marquer comme examinée", "reviewAlert", "chip-btn", `data-id="${x.id}"`)}</div>`).join("") || "<p>Aucune alerte.</p>"}
       <h3>Signalements</h3>
-      ${open.map((r) => `<div class="admin-card"><b>${e(r.reason)}${r.targetName ? ` · ${e(r.targetName)}` : ""}</b><small>${when(r.at)} · par ${e(r.byName ?? r.by)}${r.gameId ? ` · partie ${e(r.gameId.slice(0, 8))}, donne ${r.deal ?? "—"}` : ""}</small>${r.comment ? `<p>${e(r.comment)}</p>` : ""}${r.context?.chat?.length ? `<p class="muted small">Messages : ${r.context.chat.map((m) => e(m.text)).join(" · ")}</p>` : ""}${r.context?.reactions?.length ? `<p class="muted small">${r.context.reactions.length} réaction(s) récente(s)</p>` : ""}${btn("Traiter", "resolveReport", "chip-btn", `data-id="${r.id}"`)}</div>`).join("") || "<p>Aucun signalement ouvert.</p>"}
-      <h3>Tables</h3>${d.tables.map((t) => row(`${e(t.name)} · ${e(t.status)}${t.stake ? ` · 🪙 ${t.stake}` : ""}`, t.engaged ? btn("Annuler (incident)", "cancelGame", "chip-btn danger", `data-id="${t.id}"`) : btn("Supprimer", "deleteTable", "chip-btn", `data-id="${t.id}"`, t.status === "Partie en cours"))).join("")}
-      <h3>Clients (${d.players.length})</h3><div id="admin-clients">${clientList(d)}</div>`;
+      ${open.map((r) => `<div class="admin-card"><b>${e(r.reason)}${r.targetName ? ` · ${e(r.targetName)}` : ""}</b><small>${when(r.at)} · par ${e(r.byName ?? r.by)}${r.gameId ? ` · partie ${e(r.gameId.slice(0, 8))}, donne ${r.deal ?? "—"}` : ""}</small>${r.comment ? `<p>${e(r.comment)}</p>` : ""}${r.context?.chat?.length ? `<p class="muted small">Messages : ${r.context.chat.map((m) => e(m.text)).join(" · ")}</p>` : ""}${r.context?.reactions?.length ? `<p class="muted small">${r.context.reactions.length} réaction(s) récente(s)</p>` : ""}${btn("Traiter", "resolveReport", "chip-btn", `data-id="${r.id}"`)}</div>`).join("") || "<p>Aucun signalement ouvert.</p>"}`)}
+      ${panel("tables", `<h2>Tables</h2>${d.tables.map((t) => row(`${e(t.name)} · ${e(t.status)}${t.stake ? ` · 🪙 ${t.stake}` : ""}`, t.engaged ? btn("Annuler (incident)", "cancelGame", "chip-btn danger", `data-id="${t.id}"`) : btn("Supprimer", "deleteTable", "chip-btn", `data-id="${t.id}"`, t.status === "Partie en cours"))).join("") || "<p>Aucune table.</p>"}`)}
+      ${panel("settings", `<h2>Réglages</h2>
+        <div class="admin-card"><b>Nouvelles entrées</b><small>Bloque l’arrivée de nouveaux joueurs aux tables (maintenance).</small>${btn(d.settings.maintenance ? "Rouvrir les entrées" : "Suspendre les nouvelles entrées", "maintenance", "chip-btn", `data-enabled="${!d.settings.maintenance}"`)}</div>
+        <div class="admin-card"><form id="bonus-form" class="form inline"><label>Bonus de connexion (crédits / 24 h)<input name="amount" type="number" min="0" max="100000" step="1" value="${d.settings.loginBonus ?? d.economy.loginBonus}" required></label><button class="pill small">Enregistrer</button></form></div>`)}
+      </div>`;
     if (adminClient) await openClient(adminClient);
     return true;
   } catch (err) {
@@ -2303,6 +2326,7 @@ document.addEventListener("submit", async (ev) => {
           forfeitSeconds: Number(d.forfeitSeconds),
           insufficient: d.insufficient,
           postponeMinutes: Number(d.postponeMinutes),
+          reminderHours: Number(d.reminderHours),
           prizes: { winner: Number(d.prizeWinner || 0), finalist: Number(d.prizeFinalist || 0) },
           rewards: { winner: f2.getAll("rw-winner"), finalist: f2.getAll("rw-finalist"), participant: f2.getAll("rw-participant") },
           publish: d.publish === "1",
@@ -2335,7 +2359,7 @@ document.addEventListener("submit", async (ev) => {
       case "admin-form":
         adminToken = d.key;
         f.reset();
-        adminRequest();
+        if (await adminRequest()) f.hidden = true;
         return;
       case "login-form":
         try {
@@ -2481,7 +2505,7 @@ async function connect() {
 // Back office : page séparée (/admin), jamais affichée dans l'application des joueurs.
 if (location.pathname.replace(/\/$/, "") === "/admin") {
   document.title = "Administration — Belote Prestige";
-  $("#app").innerHTML = `<main class="admin-page"><h1>Administration</h1><p class="muted">Accès réservé (clé BELOTE_ADMIN_KEY du serveur).</p><form id="admin-form" class="form inline"><label>Clé d’administration<input name="key" type="password" required autocomplete="off"></label><button class="pill small">Ouvrir</button></form><div id="admin-result"></div></main>`;
+  $("#app").innerHTML = `<main class="admin-page"><header class="admin-top"><img src="/decor/logo.webp" alt=""><div><h1>Back office</h1><small>Belote Prestige · administration</small></div></header><form id="admin-form" class="form inline admin-login"><p class="muted">Accès réservé (clé BELOTE_ADMIN_KEY du serveur).</p><label>Clé d’administration<input name="key" type="password" required autocomplete="off"></label><button class="pill small">Ouvrir</button></form><div id="admin-result"></div></main>`;
 } else {
   loadAuthConfig();
   handleHash();

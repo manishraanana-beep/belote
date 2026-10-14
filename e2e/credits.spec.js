@@ -225,6 +225,7 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   await A.goto("/admin");
   await A.locator('#admin-form [name="key"]').fill("cle-e2e");
   await A.locator("#admin-form .pill").click();
+  await A.locator('[data-tab="moderation"]').click();
   await expect(A.locator("#admin-result")).toContainText("Spam");
   await A.screenshot({ path: `${shots}moderation.png`, fullPage: true });
 });

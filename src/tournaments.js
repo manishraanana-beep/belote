@@ -82,6 +82,9 @@ export function normalize(input, rewardIds) {
     prizes[k] = Number(pz[k] ?? 0);
     check(Number.isInteger(prizes[k]) && prizes[k] >= 0 && prizes[k] <= 1_000_000, "Enjeu invalide");
   }
+  // Rappel « quelques heures avant » (0 = aucun ; le rappel d'une heure reste toujours envoyé).
+  const reminderHours = Number(d.reminderHours ?? 3);
+  check(Number.isInteger(reminderHours) && reminderHours >= 0 && reminderHours <= 48, "Délai de rappel invalide");
   const insufficient = d.insufficient === "cancel" ? "cancel" : "postpone";
   const postponeMinutes = Number(d.postponeMinutes ?? 30);
   check(Number.isInteger(postponeMinutes) && postponeMinutes >= 5 && postponeMinutes <= 7 * 24 * 60, "Délai de report invalide");
@@ -111,6 +114,7 @@ export function normalize(input, rewardIds) {
     rules,
     rewards,
     prizes,
+    reminderHours,
     insufficient,
     postponeMinutes,
     minTeams,
@@ -268,6 +272,8 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
   }
   function lateReminders(tour, pid) {
     const t = now();
+    const rh = tour.reminderHours ?? 3;
+    if (rh > 1 && t >= tour.start - rh * HOUR) tour.sent[`hx:${tour.schedVersion}::${pid}`] = t; // inscrit dans la fenêtre : déjà informé
     if (t >= tour.start - HOUR) tour.sent[`h1:${tour.schedVersion}::${pid}`] = t; // trop tard pour le rappel d'une heure
     if (t >= confirmOpen(tour) && t < tour.confirmBy) confirmInvite(tour, [pid]);
   }
@@ -424,6 +430,7 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
     tour.status = "running"; // écrit avant tout effet : pas de double lancement
     tour.startedAt = now();
     log(tour, "depart");
+    for (const tm of tour.teamsList) notify(tour, tm.pids, "depart", `${tour.name} commence !`, "Le tournoi a démarré : rejoignez votre table maintenant.");
     launchRound(tour, 0);
   }
   function launchRound(tour, r) {
@@ -548,6 +555,9 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
     const t = now();
     for (const tour of all()) {
       if (tour.status !== "published") continue;
+      const rh = tour.reminderHours ?? 3;
+      if (rh > 1 && t >= tour.start - rh * HOUR && t < tour.start - HOUR)
+        for (const pid of registered(tour)) notify(tour, [pid], "hx", `${tour.name} : départ dans ${rh} heures`, `Départ ${whenFor(tour, pid)}. Pensez à confirmer votre présence 15 minutes avant.`);
       if (t >= tour.start - HOUR && t < tour.start)
         for (const pid of registered(tour)) notify(tour, [pid], "h1", `${tour.name} : départ dans une heure`, `Départ ${whenFor(tour, pid)}.`);
       if (t >= confirmOpen(tour) && t < tour.confirmBy) confirmInvite(tour, registered(tour));
@@ -589,6 +599,7 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
       rules: { ...tour.rules, reconnectSeconds: tour.reconnectSeconds, forfeitSeconds: tour.forfeitSeconds },
       rewards: tour.rewards,
       prizes: tour.prizes ?? { winner: 0, finalist: 0 },
+      reminderHours: tour.reminderHours ?? 3,
       insufficient: tour.insufficient,
       postponeMinutes: tour.postponeMinutes,
       places: { used: used(tour), capacity: capacity(tour), waitlist: tour.regs.filter((r) => r.waitlist).reduce((a, r) => a + r.pids.length, 0) },
