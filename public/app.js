@@ -1056,6 +1056,22 @@ let bannerKey = null,
 let pressing = false,
   pendingRender = false;
 document.addEventListener("pointerdown", () => (pressing = true), true);
+// Jeu d'une carte dès l'appui du doigt (sans attendre le relâchement) : la carte part aussitôt
+// vers le centre, le serveur confirme ensuite et le pli s'affiche.
+let playedOnDown = null;
+document.addEventListener("pointerdown", (ev) => {
+  const el = ev.target.closest?.(".hand .hcard");
+  const t = state?.table,
+    g = t?.game;
+  if (!el || !g || ev.button > 0) return;
+  const me = t.seats.findIndex((s) => s?.id === state.player.id);
+  const c = el.dataset.card;
+  if (g.phase !== "playing" || g.turn !== me || collection || !g.legal.includes(c) || playedOnDown) return;
+  playedOnDown = c;
+  el.classList.add("flying");
+  cmd("action", { version: g.version, action: { type: "play", card: c } });
+  setTimeout(() => playedOnDown === c && (playedOnDown = null), 1500);
+});
 const release = () =>
   setTimeout(() => {
     pressing = false;
@@ -1091,7 +1107,7 @@ function render() {
     collectionTimer = setTimeout(() => {
       collection = null;
       render();
-    }, 1150);
+    }, 850);
   }
   lastTrickKey = trickKey;
   dealing = !!g && dealKey !== lastRenderedDeal;
@@ -1903,6 +1919,10 @@ document.addEventListener("click", async (ev) => {
     case "pick": {
       // Une seule touche : la carte est jouée si c'est votre tour et qu'elle est autorisée.
       const c = el.dataset.card;
+      if (playedOnDown === c) {
+        playedOnDown = null; // déjà jouée dès l'appui (voir pointerdown)
+        break;
+      }
       const myTurn = g.phase === "playing" && g.turn === me && !collection;
       if (!myTurn) break;
       if (!g.legal.includes(c)) {

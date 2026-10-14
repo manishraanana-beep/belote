@@ -1224,3 +1224,8 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 }
 .slot.bot-wait .slot-ring { opacity: 0.85; }
 .slot.bot-wait small { font-size: 11px; }
+/* Carte jouée : elle part tout de suite vers le centre, sans attendre la réponse du serveur */
+.hcard.flying, .hcard.flying:hover { z-index: 4; transform: translateY(calc(var(--cw) * -1.7)) rotate(0deg) scale(0.92); opacity: 0; transition: transform 0.2s ease-out, opacity 0.12s 0.12s; pointer-events: none; }
+.hcard { transition: transform 0.12s ease-out; }
+.collecting .tcard { animation-duration: 0.8s; }
+.tcard { animation-duration: 0.22s; }
