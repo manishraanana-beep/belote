@@ -183,7 +183,12 @@ function invitesBlock() {
   </article>`).join("")}</section>`;
 }
 // ———————————————————————————————————————————————————————————— boutique Prestige
-const SHOP_FILTERS = [["all", "Tout"], ["avatars", "Avatars"], ["cartes", "Cartes"], ["decors", "Décors"], ["emojis", "Emojis"], ["owned", "Possédés"]];
+// En-tête commun (accueil et boutique) : logo à gauche, solde à droite avec « + » pour acheter des jetons.
+function coinHead(extra = "") {
+  return `<span class="shop-logo"><img src="/decor/logo.webp" alt="Belote Prestige"></span>
+    <div class="shop-balance"><button type="button" class="sb-main" data-action="wallet" aria-label="Portefeuille"><i class="coin big"></i><b>${jetons(state.player.wallet.available / 2)}</b></button><button type="button" class="plus" data-action="shop" aria-label="Acheter des jetons">+</button></div>${extra}`;
+}
+const SHOP_FILTERS = [["avatars", "Avatars"], ["cartes", "Cartes"], ["decors", "Table"], ["emojis", "Emojis"], ["owned", "Possédés"]];
 const FILTER_CATS = { avatars: ["classic", "gold", "crown"], cartes: ["back"], decors: ["felt"], emojis: ["emoji"] };
 const CAT_ART = { classic: "av-04", gold: "av-or-4", crown: "av-roi-2", back: "dos-violet", felt: "tapis-violet", emoji: "emo-02" };
 const shopItem = (id) => state.player.shop?.items.find((x) => x.id === id);
@@ -235,15 +240,14 @@ function boutiquePage() {
   }
   return shell(
     `<div class="shop-head">
-      <span class="shop-logo"><img src="/decor/logo.webp" alt="Belote Prestige"></span>
-      <button type="button" class="shop-balance" data-action="wallet" aria-label="Portefeuille"><i class="coin big"></i><b>${jetons(p.wallet.available / 2)}</b><i class="plus">+</i></button>
+      ${coinHead()}
       <h1>La boutique Prestige</h1>
       ${btn("Acheter des jetons", "shop", "shop-buy-coins")}
       <p class="shop-tagline">Personnalisez votre jeu · Achats à l’unité</p>
     </div>
     ${chips}${body}
     <p class="shop-foot">${icon("check", "tiny")} Goodies conservés · Aucun avantage de jeu</p>`,
-    { backBtn: false, tabs: true, cls: "page-boutique" },
+    { backBtn: false, tabs: true, cls: "page-boutique page-coinhead" },
   );
 }
 // Aperçu « en situation » : l'article tel qu'il apparaîtra pendant une partie.
@@ -563,9 +567,10 @@ function homePage() {
   const p = state.player;
   const pending = p.friendIn.length;
   return shell(
-    `<div class="me-row">
+    `<div class="shop-head home-head">${coinHead()}</div>
+    <div class="me-row">
       <button type="button" class="me" data-action="go" data-page="profile">${avatar(p.avatar, "lg ring")}<span><b>${e(p.name)} ${icon("chevron", "tiny")}</b><small>${levelTitle()}</small></span></button>
-      <button type="button" class="wallet-chip" data-action="wallet" aria-label="Portefeuille">${coins(p.wallet.available / 2)}</button>
+      ${btn(icon("menu"), "go", "round-btn", 'data-page="settings" aria-label="Menu"')}
     </div>
     ${p.account && p.wallet.loginBonus ? `<p class="bonus-line">🎁 Prochain bonus de connexion (+${fmt(p.wallet.loginBonus.amount)}) dans <b data-countdown="${p.wallet.loginBonus.next}"></b></p>` : ""}
     ${needVerify() ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
@@ -584,7 +589,7 @@ function homePage() {
       ${btn(`${icon("coin")} Boutique`, "go", "chip", 'data-page="boutique"')}
     </div>
     <div class="stat-strip"><div>${icon("trophy")}<b>${p.stats.wins}</b><small>Victoires</small></div><div>${icon("chart")}<b>${p.stats.games}</b><small>Parties</small></div></div>`,
-    { backBtn: false, tabs: true, cls: "page-home", right: btn(icon("menu"), "go", "round-btn", 'data-page="settings" aria-label="Menu"') },
+    { backBtn: false, tabs: true, cls: "page-home page-coinhead" },
   );
 }
 function tablesPage() {

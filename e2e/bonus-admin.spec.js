@@ -17,13 +17,13 @@ test("bonus de connexion : animation, solde synchronisé sur deux appareils, un 
   await desk.goto("/");
   expect(await desk.evaluate(async (email) => (await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "motdepasse" }) })).ok, email)).toBe(true);
   await desk.reload();
-  await expect(desk.locator(".wallet-chip")).toContainText("800");
+  await expect(desk.locator(".shop-balance")).toContainText("800");
   await desk.waitForTimeout(800);
   await expect(desk.locator(".bonus-pop")).toHaveCount(0);
   // Retour dans l'application (onglet de nouveau visible) : rien de plus avant 24 h.
   await phone.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
   await phone.waitForTimeout(500);
-  await expect(phone.locator(".wallet-chip")).toContainText("800");
+  await expect(phone.locator(".shop-balance")).toContainText("800");
 });
 
 test("administration : réglage du bonus, création d’un tournoi au calendrier", async ({ page }) => {

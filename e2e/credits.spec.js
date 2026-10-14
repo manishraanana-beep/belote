@@ -29,7 +29,7 @@ async function register(page, email) {
   expect(ok).toBe(true);
   await page.reload();
   // Cadeau de bienvenue (600 en test) + bonus de connexion immédiat (200).
-  await expect(page.locator(".wallet-chip")).toContainText("800");
+  await expect(page.locator(".shop-balance")).toContainText("800");
 }
 async function noScroll(page) {
   expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1 && document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -55,7 +55,7 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   await send(E, "profile", { name: "Emma" });
 
   // Portefeuille, bonus du jour, boutique (paiement de test), historique.
-  await A.locator(".wallet-chip").click();
+  await A.locator(".shop-balance").click();
   await expect(A.locator(".wallet-hero")).toContainText("800");
   await expect(A.locator("#modal .daily-done")).toContainText("Bonus de connexion");
   await A.screenshot({ path: `${shots}portefeuille.png` });
@@ -67,8 +67,8 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   await A.locator('.pack [data-pack="pack-1000"]').click();
   await A.keyboard.press("Escape");
   await A.locator('.tabbar [data-page="home"]').click();
-  await expect(A.locator(".wallet-chip")).toContainText("1 800");
-  await A.locator(".wallet-chip").click();
+  await expect(A.locator(".shop-balance")).toContainText("1 800");
+  await A.locator(".shop-balance").click();
   await A.locator('#modal [data-action="history"]').click();
   await expect(A.locator(".ledger li")).toHaveCount(3);
   await A.screenshot({ path: `${shots}historique-credits.png` });

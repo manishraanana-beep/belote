@@ -1419,3 +1419,24 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 @media (max-width: 700px) { .shop-item-form { grid-template-columns: 48px 1fr 1fr; } }
 .screen.game[class*=" dos-"] .backs { height: 26px; padding-left: 12px; }
 .screen.game[class*=" dos-"] .backs i { width: 18px; height: 26px; margin-left: -12px; border: 0; border-radius: 3px; box-shadow: 0 1px 3px #0007; }
+/* En-tête logo + solde (accueil et boutique) ; aucune largeur ne déborde de l'écran */
+.page-coinhead > .page-top { display: none; }
+.page-coinhead .page-body { overflow-x: hidden; }
+.shop-head { grid-template-columns: minmax(0, 1fr) auto; }
+.shop-head > * { min-width: 0; }
+.shop-head h1 { white-space: normal; font-size: clamp(22px, 5.8vw, 52px); }
+.shop-buy-coins { padding: 9px 14px; font-size: clamp(13px, 3.3vw, 19px); white-space: nowrap; }
+.shop-balance { cursor: default; padding: 5px 5px 5px 8px; gap: 6px; max-width: 100%; }
+.shop-balance .sb-main { display: inline-flex; align-items: center; gap: 8px; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; padding: 0; }
+.shop-balance .plus { cursor: pointer; flex: none; }
+.shop-balance b { font-size: clamp(14px, 3.6vw, 20px); }
+.coin.big { width: clamp(26px, 7vw, 34px); height: clamp(26px, 7vw, 34px); }
+.shop-chips { min-width: 0; }
+.shop-chip { flex: 0 0 auto; min-width: 0; padding: 9px 16px; }
+.home-head { grid-template-areas: "logo wallet"; margin-bottom: 10px; }
+.page-home.page-coinhead .page-body { padding-top: 14px; }
+.page-coinhead .shop-head { padding-top: env(safe-area-inset-top, 0); }
+.me-row > .round-btn { margin-left: auto; }
+.shop-chips { gap: 8px; }
+.shop-chip { padding: 8px 13px; font-size: clamp(14px, 3.6vw, 19px); }
+@media (min-width: 560px) { .shop-chip { flex: 1 0 auto; } }
