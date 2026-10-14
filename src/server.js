@@ -308,6 +308,12 @@ export function createApp({
     for (const s of t.seats) if (s && !s.bot && db.players[s.id]?.tableId === t.id) db.players[s.id].tableId = null;
     delete db.tables[tableId];
   }
+  // Pseudos uniques, sans tenir compte des majuscules, des accents ni des espaces.
+  const nameKey = (n) => String(n).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+  function nameTaken(name, exceptId) {
+    const k = nameKey(name);
+    return Object.values(db.players).some((o) => o.id !== exceptId && o.name && nameKey(o.name) === k);
+  }
   function loginBonus(p) {
     const e = economy.loginBonus(p);
     if (!e) return null;
@@ -710,6 +716,7 @@ export function createApp({
         if (d.name !== undefined) {
           const name = clean(d.name, 24);
           check(name.length >= 2, "Pseudo trop court");
+          check(!nameTaken(name, pid), "Ce pseudo est déjà pris, choisissez-en un autre");
           p.name = name;
         }
         if (d.avatar !== undefined) {
@@ -1385,7 +1392,15 @@ export function createApp({
         const p = getPlayer(req);
         const action = url.pathname.slice("/api/auth/".length);
         let next = null;
-        if (action === "register") next = await accounts.register(p ?? newPlayer(), d, req);
+        if (action === "register") {
+          // Pseudo choisi à l'inscription : unique, vérifié avant de créer le compte.
+          if (d.name !== undefined) {
+            const name = clean(d.name, 24);
+            check(name.length >= 2, "Pseudo trop court");
+            check(!nameTaken(name, p?.id), "Ce pseudo est déjà pris, choisissez-en un autre");
+          }
+          next = await accounts.register(p ?? newPlayer(), d, req);
+        }
         else if (action === "login") next = accounts.login(p, d);
         else if (action === "oidc") next = await accounts.oidc(p ?? newPlayer(), d);
         else if (action === "forgot") await accounts.forgot(d, req);

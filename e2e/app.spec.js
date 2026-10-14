@@ -156,8 +156,9 @@ test("partie complète contre les robots, résultat et revanche", async ({ page 
   test.setTimeout(240000);
   await spy(page);
   await createVip(page, "Le salon d’Alice");
-  for (let i = 0; i < 3; i++) await page.locator('.stack [data-action="bot"]').click();
-  await expect(page.locator(".slot .robot-tag")).toHaveCount(3);
+  // « Compléter avec des robots » : les trois robots sont annoncés dans le salon.
+  await expect(page.locator(".slot.bot-wait")).toHaveCount(3);
+  await expect(page.locator('[data-action="start"]')).toContainText("Lancer avec les robots");
   await page.screenshot({ path: `${shots}salon-vip.png` });
   await page.locator('[data-action="start"]').click();
   await expect(page.locator(".hand .hcard")).toHaveCount(8);
@@ -231,8 +232,7 @@ test("table VIP : code, invitation par lien, acceptation, reconnexion", async ({
   await host.screenshot({ path: `${shots}vip-demande.png` });
   await host.locator('[data-action="admit"]').click();
   await expect(guest.locator(".page-room .page-title")).toHaveText("Salon mobile");
-  await host.locator('.stack [data-action="bot"]').click();
-  await host.locator('.stack [data-action="bot"]').click();
+  await expect(host.locator(".slot.bot-wait")).toHaveCount(2);
   await host.locator('[data-action="start"]').click();
   await expect(guest.locator(".hand .hcard")).toHaveCount(8);
   await guest.reload();
