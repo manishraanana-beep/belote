@@ -8,10 +8,10 @@ export const DEFAULT_RULES = {
   counterWindowSeconds: 8,
   flyingCounter: true,
   scoring: "added",
-  beloteRetained: true,
+  beloteRetained: false,
   beloteCountsContract: true,
   capotValue: 250,
-  allPass: "redeal",
+  allPass: "rotate",
 };
 const normal = ["7", "8", "9", "J", "Q", "K", "10", "A"],
   trump = ["7", "8", "Q", "K", "10", "A", "9", "J"];

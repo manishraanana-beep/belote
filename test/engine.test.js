@@ -95,7 +95,7 @@ test("redistribution après quatre passes, 32 cartes distinctes et mains privée
   assert.equal(view(g, null).hand.length, 0);
 });
 test("scores réussite, chute, belote, capot et multiplication", () => {
-  const g = newGame();
+  const g = newGame({ beloteRetained: true });
   g.contract = { seat: 0, amount: 80, suit: "S" };
   g.points = [90, 72];
   assert.deepEqual(scoreDeal(g).score, [170, 72]);
@@ -173,4 +173,12 @@ test("historique public des enchères : passes, enchères, contre et surcontre",
   const before = structuredClone(g.auction);
   assert.throws(() => act(g, 0, { type: "counter" }));
   assert.deepEqual(g.auction, before);
+});
+
+test("règles par défaut : belote perdue à la chute, donneur suivant si tous passent", () => {
+  const g = newGame();
+  assert.equal(g.rules.beloteRetained, false);
+  assert.equal(g.rules.allPass, "rotate");
+  assert.equal(g.rules.flyingCounter, true);
+  assert.deepEqual([g.rules.target, g.rules.turnSeconds, g.rules.counterWindowSeconds, g.rules.capotValue, g.rules.reconnectSeconds, g.rules.scoring], [1000, 30, 8, 250, 90, "added"]);
 });
