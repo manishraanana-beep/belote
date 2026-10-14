@@ -1287,4 +1287,30 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .client-ledger { max-height: 40vh; overflow-y: auto; }
 .client-ledger .pos { color: #4caf7a; }
 .client-ledger .neg { color: #e06060; }
-.admin-page { max-width: 980px; margin: 0 auto; padding: 16px; height: 100dvh; overflow-y: auto; }
+
+/* Back office : page dédiée avec onglets par tâche */
+.admin-page { max-width: 1180px; margin: 0 auto; padding: 16px; height: 100dvh; overflow-y: auto; background: linear-gradient(180deg, var(--bg-1), var(--bg-2)); }
+.admin-top { display: flex; align-items: center; gap: 12px; padding: 4px 0 14px; border-bottom: 1px solid var(--line-soft); margin-bottom: 14px; }
+.admin-top img { width: 52px; height: auto; }
+.admin-top h1 { margin: 0; font-family: var(--title); color: var(--gold); font-size: 24px; }
+.admin-top small { color: var(--muted); }
+.admin-login { max-width: 420px; padding: 16px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line-soft); }
+#admin-result { display: grid; gap: 14px; }
+.admin-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.admin-tab { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--line-soft); background: var(--panel-2); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+.admin-tab.on { background: linear-gradient(180deg, var(--gold-1), var(--gold-2)); color: var(--gold-ink); border-color: transparent; }
+.admin-tab i { font-style: normal; font-size: 12px; min-width: 20px; padding: 1px 6px; border-radius: 10px; background: rgba(0, 0, 0, .25); text-align: center; }
+.admin-body { padding: 16px; border-radius: 18px; background: var(--panel); border: 1px solid var(--line-soft); min-height: 60vh; }
+.admin-panel h2 { margin: 0 0 12px; font-family: var(--title); color: var(--gold); }
+.admin-panel[hidden] { display: none; }
+.admin-page .admin-stats { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.admin-page .admin-stats div { background: var(--panel-2); padding: 14px 10px; }
+.admin-page .client-list { max-height: none; }
+@media (min-width: 900px) {
+  #admin-result { grid-template-columns: 220px 1fr; align-items: start; }
+  #admin-result > .warn { grid-column: 1 / -1; }
+  .admin-tabs { flex-direction: column; overflow: visible; position: sticky; top: 0; }
+  .admin-tab { justify-content: flex-start; }
+  .admin-tab i { margin-left: auto; }
+}
+.admin-login[hidden] { display: none; }

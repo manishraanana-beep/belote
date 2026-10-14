@@ -32,9 +32,12 @@ test("administration : réglage du bonus, création d’un tournoi au calendrier
   await page.goto("/admin");
   await page.locator('#admin-form [name="key"]').fill("cle-e2e");
   await page.locator("#admin-form .pill").click();
+  await page.screenshot({ path: "test-results/screens/back-office-accueil.png" });
+  await page.locator('[data-tab="settings"]').click();
   await page.locator('#bonus-form [name="amount"]').fill("250");
   await page.locator("#bonus-form .pill").click();
   await expect(page.locator('#bonus-form [name="amount"]')).toHaveValue("250");
+  await page.locator('[data-tab="tours"]').click();
   await page.locator('[data-action="tourNew"]').click();
   await page.locator('#tour-form [name="name"]').fill("Tournoi de la Saint-Nicolas");
   await page.locator('#tour-form button[value="1"]').click();
@@ -73,6 +76,7 @@ test("back office : recherche d’un client, crédit manuel et modification de l
   await page.goto("/admin");
   await page.locator('#admin-form [name="key"]').fill("cle-e2e");
   await page.locator("#admin-form .pill").click();
+  await page.locator('[data-tab="clients"]').click();
   await page.locator("#client-search").fill(email);
   await expect(page.locator(".client-row:not([hidden])")).toHaveCount(1);
   await page.locator('.client-row:not([hidden]) [data-action="clientOpen"]').click();

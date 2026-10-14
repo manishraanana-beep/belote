@@ -160,6 +160,10 @@ test("rappels, inscriptions tardives et changement de date", () => {
   // L'administrateur reporte d'un jour : inscrits informés, rappels reprogrammés.
   s.tours.postpone(tour.id, utcToZoned(tour.start + 24 * HOUR, "Europe/Paris"));
   assert.ok(s.sent.some((m) => m.pid === "p0" && m.kind === "horaire" && /reporté/.test(m.title)));
+  s.at(tour.start - 3 * HOUR);
+  s.tours.tick();
+  s.tours.tick();
+  assert.equal(s.sent.filter((m) => m.pid === "p0" && m.kind === "hx" && /3 heures/.test(m.title)).length, 1);
   s.at(tour.start - HOUR);
   s.tours.tick();
   s.tours.tick(); // pas de doublon
@@ -221,6 +225,7 @@ test("départ automatique sans administrateur, exemptions, progression jusqu’�
   s.tours.tick();
   s.tours.tick(); // un second passage ne relance rien
   assert.equal(tour.status, "running");
+  assert.equal(s.sent.filter((m) => m.kind === "depart").length, 12, "chaque joueur est prévenu du départ");
   assert.equal(tour.bracketSize, 8);
   assert.equal(Object.keys(s.tables).length, 2, "deux exemptions, deux tables");
   assert.equal(tour.rounds[0].filter((m) => m.status === "bye").length, 2);
