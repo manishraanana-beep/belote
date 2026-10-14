@@ -475,7 +475,7 @@ function shell(body, { backBtn = true, tabs = false, vip = false, cls = "", righ
 }
 function tabBar() {
   const t = (name, label, ic) => `<button type="button" class="tab ${page.name === name || (name === "home" && ["home", "vip"].includes(page.name)) ? "on" : ""}" data-action="go" data-page="${name}">${icon(ic)}<span>${label}</span></button>`;
-  return `<nav class="tabbar" aria-label="Navigation">${t("home", "Accueil", "home")}${t("tables", "Jouer", "cards")}${t("boutique", "Boutique", "shop")}</nav>`;
+  return `<nav class="tabbar" aria-label="Navigation">${t("home", "Accueil", "home")}${t("tables", "Jouer", "cards")}${t("boutique", "Boutique", "shop")}${t("settings", "Compte", "user")}</nav>`;
 }
 const field = (ic, name, type, label, extra = "") =>
   `<label class="field">${icon(ic)}<input name="${name}" type="${type}" placeholder="${label}" aria-label="${label}" ${extra}>${type === "password" ? `<button type="button" class="eye" data-action="peek" aria-label="Afficher le mot de passe">${icon("eye")}</button>` : ""}</label>`;
@@ -570,7 +570,6 @@ function homePage() {
     `<div class="shop-head home-head">${coinHead()}</div>
     <div class="me-row">
       <button type="button" class="me" data-action="go" data-page="profile">${avatar(p.avatar, "lg ring")}<span><b>${e(p.name)} ${icon("chevron", "tiny")}</b><small>${levelTitle()}</small></span></button>
-      ${btn(icon("menu"), "go", "round-btn", 'data-page="settings" aria-label="Menu"')}
     </div>
     ${p.account && p.wallet.loginBonus ? `<p class="bonus-line">🎁 Prochain bonus de connexion (+${fmt(p.wallet.loginBonus.amount)}) dans <b data-countdown="${p.wallet.loginBonus.next}"></b></p>` : ""}
     ${needVerify() ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
@@ -719,6 +718,7 @@ function settingsPage() {
     </div>
     ${p.account ? `${btn(`${icon("logout")} Se déconnecter`, "logout", "line-btn wide")}${btn(`${icon("trash")} Supprimer mon compte`, "deleteAccount", "danger-line wide")}` : btn("Créer un compte", "go", "gold-btn wide", 'data-page="register"')}
     <p class="foot-link"><a class="inline-link" href="/cards-LICENSE.txt">Crédits des cartes</a></p>`,
+    { backBtn: false, tabs: true },
   );
 }
 function legalPage() {
@@ -1777,7 +1777,7 @@ document.addEventListener("click", async (ev) => {
       go(el.dataset.mode === "register" ? "register" : "login");
       break;
     case "go":
-      if (["home", "tables", "profile", "boutique"].includes(el.dataset.page) && !el.dataset.f) pageStack = [];
+      if (["home", "tables", "profile", "boutique", "settings"].includes(el.dataset.page) && !el.dataset.f) pageStack = [];
       go(el.dataset.page, { ...(el.dataset.tab ? { tab: el.dataset.tab } : {}), ...(el.dataset.id ? { id: el.dataset.id } : {}), ...(el.dataset.f ? { f: el.dataset.f } : {}) });
       break;
     case "tourNew":
