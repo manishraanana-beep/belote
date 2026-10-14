@@ -89,3 +89,15 @@ test("back office : recherche d’un client, crédit manuel et modification de l
   await expect(page.locator(".client-head")).toContainText("Client VIP");
   await page.screenshot({ path: "test-results/screens/back-office-client.png" });
 });
+
+test("back office : reste connecté après rechargement, déconnexion", async ({ page }) => {
+  await page.goto("/admin");
+  await page.locator('#admin-form [name="key"]').fill("cle-e2e");
+  await page.locator("#admin-form .pill").click();
+  await expect(page.locator(".admin-tabs")).toBeVisible();
+  await page.reload();
+  await expect(page.locator(".admin-tabs")).toBeVisible();
+  await expect(page.locator("#admin-form")).toBeHidden();
+  await page.locator('[data-action="adminLogout"]').click();
+  await expect(page.locator("#admin-form")).toBeVisible();
+});
