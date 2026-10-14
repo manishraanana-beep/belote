@@ -1287,3 +1287,4 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .client-ledger { max-height: 40vh; overflow-y: auto; }
 .client-ledger .pos { color: #4caf7a; }
 .client-ledger .neg { color: #e06060; }
+.admin-page { max-width: 980px; margin: 0 auto; padding: 16px; height: 100dvh; overflow-y: auto; }
