@@ -927,3 +927,22 @@ test("tournoi : reconnexion dans le délai sans pénalité, abandon = forfait, n
     await f.close();
   }
 });
+test("pseudos uniques : inscription et changement de pseudo refusés si déjà pris", async () => {
+  const f = await fixture();
+  try {
+    const a = await member(f, "unique1@exemple.fr");
+    await a.command("profile", { name: "Sophie" });
+    const b = await member(f, "unique2@exemple.fr");
+    const err = await b.command("profile", { name: "  sOphie " }, "error");
+    assert.match(err.message, /déjà pris/);
+    await b.command("profile", { name: "Sophié" }, "error");
+    await b.command("profile", { name: "Sophie B" });
+    await a.command("profile", { name: "Sophie" }); // garder son propre pseudo est permis
+    const s = await fetch(f.base + "/api/session", { method: "POST" });
+    const r = await api(f, s.headers.get("set-cookie").split(";")[0], "/api/auth/register", { email: "unique3@exemple.fr", password: "motdepasse", name: "SOPHIE" });
+    assert.equal(r.status, 400);
+    assert.match(r.body.error, /déjà pris/);
+  } finally {
+    await f.close();
+  }
+});

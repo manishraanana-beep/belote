@@ -765,6 +765,9 @@ function roomView() {
   const free = t.seats.filter((s) => !s).length;
   const players = t.seats.filter(Boolean).length;
   const slot = (s, i) => {
+    if (!s && t.fillBots && !t.stake && !t.quick)
+      // Option « Compléter avec des robots » : le robot est déjà montré à sa place ; un ami qui arrive la prend.
+      return `<div class="slot bot-wait"><div class="slot-ring">${avatar(["robot-bleu", "robot-corail", "robot-menthe", "robot-soleil"][i])}</div><b>Robot</b><span class="robot-tag">ROBOT</span><small class="hint">si personne ne vient</small></div>`;
     if (!s)
       return `<div class="slot empty"><button type="button" class="slot-ring" data-action="${owner && !t.stake && !t.quick ? "bot" : "friends"}" data-seat="${i}" aria-label="Place libre">+</button><b>Place libre</b>${me >= 0 && !t.quick ? btn("S’asseoir", "seat", "mini-btn", `data-seat="${i}"`) : ""}</div>`;
     const pv = t.engagedPreview?.[i];
@@ -791,10 +794,10 @@ function roomView() {
     : "";
   const actions = t.quick
     ? ""
-    : `${owner && free && !t.stake ? btn(`${icon("robot")} Ajouter un robot`, "bot", "gold-btn wide", `data-seat="${t.seats.indexOf(null)}"`) : ""}
+    : `${owner && free && !t.stake && !t.fillBots ? btn(`${icon("robot")} Ajouter un robot`, "bot", "gold-btn wide", `data-seat="${t.seats.indexOf(null)}"`) : ""}
       ${owner ? btn(`${icon("users")} Vous choisissez les équipes.`, "teams", "text-link") : ""}
       ${me >= 0 ? btn(`${icon("users")} Inviter un ami`, "friends", "line-btn wide") : ""}
-      ${owner ? btn(`<span class="play">▶</span> Lancer la partie`, "start", "gold-btn wide", "", !!free && !(t.fillBots && !t.stake)) : '<p class="lead">L’hôte lancera la partie.</p>'}`;
+      ${owner ? btn(`<span class="play">▶</span> ${free && t.fillBots && !t.stake ? "Lancer avec les robots" : "Lancer la partie"}`, "start", "gold-btn wide", "", !!free && !(t.fillBots && !t.stake)) : '<p class="lead">L’hôte lancera la partie.</p>'}`;
   return shell(
     `${top}${code}${pending}
     <h2 class="section">Joueurs (${players}/4)</h2>

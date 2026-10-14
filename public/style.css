@@ -1222,3 +1222,5 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .screen.game.felt-lagon { background-image: url(/decor/salle-table-lagon.webp); }
   .screen.game.felt-velours { background-image: url(/decor/salle-table-velours.webp); }
 }
+.slot.bot-wait .slot-ring { opacity: 0.85; }
+.slot.bot-wait small { font-size: 11px; }
