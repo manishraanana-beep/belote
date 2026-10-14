@@ -119,8 +119,7 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
     await p.reload();
     await p.locator('.tabbar [data-page="tables"]').click();
     await p.locator('.table-card:has-text("Table des amis") [data-action="join"]').click();
-    await expect(p.locator(".stake-warning")).toBeVisible();
-    await p.locator('#modal [data-action="confirmJoin"]').click();
+    // Entrée directe, sans fenêtre de règles.
     await expect(p.locator(".page-room .page-title")).toHaveText("Table des amis");
   }
   await expect(A.locator(".slot .engaged")).toHaveCount(4);

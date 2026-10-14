@@ -115,7 +115,7 @@ export function createApp({
   reactionCooldownMs = 4000,
   clock = () => Date.now(), // horloge des tournois (remplaçable dans les tests)
   summaryMs = (Number(process.env.BELOTE_SUMMARY_SECONDS) || 5) * 1000, // résultat de la donne affiché avant la suivante
-  inviteWaitMs = (Number(process.env.BELOTE_INVITE_WAIT_SECONDS) || 45) * 1000, // délai laissé aux invités avant les robots
+  inviteWaitMs = (Number(process.env.BELOTE_INVITE_WAIT_SECONDS) || 60) * 1000, // délai laissé aux invités avant les robots
 } = {}) {
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   const file = path.join(dataDir, "state.json");
@@ -263,24 +263,33 @@ export function createApp({
     return t;
   }
   // Tables publiques permanentes : partie gratuite et mises de 200, 500 et 1 000 jetons.
-  const LOBBY = [0, 200, 500, 1000];
+  const LOBBY = (env.BELOTE_LOBBY_STAKES ?? "200,500,1000").split(",").map(Number).filter((n) => Number.isInteger(n) && n >= 0);
+  // Une table permanente dont le montant n'est plus proposé est retirée (si personne n'y joue).
+  for (const t of Object.values(db.tables))
+    if (t.lobby && !LOBBY.includes(t.stake ?? 0) && !t.seats.some((x) => x && !x.bot)) delete db.tables[t.id];
   for (const t of Object.values(db.tables))
     if (!t.vip && !t.quick && !t.practice && !t.lobby && !t.createdBy && /^Le Salon/.test(t.name)) {
       t.lobby = true;
       t.name = "Le Salon • Partie gratuite";
     }
   function ensureLobby() {
+    let changed = false;
     for (const stake of LOBBY) {
       const list = Object.values(db.tables).filter((t) => t.lobby && (t.stake ?? 0) === stake);
       const open = list.filter((t) => (!t.game || t.game.phase === "finished") && t.seats.some((x) => !x));
       if (!open.length) {
         const t = table(stake ? `Table à ${stake.toLocaleString("fr-FR")} jetons` : "Le Salon • Partie gratuite", null, false, {}, stake);
         t.lobby = true;
+        changed = true;
       }
       // Pas plus d'une table vide par montant.
       const empty = list.filter((t) => !t.game && !t.seats.some(Boolean));
-      for (const t of empty.slice(1)) delete db.tables[t.id];
+      for (const t of empty.slice(1)) {
+        delete db.tables[t.id];
+        changed = true;
+      }
     }
+    return changed;
   }
   ensureLobby();
   // No live connection survives a server restart. Reservations restart with the configured grace.
@@ -733,6 +742,16 @@ export function createApp({
     return n;
   };
   const blockedEither = (a, b) => !!(a.blocked?.[b.id] || b.blocked?.[a.id]);
+  // Tables permanentes avec mise : départ automatique dès que quatre joueurs sont assis.
+  function autoStart(target) {
+    if (!target.lobby || !(target.stake > 0) || (target.game && target.game.phase !== "finished")) return;
+    if (!target.seats.every((s) => s && !s.bot)) return;
+    try {
+      start(target);
+    } catch (e) {
+      console.error("Départ automatique impossible :", e.message);
+    }
+  }
   function seatPlayer(target, p, seat = target.seats.indexOf(null)) {
     check(seat >= 0 && !target.seats[seat], "Table complète");
     target.seats[seat] = { id: p.id, name: p.name, avatar: p.avatar };
@@ -841,7 +860,11 @@ export function createApp({
           !target.game || target.game.phase === "finished",
           "Partie déjà commencée",
         );
-        check(!p.tableId, "Quittez votre table actuelle");
+        if (p.tableId && p.tableId !== target.id) {
+          const cur = db.tables[p.tableId];
+          check(!cur?.game || cur.game.phase === "finished", "Quittez votre table actuelle");
+          leave(p);
+        }
         check(
           target.seats.some((s) => !s),
           "Table complète",
@@ -855,7 +878,35 @@ export function createApp({
           target.seats[seat] = { id: pid, name: p.name, avatar: p.avatar };
           p.tableId = target.id;
           if (!target.owner) target.owner = pid;
+          autoStart(target);
+          ensureLobby();
         }
+        changed = target;
+        break;
+      }
+      case "playLobby": {
+        // Mise choisie (200, 500 ou 1 000) : le joueur rejoint la table de ce montant qui a déjà
+        // le plus de joueurs, sans invitation ; la partie démarre seule à quatre.
+        check(!db.settings.maintenance, "Entrées temporairement fermées");
+        const stake = Number(d.stake);
+        check(LOBBY.includes(stake), "Mise inconnue");
+        canStake(p, stake);
+        if (p.tableId) {
+          const cur = db.tables[p.tableId];
+          check(!cur?.game || cur.game.phase === "finished", "Quittez votre table actuelle");
+          if (cur?.lobby && cur.stake === stake) break;
+          leave(p);
+        }
+        ensureLobby();
+        const open = Object.values(db.tables)
+          .filter((x) => x.lobby && x.stake === stake && (!x.game || x.game.phase === "finished") && x.seats.some((s) => !s))
+          .sort((a, b) => b.seats.filter(Boolean).length - a.seats.filter(Boolean).length);
+        const target = open[0];
+        check(target, "Aucune table disponible");
+        if (target.game) target.game = null;
+        seatPlayer(target, p);
+        autoStart(target);
+        ensureLobby();
         changed = target;
         break;
       }
@@ -1800,7 +1851,7 @@ export function createApp({
     if (now - lastTourTick >= 1000) {
       // Programmation des tournois : ouverture, rappels, présence, départ… sans administrateur.
       lastTourTick = now;
-      ensureLobby();
+      if (ensureLobby()) dirty = true;
       try {
         tournaments.tick();
       } catch (e) {
