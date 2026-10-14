@@ -5,7 +5,7 @@ const admin = (page, body) =>
   page.evaluate(async (body) => (await fetch("/api/admin", { method: "POST", headers: { Authorization: "Bearer cle-e2e", "Content-Type": "application/json" }, body: JSON.stringify(body) })).status, body);
 
 test("boutique : catégories, aperçu, achat, solde insuffisant, équipement et table personnalisée", async ({ browser }) => {
-  const ctx = await browser.newContext({ viewport: { width: 470, height: 836 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const ctx = await browser.newContext({ viewport: { width: 414, height: 800 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   const page = await ctx.newPage();
   await page.addInitScript(() => sessionStorage.setItem("discover", "1"));
   await page.goto("/");
@@ -16,12 +16,14 @@ test("boutique : catégories, aperçu, achat, solde insuffisant, équipement et 
   expect(await admin(page, { type: "playerCredit", id, amount: 12000, reason: "Test boutique" })).toBe(200);
   await page.locator('.tabbar [data-page="boutique"]').click();
   await expect(page.locator(".shop-card")).toHaveCount(6);
+  await expect(page.locator(".shop-chip")).toHaveText(["Avatars", "Cartes", "Table", "Emojis", "Possédés"]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(page.locator(".shop-balance")).toContainText("12 800 jetons");
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${shots}boutique.png` });
   // Catégorie « Couleur de table » puis aperçu et achat.
   await page.locator('[data-cat="felt"]').click();
-  await expect(page.locator(".shop-card.item")).toHaveCount(5);
+  await expect(page.locator(".shop-card.item")).toHaveCount(4);
   await page.locator('[data-action="shopItem"][data-id="tapis-violet"]').click();
   await expect(page.locator(".shop-modal")).toContainText("3 000 jetons");
   await page.waitForTimeout(300);
@@ -63,6 +65,7 @@ test("boutique : catégories, aperçu, achat, solde insuffisant, équipement et 
   await desk.screenshot({ path: `${shots}boutique-ordinateur.png` });
   // Table personnalisée : entraînement avec le tapis violet.
   await page.locator('.tabbar [data-page="home"]').click();
+  await page.screenshot({ path: `${shots}accueil.png` });
   await page.locator(".features [data-action='practice']").click();
   await page.locator('[data-action="confirmPractice"]').click();
   await expect(page.locator(".screen.game.tapis-violet")).toBeVisible({ timeout: 15000 });

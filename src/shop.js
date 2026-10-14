@@ -30,7 +30,7 @@ export const SHOP_ITEMS = [
   ...GOLD_NAMES.map((name, i) => ({ id: `av-or-${i + 1}`, cat: "gold", name, img: `/shop/avatars/av-or-${i + 1}.webp` })),
   ...CROWN_NAMES.map((name, i) => ({ id: `av-roi-${i + 1}`, cat: "crown", name, img: `/shop/avatars/av-roi-${i + 1}.webp` })),
   ...COLORS.map(([c, name]) => ({ id: `dos-${c}`, cat: "back", name, img: `/shop/backs/back-${c}.webp` })),
-  ...[1, 0, 2, 3, 4].map((k) => COLORS[k]).map(([c, name]) => ({ id: `tapis-${c}`, cat: "felt", name, img: `/shop/felts/felt-${c}.webp` })),
+  ...[0, 2, 3, 4].map((k) => COLORS[k]).map(([c, name]) => ({ id: `tapis-${c}`, cat: "felt", name, img: `/shop/felts/felt-${c}.webp` })),
   ...EMOJI_NAMES.map((name, i) => ({ id: `emo-${pad(i + 1)}`, cat: "emoji", name, img: `/shop/emoji/emo-${pad(i + 1)}.webp` })),
 ].map((it, order) => {
   const c = SHOP_CATEGORIES.find((x) => x.id === it.cat);
