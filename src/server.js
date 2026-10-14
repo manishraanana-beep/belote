@@ -115,6 +115,7 @@ export function createApp({
   reactionCooldownMs = 4000,
   clock = () => Date.now(), // horloge des tournois (remplaçable dans les tests)
   summaryMs = (Number(process.env.BELOTE_SUMMARY_SECONDS) || 5) * 1000, // résultat de la donne affiché avant la suivante
+  inviteWaitMs = (Number(process.env.BELOTE_INVITE_WAIT_SECONDS) || 45) * 1000, // délai laissé aux invités avant les robots
 } = {}) {
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   const file = path.join(dataDir, "state.json");
@@ -163,7 +164,12 @@ export function createApp({
     p.blocked ??= {};
     p.hidden ??= {};
     p.invites ??= [];
-    p.settings ??= { hideStatus: false, invites: "friends", animations: true, sounds: true };
+    p.settings ??= { hideStatus: false, invites: "all", animations: true, sounds: true };
+    // Les joueurs en ligne peuvent désormais être invités par tous (réglable dans les paramètres).
+    if (!p.settings.onlineInvites) {
+      if (p.settings.invites === "friends") p.settings.invites = "all";
+      p.settings.onlineInvites = true;
+    }
   }
   for (const p of Object.values(db.players)) socialDefaults(p);
   function newPlayer() {
@@ -315,6 +321,22 @@ export function createApp({
     const k = nameKey(name);
     return Object.values(db.players).some((o) => o.id !== exceptId && o.name && nameKey(o.name) === k);
   }
+  // Joueurs connectés que l'on peut inviter à sa table (hors parties en cours, blocages et refus).
+  function onlinePlayers(p, t) {
+    const out = [];
+    for (const id of connections.keys()) {
+      const o = db.players[id];
+      if (!o || o.id === p.id || o.banned || o.settings?.hideStatus || blockedEither(p, o)) continue;
+      const policy = o.settings?.invites ?? "all";
+      if (policy === "none" || (policy === "friends" && !o.friends?.[p.id])) continue;
+      const ot = db.tables[o.tableId];
+      if (ot?.id === t.id) continue;
+      const busy = !!(ot?.game && ot.game.phase !== "finished");
+      out.push({ id: o.id, name: o.name, avatar: o.avatar, tag: o.tag, busy, invited: o.invites.some((i) => i.tableId === t.id), friend: !!p.friends?.[o.id] });
+      if (out.length >= 30) break;
+    }
+    return out.sort((a, b) => a.busy - b.busy || b.friend - a.friend);
+  }
   function loginBonus(p) {
     const e = economy.loginBonus(p);
     if (!e) return null;
@@ -462,6 +484,7 @@ export function createApp({
             .map((t) => ({ id: t.id, name: t.name })),
           maintenance: db.settings.maintenance,
           tournaments: tournaments.list(pid),
+          online: t && !t.game ? onlinePlayers(p, t) : [],
         });
     }
   }
@@ -1127,6 +1150,8 @@ export function createApp({
         check(t.seats.some((s) => !s) || (t.game && t.game.phase !== "finished"), "Table complète");
         o.invites = o.invites.filter((i) => i.tableId !== t.id).slice(-19);
         o.invites.push({ id: id(), tableId: t.id, from: pid, fromName: p.name, fromOwner: t.owner === pid, at: Date.now() });
+        // Table avec robots : si l'invité ne vient pas à temps, un robot prend la place et la partie démarre.
+        if (t.fillBots && !t.stake && !t.game) t.fillAt = Math.max(t.fillAt ?? 0, Date.now() + inviteWaitMs);
         break;
       }
       case "inviteAccept":
@@ -1771,7 +1796,7 @@ export function createApp({
         delete db.tables[t.id];
         continue;
       }
-      if (t.quick && (!t.game || t.game.phase === "finished") && t.fillAt && now >= t.fillAt) {
+      if ((t.quick || (t.fillBots && !t.stake)) && (!t.game || t.game.phase === "finished") && t.fillAt && now >= t.fillAt) {
         for (let i = 0; i < 4; i++) if (!t.seats[i]) t.seats[i] = makeBot(i);
         t.fillAt = null;
         if (!t.game) start(t);

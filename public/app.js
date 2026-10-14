@@ -181,6 +181,18 @@ function invitesBlock() {
   </article>`).join("")}</section>`;
 }
 // ———————————————————————————————————————————————————————————— salon d'attente
+// Joueurs connectés à proposer : une touche les invite ; sans réponse, un robot prend la place.
+function onlineBlock(t, me, free) {
+  const list = state.online ?? [];
+  if (t.quick || me < 0 || !free) return "";
+  return `<h2 class="section">Joueurs en ligne <small class="muted">(${list.length})</small></h2>
+    <div class="list online-list">${
+      list
+        .map((o) => `<div class="online-row">${avatar(o.avatar)}<span><b>${e(o.name)}</b><small>${o.friend ? "Ami · " : ""}${o.busy ? "En partie" : "Disponible"}</small></span>${o.invited ? '<span class="tag-ok">Invité ✓</span>' : btn("Inviter", "inviteOnline", "gold-btn small", `data-id="${o.id}"`, o.busy)}</div>`)
+        .join("") || '<p class="empty">Personne d’autre n’est connecté pour l’instant.</p>'
+    }</div>
+    ${t.fillBots && !t.stake ? `<p class="hint mid">Sans réponse sous ${45} s, des robots complètent la table et la partie démarre.</p>` : ""}`;
+}
 // ———————————————————————————————————————————————————————————— table de jeu
 function sheetView(g, t, me) {
   if (!sheet) return "";
@@ -804,6 +816,8 @@ function roomView() {
     `${top}${code}${pending}
     <h2 class="section">Joueurs (${players}/4)</h2>
     <div class="slots">${t.seats.map(slot).join("")}</div>
+    ${!t.quick && t.fillBots && !t.stake && t.fillAt && free ? `<div class="fill-timer">${icon("robot")} Robots dans <b data-deadline="${t.fillAt}"></b> si personne ne rejoint</div>` : ""}
+    ${onlineBlock(t, me, free)}
     ${stake}
     <div class="stack">${actions}</div>
     <p class="foot-link">${btn(`${icon("doc")} Règles de la table`, "rulesInfo", "inline-link")}${owner && !t.quick ? ` · ${btn("Modifier", "editRules", "inline-link")}` : ""}</p>`,
@@ -1584,6 +1598,9 @@ document.addEventListener("click", async (ev) => {
       } catch (err) {
         toast(err.message);
       }
+      break;
+    case "inviteOnline":
+      ask("invite", { id: el.dataset.id }, () => toast("Invitation envoyée"));
       break;
     case "inbox":
       inboxModal();
