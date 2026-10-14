@@ -66,5 +66,5 @@ nominatifs restent une évolution possible.
 - Pas de frais d'inscription ni de mise : les récompenses sont des objets visuels.
 - Une seule instance serveur (stockage JSON) : la programmation tourne dans ce processus et
   reprend après un redémarrage à partir des dates enregistrées.
-- Temps de tour dépassé : passe ou première carte autorisée jouée automatiquement (règle
+- Temps de tour dépassé : passe aux enchères ou carte autorisée la plus forte jouée automatiquement (règle
   annoncée), sans robot.

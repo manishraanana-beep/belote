@@ -4,7 +4,7 @@ const shots = "test-results/screens/";
 test.setTimeout(300000);
 async function spy(page) {
   await page.addInitScript(() => {
-    localStorage.setItem("welcomed", "1");
+    sessionStorage.setItem("discover", "1");
     const Native = window.WebSocket;
     window.WebSocket = class extends Native {
       constructor(...args) {
