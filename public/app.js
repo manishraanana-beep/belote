@@ -884,8 +884,8 @@ function auctionStrip(g, t, me) {
     })
     .join("");
   const last = (g.auction ?? []).filter((a) => a.type === "bid").at(-1);
-  return `<div class="auction-strip">${chips}</div>
-    <div class="last-bid-pill">${last ? `Dernière enchère : <b>${e(t.seats[last.seat]?.name)} • ${amountLabel(last.amount)} ${suitHtml(last.suit)}</b>` : "Aucune enchère pour l’instant"}</div>`;
+  void chips;
+  return `<div class="last-bid-pill">${last ? `Dernière enchère : <b>${e(t.seats[last.seat]?.name)} • ${amountLabel(last.amount)} ${suitHtml(last.suit)}</b>` : "Aucune enchère pour l’instant"}</div>`;
 }
 function reactionBubble(t, s) {
   if (!s || state.player.hidden.includes(s.id)) return "";
@@ -894,7 +894,8 @@ function reactionBubble(t, s) {
   return def ? `<span class="reaction-pop"><b>${def.emoji}</b>${def.text ? `<small>${e(def.text)}</small>` : ""}</span>` : "";
 }
 function seatBubble(g, i) {
-  if (g.phase !== "counter") return ""; // pendant les enchères, la bande « Sophie : Passe » les affiche
+  // Annonce de chaque joueur affichée à côté de son avatar (enchères et délai de surcontre).
+  if (!["bidding", "counter"].includes(g.phase)) return "";
   const a = (g.auction ?? []).filter((x) => x.seat === i).at(-1);
   if (!a) return "";
   const text = a.type === "bid" ? `${amountLabel(a.amount)} ${suitHtml(a.suit)}` : a.type === "pass" ? "Passe" : a.type === "counter" ? "Contre !" : "Surcontre !";
@@ -1045,7 +1046,7 @@ function announceLabel(form) {
 function floatingAction(g, me) {
   const flying = g.phase === "bidding" && g.contract && g.contract.seat % 2 !== me % 2 && g.turn !== me && g.rules.flyingCounter;
   if (flying) return ""; // bouton intégré à la zone des enchères
-  if (g.phase === "counter" && g.contract.seat % 2 === me % 2) return `<div class="float-action">${btn(`Surcontrer ! <small data-deadline="${g.counterDeadline ?? 0}"></small>`, "surcounter", "danger-btn big")}</div>`;
+  if (g.phase === "counter" && g.contract.seat % 2 === me % 2) return `<div class="float-action center-act">${btn(`Surcontrer ! <small data-deadline="${g.counterDeadline ?? 0}"></small>`, "surcounter", "danger-btn big")}</div>`;
   return "";
 }
 function handView(g, me, t) {

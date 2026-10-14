@@ -1266,3 +1266,11 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 @media (max-width: 380px) { .sc-chip { width: 60px; height: 60px; } .sc-chip b { font-size: 16px; } .sc-main b { font-size: 18px; } .sc-go { padding: 8px 12px; font-size: 14px; } }
 .slots .slot-ring { width: min(76px, 19vw); height: min(76px, 19vw); }
 .slots .slot b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+/* Surcontre au centre de la table */
+.float-action.center-act { left: 50%; right: auto; top: 50%; bottom: auto; translate: -50% -50%; z-index: 20; }
+.float-action.center-act .danger-btn { font-size: 24px; padding: 14px 30px; box-shadow: 0 0 0 4px #fff4, 0 0 30px #ff5a5a99, 0 10px 24px #000a; }
+/* Annonces à côté de l'avatar de chaque joueur */
+.seat .bubble { z-index: 16; font-size: 14px; padding: 4px 10px; border: 1.5px solid var(--gold); }
+.seat.p2 .bubble { left: calc(100% + 6px); top: 20%; translate: none; }
+.seat.p1 .bubble, .seat.p3 .bubble { left: 50%; right: auto; top: -26px; translate: -50% 0; }
+.my-bubble { left: 12px; translate: none; bottom: 2px; }
