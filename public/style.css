@@ -1229,3 +1229,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .hcard { transition: transform 0.12s ease-out; }
 .collecting .tcard { animation-duration: 0.8s; }
 .tcard { animation-duration: 0.22s; }
+.my-timer { margin-left: 6px; padding: 0 8px; border-radius: 999px; background: #0004; font-family: var(--ui); font-variant-numeric: tabular-nums; font-size: 0.85em; }
+.my-timer:empty { display: none; }
+.my-timer.urgent { background: var(--danger); color: #fff; animation: pulse 0.6s ease-in-out infinite alternate; }
+@keyframes pulse { to { scale: 1.12; } }

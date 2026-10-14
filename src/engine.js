@@ -3,7 +3,7 @@ export const SUITS = ["S", "H", "D", "C"];
 export const RANKS = ["7", "8", "9", "J", "Q", "K", "10", "A"];
 export const DEFAULT_RULES = {
   target: 1000,
-  turnSeconds: 30,
+  turnSeconds: 20,
   reconnectSeconds: 90,
   counterWindowSeconds: 8,
   flyingCounter: true,
@@ -23,6 +23,12 @@ export const rank = (c) => c.slice(0, -1);
 export const value = (c, t) => (suit(c) === t ? tv : values)[rank(c)];
 export const strength = (c, t) =>
   (suit(c) === t ? trump : normal).indexOf(rank(c));
+// Carte la plus forte parmi des cartes autorisées : un atout bat toute autre couleur ; à égalité
+// de catégorie, l'ordre de force (atout : V 9 A 10 R D 8 7 ; sinon A 10 R D V 9 8 7), puis la valeur.
+export function strongestCard(cards, t) {
+  const score = (c) => (suit(c) === t ? 100 : 0) + strength(c, t) * 10 + value(c, t) / 100;
+  return [...cards].sort((a, b) => score(b) - score(a))[0];
+}
 export function winner(trick, t) {
   let w = trick[0];
   for (const p of trick.slice(1)) {

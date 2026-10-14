@@ -6,6 +6,7 @@ import path from "node:path";
 import { WebSocket } from "ws";
 import { randomUUID } from "node:crypto";
 import { createApp } from "../src/server.js";
+import { strongestCard } from "../src/engine.js";
 import { view } from "../src/engine.js";
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 async function fixture(opts = {}) {
@@ -416,7 +417,8 @@ test("expiration surcontre, tours expirés et remplacement après absence", asyn
     const t = f.app.db.tables[tableId];
     t.game.counterDeadline = Date.now() - 1;
     await players[0].wait((c) => c.state.table.game.phase === "playing");
-    const card = players[0].state.table.game.legal[0];
+    // Temps écoulé : la carte autorisée la plus forte est jouée à la place du joueur.
+    const card = strongestCard(players[0].state.table.game.legal, t.game.contract.suit);
     t.deadline = Date.now() - 1;
     await players[1].wait((c) => c.state.table.game.handCounts[0] === 7);
     assert.equal(players[1].state.table.game.trick[0].card, card);

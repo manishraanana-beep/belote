@@ -59,7 +59,7 @@ Le serveur traite les messages dans l’ordre unique de sa boucle Node.js. Chaqu
 
 ## Déconnexion et persistance
 
-Tour de 30 secondes par défaut : expiration → passe aux enchères, première carte autorisée au jeu. Un joueur absent garde sa place pendant toute la partie. Après 90 secondes d’absence, un robot joue depuis sa vue privée jusqu’à son retour ; les tours expirés restent appliqués pendant le délai. Avant le lancement, une place déconnectée est libérée à l’expiration du délai. Un heartbeat WebSocket détecte les connexions silencieuses, ce qui peut retarder le début du délai jusqu’à environ 30 secondes.
+Tour de 20 secondes par défaut pour tous les joueurs : expiration → passe aux enchères, carte autorisée la plus forte au jeu. Un joueur absent garde sa place pendant toute la partie. Après 90 secondes d’absence, un robot joue depuis sa vue privée jusqu’à son retour ; les tours expirés restent appliqués pendant le délai. Avant le lancement, une place déconnectée est libérée à l’expiration du délai. Un heartbeat WebSocket détecte les connexions silencieuses, ce qui peut retarder le début du délai jusqu’à environ 30 secondes.
 
 La session anonyme repose sur un cookie HttpOnly, SameSite Strict, aléatoire. Gardez ce cookie : c’est la clé de votre profil invité et de votre place. Reconnexion automatique, restauration de la main, des scores et du contrat. Pas encore de compte récupérable par courriel ni de synchronisation du profil entre appareils.
 

@@ -4,7 +4,7 @@ const shots = "test-results/screens/";
 test("bonus de connexion : animation, solde synchronisé sur deux appareils, un seul bonus", async ({ browser }) => {
   const email = `bonus${Date.now()}@exemple.fr`;
   const phone = await (await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })).newPage();
-  await phone.addInitScript(() => localStorage.setItem("welcomed", "1"));
+  await phone.addInitScript(() => sessionStorage.setItem("discover", "1"));
   await phone.goto("/");
   expect(await phone.evaluate(async (email) => (await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "motdepasse" }) })).ok, email)).toBe(true);
   await expect(phone.locator(".bonus-pop")).toContainText("Bonus de connexion : +200 crédits !");
@@ -13,7 +13,7 @@ test("bonus de connexion : animation, solde synchronisé sur deux appareils, un 
   await expect(phone.locator(".bonus-line b")).toHaveText(/23 h 5\d min/);
   // Même compte sur ordinateur : même portefeuille, pas de second bonus.
   const desk = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
-  await desk.addInitScript(() => localStorage.setItem("welcomed", "1"));
+  await desk.addInitScript(() => sessionStorage.setItem("discover", "1"));
   await desk.goto("/");
   expect(await desk.evaluate(async (email) => (await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "motdepasse" }) })).ok, email)).toBe(true);
   await desk.reload();
@@ -27,7 +27,7 @@ test("bonus de connexion : animation, solde synchronisé sur deux appareils, un 
 });
 
 test("administration : réglage du bonus, création d’un tournoi au calendrier", async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem("welcomed", "1"));
+  await page.addInitScript(() => sessionStorage.setItem("discover", "1"));
   await page.goto("/");
   await page.locator('.round-btn[data-page="settings"]').click();
   await page.locator('[data-action="admin"]').click();

@@ -25,6 +25,7 @@ import {
   botAction,
   nextDeal,
   expireCounter,
+  strongestCard,
   DEFAULT_RULES,
 } from "./engine.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -1843,7 +1844,8 @@ export function createApp({
               ? botAction(view(g, g.turn))
               : g.phase === "bidding"
                 ? { type: "pass" }
-                : { type: "play", card: view(g, g.turn).legal[0] };
+                : // Temps écoulé : la carte la plus forte autorisée est jouée.
+                  { type: "play", card: strongestCard(view(g, g.turn).legal, g.contract.suit) };
           try {
             act(g, g.turn, a);
             finishStats(t);

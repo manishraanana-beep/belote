@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  strongestCard,
   newGame,
   act,
   view,
@@ -180,5 +181,11 @@ test("règles par défaut : belote perdue à la chute, donneur suivant si tous p
   assert.equal(g.rules.beloteRetained, false);
   assert.equal(g.rules.allPass, "rotate");
   assert.equal(g.rules.flyingCounter, true);
-  assert.deepEqual([g.rules.target, g.rules.turnSeconds, g.rules.counterWindowSeconds, g.rules.capotValue, g.rules.reconnectSeconds, g.rules.scoring], [1000, 30, 8, 250, 90, "added"]);
+  assert.deepEqual([g.rules.target, g.rules.turnSeconds, g.rules.counterWindowSeconds, g.rules.capotValue, g.rules.reconnectSeconds, g.rules.scoring], [1000, 20, 8, 250, 90, "added"]);
+});
+test("temps écoulé : carte autorisée la plus forte", () => {
+  assert.equal(strongestCard(["7H", "AH", "10H"], "S"), "AH");
+  assert.equal(strongestCard(["AH", "7S"], "S"), "7S"); // l'atout l'emporte
+  assert.equal(strongestCard(["AS", "9S", "JS"], "S"), "JS"); // valet d'atout
+  assert.equal(strongestCard(["10D", "KD"], "S"), "10D");
 });

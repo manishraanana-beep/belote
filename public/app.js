@@ -38,7 +38,7 @@ const signed = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n));
 const stakeRisk = (s) => `Mise : ${fmt(s)} crédits. En rubicon, vous risquez jusqu’à ${fmt(3 * s)} crédits, dans la limite de votre solde engagé. Les gains dépendent des crédits engagés par les adversaires.`;
 const DEFAULT_RULES = {
   target: 1000,
-  turnSeconds: 30,
+  turnSeconds: 20,
   counterWindowSeconds: 8,
   reconnectSeconds: 90,
   capotValue: 250,
@@ -348,7 +348,7 @@ function loginPage() {
     `<h1 class="page-title">Heureux de vous revoir !</h1>
     <div class="hero-avatar">${avatar(last, "xxl")}</div>
     <form id="login-form" class="stack">
-      ${field("mail", "email", "email", "E-mail", 'autocomplete="email" required')}
+      ${field("mail", "email", "email", "E-mail", `autocomplete="email" required value="${e(localStorage.getItem("lastEmail") ?? "")}"`)}
       ${field("lock", "password", "password", "Mot de passe", 'minlength="8" autocomplete="current-password" required')}
       <div class="right">${btn("Mot de passe oublié ?", "go", "inline-link", 'data-page="forgot"')}</div>
       <button class="gold-btn wide">Se connecter</button>
@@ -556,7 +556,7 @@ function vipCreatePage() {
       <div class="lbl">Score de la partie<div class="seg radio">${[500, 1000, 1500].map((n) => `<label><input type="radio" name="target" value="${n}" ${n === 1000 ? "checked" : ""}><span>${fmt(n)}</span></label>`).join("")}</div></div>
       <label class="toggle-row">${icon("bolt")}<span>Contrée à la volée</span><input type="checkbox" name="flyingCounter" checked><i class="sw"></i></label>
       <label class="toggle-row">${icon("robot")}<span>Compléter avec des robots</span><input type="checkbox" name="fillBots" checked><i class="sw"></i></label>
-      <label class="toggle-row">${icon("clock")}<span>Temps de réflexion par tour</span><select name="turnSeconds">${[15, 20, 30, 45, 60].map((n) => `<option value="${n}" ${n === 30 ? "selected" : ""}>${n} s</option>`).join("")}</select></label>
+      <label class="toggle-row">${icon("clock")}<span>Temps de réflexion par tour</span><select name="turnSeconds">${[15, 20, 30, 45, 60].map((n) => `<option value="${n}" ${n === r.turnSeconds ? "selected" : ""}>${n} s</option>`).join("")}</select></label>
       <div class="lbl">Mise par joueur<div class="seg radio">${[0, ...STAKES].map((n) => `<label><input type="radio" name="stake" value="${n}" ${n ? "" : "checked"}><span>${n ? fmt(n) : "Gratuit"}</span></label>`).join("")}</div><small class="hint">Avec crédits : quatre joueurs humains, rubicon jusqu’à 3 × la mise.</small></div>
       <input type="hidden" name="counterWindowSeconds" value="${r.counterWindowSeconds}"><input type="hidden" name="reconnectSeconds" value="${r.reconnectSeconds}"><input type="hidden" name="capotValue" value="${r.capotValue}"><input type="hidden" name="scoring" value="${r.scoring}"><input type="hidden" name="allPass" value="${r.allPass}">${r.beloteRetained ? '<input type="hidden" name="beloteRetained" value="on">' : ""}<input type="hidden" name="beloteCountsContract" value="on">
       <button class="gold-btn wide">${icon("crown")} Créer ma table</button>
@@ -658,7 +658,7 @@ function tournamentPage() {
       <li>Objectif : ${fmt(t.rules.target)} points · temps par tour ${t.rules.turnSeconds} s · contrée ${t.rules.flyingCounter ? "à la volée" : "à son tour"}</li>
       <li>Mêmes règles sur toutes les tables du tournoi ; équipes fixes après le départ, les gagnants passent au tour suivant.</li>
       <li>Coupure de connexion : reprise possible pendant ${Math.round(t.rules.reconnectSeconds / 60) || 1} min ; au-delà de ${Math.round(t.rules.forfeitSeconds / 60)} min d’absence ou en cas d’abandon, l’équipe perd par forfait.</li>
-      <li>Temps de jeu dépassé : passe ou première carte autorisée jouée automatiquement. Aucun robot ne participe.</li>
+      <li>Temps de jeu dépassé : passe aux enchères, carte autorisée la plus forte au jeu. Aucun robot ne participe.</li>
       <li>Équipes insuffisantes (moins de ${t.minTeams}) : ${t.insufficient === "cancel" ? "tournoi annulé" : `report de ${t.postponeMinutes} min`}, inscrits prévenus.</li>
       <li>Aucune mise : les rencontres ne débitent aucun jeton.</li>
     </ul>
@@ -751,7 +751,9 @@ async function ensurePush() {
 
 function pageView() {
   const guest = !state.player.account;
-  if (!page.name) page = { name: guest && !localStorage.getItem("welcomed") ? "welcome" : "home", params: {} };
+  // Visiteur non connecté : à chaque arrivée, choix « Se connecter » / « Créer un compte » / « Découvrir ».
+  // Un joueur déjà connecté est reconnu (session d'un an) et arrive directement à l'accueil.
+  if (!page.name) page = { name: guest && !sessionStorage.getItem("discover") ? "welcome" : "home", params: {} };
   const views = { welcome: welcomePage, register: registerPage, login: loginPage, forgot: forgotPage, reset: resetPage, verify: verifyPage, home: homePage, tables: tablesPage, profile: profilePage, avatar: avatarPage, history: historyPage, rules: () => rulesPage(), settings: settingsPage, legal: legalPage, vip: vipPage, vipCreate: vipCreatePage, tournaments: tournamentsPage, tournament: tournamentPage };
   return (views[page.name] ?? homePage)();
 }
@@ -1007,9 +1009,9 @@ function handView(g, me, t) {
   const myTurn = g.phase === "playing" && g.turn === me && !collection;
   const glow = g.phase === "bidding" && g.turn === me;
   const status = myTurn
-    ? `<span class="turn-pill on">À vous de jouer</span>`
+    ? `<span class="turn-pill on">À vous de jouer <b class="my-timer" data-deadline="${t.deadline ?? 0}"></b></span>`
     : glow
-      ? `<span class="turn-pill">À vous d’annoncer</span>`
+      ? `<span class="turn-pill">À vous d’annoncer <b class="my-timer" data-deadline="${t.deadline ?? 0}"></b></span>`
       : g.phase === "bidding"
         ? `<span class="turn-pill">À ${e(t.seats[g.turn]?.name)} d’annoncer</span>`
         : g.phase === "playing"
@@ -1058,7 +1060,8 @@ let pressing = false,
 document.addEventListener("pointerdown", () => (pressing = true), true);
 // Jeu d'une carte dès l'appui du doigt (sans attendre le relâchement) : la carte part aussitôt
 // vers le centre, le serveur confirme ensuite et le pli s'affiche.
-let playedOnDown = null;
+let playedOnDown = null,
+  lastDownPlay = 0;
 document.addEventListener("pointerdown", (ev) => {
   const el = ev.target.closest?.(".hand .hcard");
   const t = state?.table,
@@ -1068,6 +1071,7 @@ document.addEventListener("pointerdown", (ev) => {
   const c = el.dataset.card;
   if (g.phase !== "playing" || g.turn !== me || collection || !g.legal.includes(c) || playedOnDown) return;
   playedOnDown = c;
+  lastDownPlay = Date.now();
   el.classList.add("flying");
   cmd("action", { version: g.version, action: { type: "play", card: c } });
   setTimeout(() => playedOnDown === c && (playedOnDown = null), 1500);
@@ -1630,7 +1634,7 @@ document.addEventListener("click", async (ev) => {
       else back();
       break;
     case "discover":
-      localStorage.setItem("welcomed", "1");
+      sessionStorage.setItem("discover", "1");
       go("home");
       break;
     case "peek": {
@@ -1930,8 +1934,10 @@ document.addEventListener("click", async (ev) => {
     case "pick": {
       // Une seule touche : la carte est jouée si c'est votre tour et qu'elle est autorisée.
       const c = el.dataset.card;
-      if (playedOnDown === c) {
-        playedOnDown = null; // déjà jouée dès l'appui (voir pointerdown)
+      // Une carte vient d'être jouée dès l'appui (pointerdown) : le clic qui suit, parfois sur la
+      // carte voisine après le rafraîchissement, est ignoré pour ne jamais jouer deux fois.
+      if (playedOnDown || Date.now() - lastDownPlay < 700) {
+        playedOnDown = null;
         break;
       }
       const myTurn = g.phase === "playing" && g.turn === me && !collection;
@@ -2034,7 +2040,7 @@ function tourForm(t) {
   const day = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   const v = t
     ? { ...t, ...t.local }
-    : { name: "", description: "", timeZone: myTz(), teams: 8, minTeams: 4, minBalance: 50000, rules: { target: 1000, turnSeconds: 30, flyingCounter: true, reconnectSeconds: 120, forfeitSeconds: 300 }, insufficient: "postpone", postponeMinutes: 30, rewards: { winner: ["tournoi-vainqueur", "frame-champion"], finalist: ["tournoi-finaliste"], participant: ["tournoi-participant"] }, regOpen: `${day}T09:00`, regClose: `${day}T20:00`, confirmBy: `${day}T20:50`, start: `${day}T21:00` };
+    : { name: "", description: "", timeZone: myTz(), teams: 8, minTeams: 4, minBalance: 50000, rules: { target: 1000, turnSeconds: 20, flyingCounter: true, reconnectSeconds: 120, forfeitSeconds: 300 }, insufficient: "postpone", postponeMinutes: 30, rewards: { winner: ["tournoi-vainqueur", "frame-champion"], finalist: ["tournoi-finaliste"], participant: ["tournoi-participant"] }, regOpen: `${day}T09:00`, regClose: `${day}T20:00`, confirmBy: `${day}T20:50`, start: `${day}T21:00` };
   const sel = (name, opts, cur) => `<select name="${name}">${opts.map(([val, label]) => `<option value="${val}" ${String(val) === String(cur) ? "selected" : ""}>${label}</option>`).join("")}</select>`;
   const rw = (kind, label) => `<fieldset><legend>${label}</legend>${d.rewards.map((r) => `<label class="check-line"><input type="checkbox" name="rw-${kind}" value="${r.id}" ${v.rewards[kind].includes(r.id) ? "checked" : ""}>${e(r.name)}</label>`).join("")}</fieldset>`;
   $("#admin-tours").innerHTML = `<form id="tour-form" class="form">
@@ -2194,6 +2200,7 @@ document.addEventListener("submit", async (ev) => {
       case "login-form":
         try {
           await api("/api/auth/login", d);
+          localStorage.setItem("lastEmail", d.email.trim());
         } catch (err) {
           if (err.status !== 404) throw err;
           // Adresse inconnue : on propose de créer le compte tout de suite avec ces identifiants.
@@ -2207,6 +2214,7 @@ document.addEventListener("submit", async (ev) => {
         break;
       case "register-form":
         await api("/api/auth/register", d);
+        localStorage.setItem("lastEmail", d.email.trim());
         localStorage.setItem("welcomed", "1");
         pendingName = d.name;
         go("avatar", { onboarding: true });
@@ -2317,7 +2325,8 @@ async function connect() {
         }
         delete pendingAcks[msg.id];
         if (/Solde insuffisant/.test(msg.message)) fundsModal(state.table?.stake ?? 100);
-        toast(msg.message);
+        // Coup envoyé sur un état déjà dépassé : la table vient d'être actualisée, rien à signaler.
+        if (!/Action périmée/.test(msg.message)) toast(msg.message);
       }
     };
     ws.onclose = (ev) => {

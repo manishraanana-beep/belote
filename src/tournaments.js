@@ -66,7 +66,7 @@ export function normalize(input, rewardIds) {
   const minBalance = Number(d.minBalance ?? 50000);
   check(Number.isInteger(minBalance) && minBalance >= 0 && minBalance <= 10_000_000, "Seuil de jetons invalide");
   const r = d.rules ?? {};
-  const rules = { target: Number(r.target ?? 1000), turnSeconds: Number(r.turnSeconds ?? 30), flyingCounter: r.flyingCounter !== false };
+  const rules = { target: Number(r.target ?? 1000), turnSeconds: Number(r.turnSeconds ?? 20), flyingCounter: r.flyingCounter !== false };
   check(Number.isInteger(rules.target) && rules.target >= 100 && rules.target <= 5000, "Score cible invalide");
   check(Number.isInteger(rules.turnSeconds) && rules.turnSeconds >= 10 && rules.turnSeconds <= 120, "Temps par tour invalide");
   const rw = d.rewards ?? {};

@@ -4,7 +4,7 @@ const shots = "test-results/screens/";
 // Expose le dernier état reçu pour choisir une carte autorisée (le test joue comme un humain).
 async function spy(page) {
   await page.addInitScript(() => {
-    localStorage.setItem("welcomed", "1");
+    sessionStorage.setItem("discover", "1");
     const Native = window.WebSocket;
     window.WebSocket = class extends Native {
       constructor(...args) {
