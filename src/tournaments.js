@@ -63,7 +63,7 @@ export function normalize(input, rewardIds) {
   check(validTimeZone(timeZone), "Fuseau horaire inconnu");
   const teams = Number(d.teams);
   check(FORMATS.includes(teams), "Format : 8, 16 ou 32 équipes");
-  const minBalance = Number(d.minBalance ?? 50000);
+  const minBalance = Number(d.minBalance ?? 0);
   check(Number.isInteger(minBalance) && minBalance >= 0 && minBalance <= 10_000_000, "Seuil de jetons invalide");
   const r = d.rules ?? {};
   const rules = { target: Number(r.target ?? 1000), turnSeconds: Number(r.turnSeconds ?? 20), flyingCounter: r.flyingCounter !== false };
