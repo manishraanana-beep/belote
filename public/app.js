@@ -1103,8 +1103,17 @@ function takerBadge(g, i) {
   if (!g.contract || g.contract.seat !== i || !["counter", "playing", "summary"].includes(g.phase)) return "";
   return `<span class="taker-badge">${amountLabel(g.contract.amount)} ${suitHtml(g.contract.suit)}${g.multiplier > 1 ? ` <em>${multLabel(g.multiplier)}</em>` : ""}</span>`;
 }
+// Chaque carte n'est animée qu'à son arrivée : les rafraîchissements suivants ne la refont pas apparaître.
+let shownCards = new Set(),
+  shownDeal = null;
 function trickCards(cards, me, cls = "") {
-  return `<div class="trick ${cls}">${cards.map((p) => `<div class="tcard p${(p.seat - me + 4) % 4}"><img src="${cardImage(p.card)}" alt="${cardName(p.card)}"></div>`).join("")}</div>`;
+  const deal = state.table?.gameId + ":" + state.table?.game?.deal;
+  if (deal !== shownDeal) (shownDeal = deal), (shownCards = new Set());
+  return `<div class="trick ${cls}">${cards.map((p) => {
+    const seen = shownCards.has(p.card);
+    shownCards.add(p.card);
+    return `<div class="tcard p${(p.seat - me + 4) % 4} ${seen && !cls ? "seen" : ""}"><img src="${cardImage(p.card)}" alt="${cardName(p.card)}"></div>`;
+  }).join("")}</div>`;
 }
 function contractBanner(c, g) {
   return `<div class="contract-banner ${c.ours ? "us" : "them"}" role="status">
@@ -1127,7 +1136,9 @@ function centerView(g, t, me) {
       setTimeout(render, 2700);
     }
     if (!g.tricks.length && !g.trick.length && Date.now() < bannerUntil) return contractBanner(c, g);
-    return trickCards(g.trick, me);
+    // Carte que l'on vient de jouer : posée au centre tout de suite, sans attendre le serveur.
+    const pending = sentCard && g.version === sentCard.version && Date.now() < sentCard.until && !g.trick.some((x) => x.card === sentCard.card) ? [{ seat: me, card: sentCard.card }] : [];
+    return trickCards([...g.trick, ...pending], me);
   }
   if (["summary", "finished"].includes(g.phase)) return "";
   if (g.turn === me) return "";
@@ -1298,6 +1309,9 @@ document.addEventListener("pointerdown", (ev) => {
   el.classList.add("flying");
   markSent(c, g.version);
   cmd("action", { version: g.version, action: { type: "play", card: c } });
+  // Affichage immédiat : la carte quitte la main (sans laisser de trou) et arrive au centre.
+  pressing = false;
+  render();
   setTimeout(() => playedOnDown === c && (playedOnDown = null), 1500);
 });
 const release = () =>
