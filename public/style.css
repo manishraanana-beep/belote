@@ -1314,3 +1314,4 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .admin-tab i { margin-left: auto; }
 }
 .admin-login[hidden] { display: none; }
+.admin-logout { margin-left: auto; }

@@ -2065,6 +2065,12 @@ document.addEventListener("click", async (ev) => {
       for (const b of document.querySelectorAll(".admin-tab")) b.classList.toggle("on", b.dataset.tab === adminTab);
       for (const p of document.querySelectorAll(".admin-panel")) p.hidden = p.dataset.panel !== adminTab;
       break;
+    case "adminLogout":
+      try {
+        localStorage.removeItem("adminKey");
+      } catch {}
+      location.reload();
+      break;
     case "clientOpen":
       await openClient(el.dataset.id);
       break;
@@ -2363,7 +2369,12 @@ document.addEventListener("submit", async (ev) => {
       case "admin-form":
         adminToken = d.key;
         f.reset();
-        if (await adminRequest()) f.hidden = true;
+        if (await adminRequest()) {
+          f.hidden = true;
+          try {
+            localStorage.setItem("adminKey", adminToken); // reste connecté sur cet appareil
+          } catch {}
+        }
         return;
       case "login-form":
         try {
@@ -2509,7 +2520,22 @@ async function connect() {
 // Back office : page séparée (/admin), jamais affichée dans l'application des joueurs.
 if (location.pathname.replace(/\/$/, "") === "/admin") {
   document.title = "Administration — Belote Prestige";
-  $("#app").innerHTML = `<main class="admin-page"><header class="admin-top"><img src="/decor/logo.webp" alt=""><div><h1>Back office</h1><small>Belote Prestige · administration</small></div></header><form id="admin-form" class="form inline admin-login"><p class="muted">Accès réservé (clé BELOTE_ADMIN_KEY du serveur).</p><label>Clé d’administration<input name="key" type="password" required autocomplete="off"></label><button class="pill small">Ouvrir</button></form><div id="admin-result"></div></main>`;
+  $("#app").innerHTML = `<main class="admin-page"><header class="admin-top"><img src="/decor/logo.webp" alt=""><div><h1>Back office</h1><small>Belote Prestige · administration</small></div><button type="button" class="chip-btn ghost admin-logout" data-action="adminLogout">Se déconnecter</button></header><form id="admin-form" class="form inline admin-login"><p class="muted">Accès réservé (clé BELOTE_ADMIN_KEY du serveur).</p><label>Clé d’administration<input name="key" type="password" required autocomplete="off"></label><button class="pill small">Ouvrir</button></form><div id="admin-result"></div></main>`;
+  let saved = null;
+  try {
+    saved = localStorage.getItem("adminKey");
+  } catch {}
+  if (saved) {
+    adminToken = saved;
+    $("#admin-form").hidden = true;
+    adminRequest().then((ok) => {
+      if (ok) return;
+      try {
+        localStorage.removeItem("adminKey"); // clé changée sur le serveur : on la redemande
+      } catch {}
+      $("#admin-form").hidden = false;
+    });
+  }
 } else {
   loadAuthConfig();
   handleHash();
