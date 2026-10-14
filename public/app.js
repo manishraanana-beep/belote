@@ -626,7 +626,7 @@ const REWARD_NAMES = {
   "back-velours": "dos de cartes Velours VIP",
   "felt-velours": "tapis Velours violet",
 };
-const minLine = (t) => `Solde minimum requis : ${fmt(t.minBalance)} jetons. Inscription gratuite, aucun jeton prélevé.`;
+const minLine = (t) => (t.minBalance ? `Solde minimum requis : ${fmt(t.minBalance)} jetons. ` : "") + "Inscription gratuite, aucun jeton prélevé.";
 function tournamentsPage() {
   const list = state.tournaments ?? [];
   const unread = (state.player.inbox ?? []).filter((n) => !n.read).length;
@@ -657,6 +657,8 @@ function tournamentPage() {
     actions = acc
       ? `${btn(`${icon("user")} M’inscrire seul`, "tourRegister", "gold-btn wide")}${btn(`${icon("users")} M’inscrire avec un ami`, "tourPartnerPick", "line-btn wide")}<p class="hint mid">Seul ? Une équipe vous sera proposée avec un autre joueur inscrit seul.</p>`
       : btn("Créer un compte pour s’inscrire", "go", "gold-btn wide", 'data-page="register"');
+  if (t.stage === "soon" && !t.me) actions = `<div class="notice-box">${icon("clock")} <span>Les inscriptions ouvrent le <b>${e(dt(t.regOpen))}</b>.</span></div>`;
+  if (["closed", "ready"].includes(t.stage) && !t.me) actions = `<div class="notice-box">${icon("clock")} <span>Les inscriptions sont closes.</span></div>`;
   if (t.me?.invitedBy)
     actions = `<div class="notice-box">${icon("users")} <span><b>${e(t.me.invitedBy)}</b> vous propose de faire équipe.</span></div><div class="row2">${btn("Accepter", "tourPartnerYes", "gold-btn")}${btn("Refuser", "tourPartnerNo", "line-btn")}</div>`;
   else if (t.me && ["soon", "open", "closed"].includes(t.stage)) {
@@ -2129,9 +2131,11 @@ function tourForm(t) {
   const now = new Date(Date.now() + 86400_000);
   const pad = (n) => String(n).padStart(2, "0");
   const day = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const n0 = new Date();
+  const nowLocal = `${n0.getFullYear()}-${pad(n0.getMonth() + 1)}-${pad(n0.getDate())}T${pad(n0.getHours())}:${pad(n0.getMinutes())}`; // inscriptions ouvertes dès la publication
   const v = t
     ? { ...t, ...t.local }
-    : { name: "", description: "", timeZone: myTz(), teams: 8, minTeams: 4, minBalance: 50000, rules: { target: 1000, turnSeconds: 20, flyingCounter: true, reconnectSeconds: 120, forfeitSeconds: 300 }, insufficient: "postpone", postponeMinutes: 30, rewards: { winner: ["tournoi-vainqueur", "frame-champion"], finalist: ["tournoi-finaliste"], participant: ["tournoi-participant"] }, regOpen: `${day}T09:00`, regClose: `${day}T20:00`, confirmBy: `${day}T20:50`, start: `${day}T21:00` };
+    : { name: "", description: "", timeZone: myTz(), teams: 8, minTeams: 4, minBalance: 0, rules: { target: 1000, turnSeconds: 20, flyingCounter: true, reconnectSeconds: 120, forfeitSeconds: 300 }, insufficient: "postpone", postponeMinutes: 30, rewards: { winner: ["tournoi-vainqueur", "frame-champion"], finalist: ["tournoi-finaliste"], participant: ["tournoi-participant"] }, regOpen: nowLocal, regClose: `${day}T20:00`, confirmBy: `${day}T20:50`, start: `${day}T21:00` };
   const sel = (name, opts, cur) => `<select name="${name}">${opts.map(([val, label]) => `<option value="${val}" ${String(val) === String(cur) ? "selected" : ""}>${label}</option>`).join("")}</select>`;
   const rw = (kind, label) => `<fieldset><legend>${label}</legend>${d.rewards.map((r) => `<label class="check-line"><input type="checkbox" name="rw-${kind}" value="${r.id}" ${v.rewards[kind].includes(r.id) ? "checked" : ""}>${e(r.name)}</label>`).join("")}</fieldset>`;
   $("#admin-tours").innerHTML = `<form id="tour-form" class="form">
