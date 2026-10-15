@@ -530,7 +530,9 @@ export function createApp({
       t.game && ["bidding", "playing"].includes(t.game.phase)
         ? Date.now() + t.rules.turnSeconds * 1000
         : null;
-    t.botAt = Date.now() + botDelay;
+    // Pli qui vient d'être complété : on laisse aux joueurs le temps de voir les 4 cartes.
+    const trickJustDone = t.game?.phase === "playing" && t.game.trick?.length === 0 && t.game.tricks?.length > 0;
+    t.botAt = Date.now() + (trickJustDone && botDelay >= 200 ? Math.max(botDelay, 1600) : botDelay);
   }
   function update(t) {
     t.revision++;

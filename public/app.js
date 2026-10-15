@@ -1186,7 +1186,9 @@ function contractBanner(c, g) {
 }
 function centerView(g, t, me) {
   // Un nouveau pli a commencé (ou l'on vient de jouer) : le pli précédent s'efface aussitôt.
-  if (collection && (g.trick.length || (sentCard && Date.now() < sentCard.until))) collection = null;
+  // Seule notre propre carte interrompt l'affichage du pli précédent ; les cartes des autres
+  // apparaissent juste après, avec leur animation.
+  if (collection && sentCard && Date.now() < sentCard.until && !collection.cards.some((x) => x.card === sentCard.card)) collection = null;
   if (collection) return collection.stage === "hold" ? trickCards(collection.cards, me) : trickCards(collection.cards, me, `collecting to${(collection.winner - me + 4) % 4}`);
   const c = contractInfo(g, t, me);
   if (g.phase === "counter") return contractBanner(c, g);
@@ -1418,8 +1420,8 @@ function render() {
       collectionTimer = setTimeout(() => {
         collection = null;
         render();
-      }, 850);
-    }, 1300);
+      }, 700);
+    }, 1200);
   }
   lastTrickKey = trickKey;
   dealing = !!g && dealKey !== lastRenderedDeal;
