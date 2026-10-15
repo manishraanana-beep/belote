@@ -1443,3 +1443,4 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .tcard.seen { animation: none; }
 /* Joueur du haut : l'annonce du preneur à droite de son avatar, jamais cachée par les cartes du pli */
 .seat.p2 .taker-badge { position: absolute; left: calc(100% + 8px); top: 38%; margin: 0; z-index: 6; font-size: 14px; padding: 3px 12px; }
+.seat.p2:has(.taker-badge) { z-index: 7; }
