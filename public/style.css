@@ -1453,11 +1453,11 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .screen.game .seat.p2 .backs { rotate: 180deg; }
 .screen.game .seat.p1 .backs { rotate: 90deg; }
 .screen.game .seat.p3 .backs { rotate: -90deg; }
-.screen.game .seat .backs i { position: absolute; left: calc(var(--av) * -0.33); bottom: 0; width: calc(var(--av) * 0.66); height: auto; aspect-ratio: 120 / 174; margin: 0; border: 0; border-radius: 4px; background: url(/decor/dos.svg) center / 100% 100%; box-shadow: 0 2px 5px #0009; transform-origin: 50% 135%; }
-.screen.game .seat .backs i:nth-child(1) { rotate: -35deg; } .screen.game .seat .backs i:nth-child(2) { rotate: -25deg; }
-.screen.game .seat .backs i:nth-child(3) { rotate: -15deg; } .screen.game .seat .backs i:nth-child(4) { rotate: -6deg; }
-.screen.game .seat .backs i:nth-child(5) { rotate: 6deg; } .screen.game .seat .backs i:nth-child(6) { rotate: 15deg; }
-.screen.game .seat .backs i:nth-child(7) { rotate: 25deg; } .screen.game .seat .backs i:nth-child(8) { rotate: 35deg; }
+.screen.game .seat .backs i { position: absolute; left: calc(var(--av) * -0.33); bottom: 0; width: calc(var(--av) * 0.66); height: auto; aspect-ratio: 120 / 174; margin: 0; border: 0; border-radius: 4px; background: url(/decor/dos.svg?v=bleu) center / 100% 100%; box-shadow: 0 2px 5px #0009; transform-origin: 50% 135%; }
+.screen.game .seat .backs i:nth-child(1) { rotate: -21deg; } .screen.game .seat .backs i:nth-child(2) { rotate: -15deg; }
+.screen.game .seat .backs i:nth-child(3) { rotate: -9deg; } .screen.game .seat .backs i:nth-child(4) { rotate: -3deg; }
+.screen.game .seat .backs i:nth-child(5) { rotate: 3deg; } .screen.game .seat .backs i:nth-child(6) { rotate: 9deg; }
+.screen.game .seat .backs i:nth-child(7) { rotate: 15deg; } .screen.game .seat .backs i:nth-child(8) { rotate: 21deg; }
 .screen.game.dos-violet .seat .backs i { background-image: url(/shop/backs/back-violet.webp); }
 .screen.game.dos-vert .seat .backs i { background-image: url(/shop/backs/back-vert.webp); }
 .screen.game.dos-bleu .seat .backs i { background-image: url(/shop/backs/back-bleu.webp); }
@@ -1465,3 +1465,6 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .screen.game.dos-ivoire .seat .backs i { background-image: url(/shop/backs/back-ivoire.webp); }
 .screen.game .seat .name-pill, .screen.game .seat .robot-tag, .screen.game .seat .seat-timer, .screen.game .seat .seat-off { position: relative; z-index: 2; }
 .screen.game .seat .backs i { left: calc(var(--av) * -0.34); width: calc(var(--av) * 0.68); transform-origin: 50% 118%; }
+
+/* Éventail légèrement arrondi et resserré autour de l'avatar */
+.screen.game .seat .backs i { transform-origin: 50% 210%; }
