@@ -1463,3 +1463,8 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .screen.game.dos-bleu .seat .backs i { background-image: url(/shop/backs/back-bleu.webp); }
 .screen.game.dos-rouge .seat .backs i { background-image: url(/shop/backs/back-rouge.webp); }
 .screen.game.dos-ivoire .seat .backs i { background-image: url(/shop/backs/back-ivoire.webp); }
+
+/* Éventails tournés face à chaque joueur : gauche et droite à la verticale, haut à l'envers */
+.screen.game .seat.p1 .backs { left: calc(100% + 36px); right: auto; top: calc(var(--av) / 2 + 4px); translate: -50% -50%; rotate: 90deg; transform-origin: 50% 50%; }
+.screen.game .seat.p3 .backs { right: calc(100% + 36px); left: auto; top: calc(var(--av) / 2 + 4px); translate: 50% -50%; rotate: -90deg; transform-origin: 50% 50%; }
+.screen.game .seat.p2 .backs { rotate: 180deg; }
