@@ -1,4 +1,15 @@
 import { cardImage } from "./cards.js";
+// Les 32 cartes sont chargées et décodées d'avance : une carte jouée s'affiche aussitôt, jamais en rectangle blanc.
+const CARD_CACHE = [];
+setTimeout(() => {
+  for (const s of "SHDC") for (const r of ["7", "8", "9", "10", "J", "Q", "K", "A"]) {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = cardImage(r + s);
+    img.decode?.().catch(() => {});
+    CARD_CACHE.push(img);
+  }
+}, 300);
 
 // ———————————————————————————————————————————————————————————— utilitaires
 const $ = (s) => document.querySelector(s);

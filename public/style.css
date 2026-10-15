@@ -1444,3 +1444,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 /* Joueur du haut : l'annonce du preneur à droite de son avatar, jamais cachée par les cartes du pli */
 .seat.p2 .taker-badge { position: absolute; left: calc(100% + 8px); top: 38%; margin: 0; z-index: 6; font-size: 14px; padding: 3px 12px; }
 .seat.p2:has(.taker-badge) { z-index: 7; }
+/* Écrans larges (ordinateur, tablette en paysage) : « Dernier pli » dans le coin, jamais sur les cartes du pli */
+@media (min-aspect-ratio: 4/5) {
+  .screen.game .last-trick-btn { top: 12px; bottom: auto; left: auto; right: 16px; translate: none; }
+}
