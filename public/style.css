@@ -244,7 +244,7 @@ a { color: inherit; }
 .orn-line { color: var(--gold); }
 .mini-fan { position: relative; width: 300px; height: 120px; margin-bottom: 10px; }
 .mini-fan img { position: absolute; left: calc(50% - 32px); bottom: 0; width: 64px; border-radius: 6px; box-shadow: 0 4px 10px #0006; transform-origin: 50% 200%; }
-.mf0 { rotate: -30deg; } .mf1 { rotate: -21deg; } .mf2 { rotate: -12deg; } .mf3 { rotate: -4deg; } .mf4 { rotate: 4deg; } .mf5 { rotate: 12deg; } .mf6 { rotate: 21deg; } .mf7 { rotate: 30deg; }
+.mf0 { rotate: -25deg; } .mf1 { rotate: -21deg; } .mf2 { rotate: -12deg; } .mf3 { rotate: -4deg; } .mf4 { rotate: 4deg; } .mf5 { rotate: 12deg; } .mf6 { rotate: 21deg; } .mf7 { rotate: 30deg; }
 .welcome .stack { width: 100%; }
 
 /* Accueil */
@@ -1447,24 +1447,21 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .screen.game .last-trick-btn { top: 12px; bottom: auto; left: auto; right: 16px; translate: none; }
 }
 
-/* Dos de cartes des adversaires : un éventail par joueur, à côté de son avatar (toutes tailles d'écran) */
-.screen.game .seat .backs { display: flex; position: absolute; height: auto; padding: 0 0 0 16px; pointer-events: none; z-index: -1; }
-.screen.game .seat.p1 .backs { left: calc(100% - 4px); top: 6px; }
-.screen.game .seat.p3 .backs { right: calc(100% - 4px); top: 6px; flex-direction: row-reverse; padding: 0 16px 0 0; }
-.screen.game .seat.p2 .backs { right: calc(100% + 2px); top: 4px; flex-direction: row-reverse; padding: 0 16px 0 0; }
-.screen.game .seat .backs i { flex: none; width: clamp(26px, 6.6vmin, 40px); aspect-ratio: 120 / 174; height: auto; margin-left: calc(clamp(26px, 6.6vmin, 40px) * -0.62); border: 0; border-radius: 3px; background: url(/decor/dos.svg) center / 100% 100%; box-shadow: 0 2px 4px #0008; transform-origin: 50% 120%; }
-.screen.game .seat.p3 .backs i, .screen.game .seat.p2 .backs i { margin-left: 0; margin-right: calc(clamp(26px, 6.6vmin, 40px) * -0.62); }
-.screen.game .seat .backs i:nth-child(1) { rotate: -14deg; } .screen.game .seat .backs i:nth-child(2) { rotate: -10deg; }
-.screen.game .seat .backs i:nth-child(3) { rotate: -6deg; } .screen.game .seat .backs i:nth-child(4) { rotate: -2deg; }
-.screen.game .seat .backs i:nth-child(5) { rotate: 2deg; } .screen.game .seat .backs i:nth-child(6) { rotate: 6deg; }
-.screen.game .seat .backs i:nth-child(7) { rotate: 10deg; } .screen.game .seat .backs i:nth-child(8) { rotate: 14deg; }
+/* Dos de cartes des adversaires : éventail arrondi derrière l'avatar, ouvert vers le centre de la table */
+.screen.game .seat .seat-avatar { z-index: 1; }
+.screen.game .seat .backs { display: block; position: absolute; left: 50%; top: calc(var(--av) / 2); width: 0; height: 0; padding: 0; margin: 0; z-index: 0; pointer-events: none; translate: none; }
+.screen.game .seat.p2 .backs { rotate: 180deg; }
+.screen.game .seat.p1 .backs { rotate: 90deg; }
+.screen.game .seat.p3 .backs { rotate: -90deg; }
+.screen.game .seat .backs i { position: absolute; left: calc(var(--av) * -0.33); bottom: 0; width: calc(var(--av) * 0.66); height: auto; aspect-ratio: 120 / 174; margin: 0; border: 0; border-radius: 4px; background: url(/decor/dos.svg) center / 100% 100%; box-shadow: 0 2px 5px #0009; transform-origin: 50% 135%; }
+.screen.game .seat .backs i:nth-child(1) { rotate: -35deg; } .screen.game .seat .backs i:nth-child(2) { rotate: -25deg; }
+.screen.game .seat .backs i:nth-child(3) { rotate: -15deg; } .screen.game .seat .backs i:nth-child(4) { rotate: -6deg; }
+.screen.game .seat .backs i:nth-child(5) { rotate: 6deg; } .screen.game .seat .backs i:nth-child(6) { rotate: 15deg; }
+.screen.game .seat .backs i:nth-child(7) { rotate: 25deg; } .screen.game .seat .backs i:nth-child(8) { rotate: 35deg; }
 .screen.game.dos-violet .seat .backs i { background-image: url(/shop/backs/back-violet.webp); }
 .screen.game.dos-vert .seat .backs i { background-image: url(/shop/backs/back-vert.webp); }
 .screen.game.dos-bleu .seat .backs i { background-image: url(/shop/backs/back-bleu.webp); }
 .screen.game.dos-rouge .seat .backs i { background-image: url(/shop/backs/back-rouge.webp); }
 .screen.game.dos-ivoire .seat .backs i { background-image: url(/shop/backs/back-ivoire.webp); }
-
-/* Éventails tournés face à chaque joueur : gauche et droite à la verticale, haut à l'envers */
-.screen.game .seat.p1 .backs { left: calc(100% + 36px); right: auto; top: calc(var(--av) / 2 + 4px); translate: -50% -50%; rotate: 90deg; transform-origin: 50% 50%; }
-.screen.game .seat.p3 .backs { right: calc(100% + 36px); left: auto; top: calc(var(--av) / 2 + 4px); translate: 50% -50%; rotate: -90deg; transform-origin: 50% 50%; }
-.screen.game .seat.p2 .backs { rotate: 180deg; }
+.screen.game .seat .name-pill, .screen.game .seat .robot-tag, .screen.game .seat .seat-timer, .screen.game .seat .seat-off { position: relative; z-index: 2; }
+.screen.game .seat .backs i { left: calc(var(--av) * -0.34); width: calc(var(--av) * 0.68); transform-origin: 50% 118%; }
