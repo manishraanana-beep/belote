@@ -178,6 +178,7 @@ function animateTrick() {
   }
 }
 function tone(freqs, dur = 0.12, vol = 0.06) {
+  return; // bips désactivés : seul le bruit de carte est conservé
   if (!sound) return;
   try {
     const ctx = new AudioContext();
