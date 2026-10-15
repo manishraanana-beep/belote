@@ -1185,7 +1185,9 @@ function contractBanner(c, g) {
   </div>`;
 }
 function centerView(g, t, me) {
-  if (collection) return trickCards(collection.cards, me, `collecting to${(collection.winner - me + 4) % 4}`);
+  // Un nouveau pli a commencé (ou l'on vient de jouer) : le pli précédent s'efface aussitôt.
+  if (collection && (g.trick.length || (sentCard && Date.now() < sentCard.until))) collection = null;
+  if (collection) return collection.stage === "hold" ? trickCards(collection.cards, me) : trickCards(collection.cards, me, `collecting to${(collection.winner - me + 4) % 4}`);
   const c = contractInfo(g, t, me);
   if (g.phase === "counter") return contractBanner(c, g);
   if (g.phase === "playing") {
@@ -1335,7 +1337,7 @@ function gameView() {
       ${seatBubble(g, me) || reactionBubble(t, t.seats[me]) ? `<div class="my-bubble">${seatBubble(g, me)}${reactionBubble(t, t.seats[me])}</div>` : ""}
     </main>
     <footer class="dock">${handView(g, me, t)}</footer>
-    ${g.phase === "summary" ? dealResult(g, t, me) : g.phase === "finished" ? finalResult(g, t, me) : ""}
+    ${collection ? "" : g.phase === "summary" ? dealResult(g, t, me) : g.phase === "finished" ? finalResult(g, t, me) : ""}
     ${sheetView(g, t, me)}
   </div>`;
 }
@@ -1406,13 +1408,18 @@ function render() {
     selected = null;
   } else if (trickKey !== lastTrickKey && g?.tricks.length) {
     // Ramassage animé du pli vers son gagnant.
-    collection = { ...g.tricks.at(-1), startedAt: performance.now() };
-    tone([660, 880], 0.08, 0.04);
+    // Le pli complet (4e carte comprise) reste visible un instant, puis il est ramassé vers son gagnant.
+    collection = { ...g.tricks.at(-1), startedAt: performance.now(), stage: "hold" };
     clearTimeout(collectionTimer);
     collectionTimer = setTimeout(() => {
-      collection = null;
+      if (!collection) return;
+      collection.stage = "collect";
       render();
-    }, 850);
+      collectionTimer = setTimeout(() => {
+        collection = null;
+        render();
+      }, 850);
+    }, 1300);
   }
   lastTrickKey = trickKey;
   dealing = !!g && dealKey !== lastRenderedDeal;
