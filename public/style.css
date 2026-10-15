@@ -1417,8 +1417,6 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .shop-item-form { display: grid; grid-template-columns: 48px 1.4fr 0.8fr 0.6fr auto auto; gap: 8px; align-items: end; padding: 8px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line-soft); }
 .shop-item-form img { width: 48px; height: 48px; object-fit: contain; }
 @media (max-width: 700px) { .shop-item-form { grid-template-columns: 48px 1fr 1fr; } }
-.screen.game[class*=" dos-"] .backs { height: 26px; padding-left: 12px; }
-.screen.game[class*=" dos-"] .backs i { width: 18px; height: 26px; margin-left: -12px; border: 0; border-radius: 3px; box-shadow: 0 1px 3px #0007; }
 /* En-tête logo + solde (accueil et boutique) ; aucune largeur ne déborde de l'écran */
 .page-coinhead > .page-top { display: none; }
 .page-coinhead .page-body { overflow-x: hidden; }
@@ -1448,3 +1446,20 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 @media (min-aspect-ratio: 4/5) {
   .screen.game .last-trick-btn { top: 12px; bottom: auto; left: auto; right: 16px; translate: none; }
 }
+
+/* Dos de cartes des adversaires : un éventail par joueur, à côté de son avatar (toutes tailles d'écran) */
+.screen.game .seat .backs { display: flex; position: absolute; height: auto; padding: 0 0 0 16px; pointer-events: none; z-index: -1; }
+.screen.game .seat.p1 .backs { left: calc(100% - 4px); top: 6px; }
+.screen.game .seat.p3 .backs { right: calc(100% - 4px); top: 6px; flex-direction: row-reverse; padding: 0 16px 0 0; }
+.screen.game .seat.p2 .backs { right: calc(100% + 2px); top: 4px; flex-direction: row-reverse; padding: 0 16px 0 0; }
+.screen.game .seat .backs i { flex: none; width: clamp(26px, 6.6vmin, 40px); aspect-ratio: 120 / 174; height: auto; margin-left: calc(clamp(26px, 6.6vmin, 40px) * -0.62); border: 0; border-radius: 3px; background: url(/decor/dos.svg) center / 100% 100%; box-shadow: 0 2px 4px #0008; transform-origin: 50% 120%; }
+.screen.game .seat.p3 .backs i, .screen.game .seat.p2 .backs i { margin-left: 0; margin-right: calc(clamp(26px, 6.6vmin, 40px) * -0.62); }
+.screen.game .seat .backs i:nth-child(1) { rotate: -14deg; } .screen.game .seat .backs i:nth-child(2) { rotate: -10deg; }
+.screen.game .seat .backs i:nth-child(3) { rotate: -6deg; } .screen.game .seat .backs i:nth-child(4) { rotate: -2deg; }
+.screen.game .seat .backs i:nth-child(5) { rotate: 2deg; } .screen.game .seat .backs i:nth-child(6) { rotate: 6deg; }
+.screen.game .seat .backs i:nth-child(7) { rotate: 10deg; } .screen.game .seat .backs i:nth-child(8) { rotate: 14deg; }
+.screen.game.dos-violet .seat .backs i { background-image: url(/shop/backs/back-violet.webp); }
+.screen.game.dos-vert .seat .backs i { background-image: url(/shop/backs/back-vert.webp); }
+.screen.game.dos-bleu .seat .backs i { background-image: url(/shop/backs/back-bleu.webp); }
+.screen.game.dos-rouge .seat .backs i { background-image: url(/shop/backs/back-rouge.webp); }
+.screen.game.dos-ivoire .seat .backs i { background-image: url(/shop/backs/back-ivoire.webp); }

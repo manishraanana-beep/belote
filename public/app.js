@@ -128,6 +128,55 @@ async function api(path, body, raw = false) {
   if (!res.ok) throw Object.assign(Error(d.error ?? "Une erreur est survenue"), { status: res.status });
   return d;
 }
+// Bruit de carte posée : court froissement filtré (sans fichier son).
+let audioCtx = null;
+function cardSound(vol = 0.5) {
+  if (!sound) return;
+  try {
+    audioCtx ??= new AudioContext();
+    const ctx = audioCtx,
+      len = Math.floor(ctx.sampleRate * 0.09),
+      buf = ctx.createBuffer(1, len, ctx.sampleRate),
+      data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    const src = ctx.createBufferSource(),
+      bp = ctx.createBiquadFilter(),
+      g = ctx.createGain();
+    src.buffer = buf;
+    bp.type = "bandpass";
+    bp.frequency.value = 2600;
+    bp.Q.value = 0.8;
+    g.gain.value = 0.35 * vol;
+    src.connect(bp).connect(g).connect(ctx.destination);
+    src.start();
+  } catch {}
+}
+// Arrivée d'une carte au centre : elle part de la main (ou de l'avatar du joueur) et se pose en glissant.
+let lastPlayRect = null;
+function animateTrick() {
+  if (!state.player.settings.animations) return;
+  for (const el of document.querySelectorAll(".trick:not(.collecting) .tcard:not(.seen)")) {
+    const rel = Number(/p(\d)/.exec(el.className)?.[1] ?? 0);
+    let from = null;
+    if (rel === 0 && lastPlayRect && performance.now() - lastPlayRect.at < 1500) from = lastPlayRect;
+    else from = document.querySelector(rel === 0 ? ".hand" : `.seat.p${rel} .seat-avatar`)?.getBoundingClientRect();
+    const to = el.getBoundingClientRect();
+    if (!from || !to.width) continue;
+    const dx = from.left + from.width / 2 - (to.left + to.width / 2),
+      dy = from.top + from.height / 2 - (to.top + to.height / 2);
+    const start = rel === 0 ? Math.min(1.25, (from.width || to.width) / to.width) : 0.45;
+    el.style.animation = "none";
+    el.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) rotate(${rel === 0 ? -8 : rel === 1 ? -25 : 25}deg) scale(${start})`, opacity: rel === 0 ? 1 : 0.4 },
+        { transform: "translate(0, -6px) rotate(0deg) scale(1.04)", opacity: 1, offset: 0.82 },
+        { transform: "none", opacity: 1 },
+      ],
+      { duration: rel === 0 ? 360 : 420, easing: "cubic-bezier(.2,.75,.25,1)" },
+    );
+    cardSound(rel === 0 ? 1 : 0.55);
+  }
+}
 function tone(freqs, dur = 0.12, vol = 0.06) {
   if (!sound) return;
   try {
@@ -1318,6 +1367,8 @@ document.addEventListener("pointerdown", (ev) => {
   playedOnDown = c;
   lastDownPlay = Date.now();
   el.classList.add("flying");
+  const r = el.getBoundingClientRect();
+  lastPlayRect = { left: r.left, top: r.top, width: r.width, height: r.height, at: performance.now() };
   markSent(c, g.version);
   cmd("action", { version: g.version, action: { type: "play", card: c } });
   // Affichage immédiat : la carte quitte la main (sans laisser de trou) et arrive au centre.
@@ -1375,6 +1426,7 @@ function render() {
   const box = (el) => el.type === "checkbox" || el.type === "radio";
   document.querySelectorAll("#app form[id] input:not([type=hidden])").forEach((el) => (fields[key(el)] = box(el) ? el.checked : el.value));
   $("#app").innerHTML = g ? gameView() : t ? roomView() : pageView();
+  if (g) animateTrick();
   if (state.player.avatar) localStorage.setItem("lastAvatar", state.player.avatar);
   document.querySelectorAll("#app form[id] input:not([type=hidden])").forEach((el) => {
     const v = fields[key(el)];
