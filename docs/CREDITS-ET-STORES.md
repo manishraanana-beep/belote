@@ -20,7 +20,7 @@
 - **Réservation au lancement** : `min(disponible, 3 × mise)` par joueur, figée pour la partie. Un achat ou un bonus reçu ensuite ne change rien.
 - **Règlement** (une seule fois, clé `settle:<partie>:<joueur>`) :
   - rubicon si le score gagnant est **strictement** supérieur au double du score perdant ;
-  - chaque perdant perd `min(mise, engagé)` ou, en rubicon, `min(3 × mise, engagé)` ;
+  - chaque perdant perd `min(mise, engagé)` ou, en rubicon, `min(2 × mise, engagé)` ;
   - le total réellement prélevé est partagé à parts égales entre les deux gagnants ;
   - si le total en demi-crédits est impair, le demi-crédit indivisible n'est pas prélevé : rien n'est créé, aucun solde ne devient négatif ;
   - prélevé = distribué, vérifié avant écriture.

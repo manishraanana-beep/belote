@@ -442,7 +442,7 @@ export function createApp({
       engagedPreview: t.stake
         ? t.seats.map((s) => {
             const p = s && !s.bot ? db.players[s.id] : null;
-            return p ? { engaged: toCredits(Math.min(economy.available(p), 6 * t.stake)), enough: economy.available(p) >= 2 * t.stake, account: !!p.accountId } : null;
+            return p ? { engaged: toCredits(Math.min(economy.available(p), 4 * t.stake)), enough: economy.available(p) >= 2 * t.stake, account: !!p.accountId } : null;
           })
         : null,
       rematch: t.rematch ? { votes: t.rematch.votes, blocked: t.rematch.blocked ?? [] } : null,

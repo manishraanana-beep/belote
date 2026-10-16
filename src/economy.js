@@ -6,6 +6,8 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 export const U = 2; // unités par crédit
 export const STAKES = [100, 200, 500, 1000];
+// Rubicon : la victoire écrasante rapporte le double de la mise.
+export const RUBICON = 2;
 export const toUnits = (credits) => Math.round(credits * U);
 export const toCredits = (units) => units / U;
 
@@ -132,10 +134,10 @@ export function createEconomy(db, config = economyConfig()) {
       for (let seat = 0; seat < 4; seat++) {
         const p = players[seat];
         if (!p) {
-          stakes.push({ seat, pid: null, name: "Maison", engaged: 3 * stake, house: true });
+          stakes.push({ seat, pid: null, name: "Maison", engaged: RUBICON * stake, house: true });
           continue;
         }
-        const engaged = Math.min(available(p), 3 * stake);
+        const engaged = Math.min(available(p), RUBICON * stake);
         wallet(p).reserved += engaged;
         stakes.push({ seat, pid: p.id, name: p.name, engaged });
       }
@@ -191,7 +193,7 @@ export function computeSettlement(money, scores) {
   const stake = money.stake;
   const losers = money.seats.filter((s) => s.seat % 2 !== winTeam);
   const winners = money.seats.filter((s) => s.seat % 2 === winTeam);
-  const loss = losers.map((s) => Math.min(rubicon ? 3 * stake : stake, s.engaged));
+  const loss = losers.map((s) => Math.min(rubicon ? RUBICON * stake : stake, s.engaged));
   let total = loss.reduce((a, b) => a + b, 0);
   // Partage exact en demi-crédits : une unité impaire n'est pas prélevée (rien n'est créé).
   if (total % 2) {
@@ -200,7 +202,7 @@ export function computeSettlement(money, scores) {
     total -= 1;
   }
   const share = total / 2;
-  const fullShare = (rubicon ? 3 : 1) * stake;
+  const fullShare = (rubicon ? RUBICON : 1) * stake;
   const rows = [
     ...losers.map((s, i) => ({ seat: s.seat, pid: s.pid, name: s.name, engaged: s.engaged, delta: -loss[i], adjusted: false })),
     ...winners.map((s) => ({ seat: s.seat, pid: s.pid, name: s.name, engaged: s.engaged, delta: share, adjusted: share < fullShare })),
