@@ -6,9 +6,15 @@ test("pli complet visible avant ramassage", async ({ browser }) => {
   await page.goto("/");
   await page.locator(".features [data-action='practice']").click();
   await page.locator('[data-action="confirmPractice"]').click();
+  await page.evaluate(() => {
+    window.__four = false;
+    new MutationObserver(() => {
+      if (document.querySelectorAll(".trick:not(.collecting) .tcard").length === 4) window.__four = true;
+    }).observe(document.getElementById("app"), { childList: true, subtree: true });
+  });
   let four = false;
-  for (let i = 0; i < 600 && !four; i++) {
-    if ((await page.locator(".trick:not(.collecting) .tcard").count()) === 4) { four = true; break; }
+  for (let i = 0; i < 1500 && !four; i++) {
+    if (await page.evaluate(() => window.__four)) { four = true; break; }
     if (await page.locator(".hand.my-turn").count()) for (let k = 0; k < 8; k++) { await page.locator(".hand .hcard").nth(k).dispatchEvent("pointerdown").catch(() => {}); await page.locator(".hand .hcard").nth(k).dispatchEvent("pointerup").catch(() => {}); if (!(await page.locator(".hand.my-turn").count())) break; }
     const pass = page.locator('[data-action="pass"]').first();
     if (await pass.isVisible().catch(() => false)) await pass.click().catch(() => {});

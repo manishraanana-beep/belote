@@ -108,6 +108,12 @@ for (const [name, viewport, mobile] of [
     await page.screenshot({ path: `${shots}${name}-1-encheres.png` });
     await bid(page, "S", 90);
     const banner = page.locator(".contract-banner");
+    // Les robots peuvent surenchérir ou contrer : on passe jusqu'à ce que le contrat soit fixé.
+    for (let i = 0; i < 60 && !(await banner.isVisible()); i++) {
+      const pass = page.locator('.bid-panel [data-action="pass"]');
+      if (await pass.isVisible().catch(() => false)) await pass.click().catch(() => {});
+      await page.waitForTimeout(250);
+    }
     await expect(banner).toBeVisible({ timeout: 15000 });
     await expect(banner).toContainText("a pris");
     await expect(banner).toContainText(/Votre équipe|Équipe adverse/);
