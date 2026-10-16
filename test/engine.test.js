@@ -119,9 +119,13 @@ test("parties complètes de robots sans accès caché, dix de der et fin de part
   for (let n = 0; n < 20; n++) {
     const g = newGame({ target: 300 });
     let steps = 0;
-    while (g.phase !== "finished" && steps++ < 1500) {
+    while (g.phase !== "finished" && steps++ < 20000) {
       if (g.phase === "summary") {
         nextDeal(g);
+        continue;
+      }
+      if (g.phase === "counter") {
+        expireCounter(g, Infinity);
         continue;
       }
       const v = view(g, g.turn);
@@ -188,4 +192,26 @@ test("temps écoulé : carte autorisée la plus forte", () => {
   assert.equal(strongestCard(["AH", "7S"], "S"), "7S"); // l'atout l'emporte
   assert.equal(strongestCard(["AS", "9S", "JS"], "S"), "JS"); // valet d'atout
   assert.equal(strongestCard(["10D", "KD"], "S"), "10D");
+});
+
+test("robots : soutien du partenaire, pas de coupe sur le partenaire maître, pas de points donnés", () => {
+  // Partenaire (siège 1) à 80 pique ; le robot (siège 3) a le Valet et deux As extérieurs : soutien.
+  const base = { phase: "bidding", turn: 3, auction: [], tricks: [], trick: [], legal: [] };
+  let a = botAction({ ...base, contract: { seat: 1, amount: 80, suit: "S" }, hand: ["JS", "7S", "AH", "AD", "8C", "9C", "7H", "8D"] });
+  assert.deepEqual(a, { type: "bid", amount: 110, suit: "S" });
+  // Main faible sans contrat : le robot passe au lieu d'annoncer.
+  a = botAction({ ...base, contract: null, hand: ["7S", "8H", "9D", "7C", "8C", "QH", "KD", "7D"] });
+  assert.equal(a.type, "pass");
+  // Valet + 9 d'atout avec 4 atouts : annonce.
+  a = botAction({ ...base, contract: null, hand: ["JH", "9H", "7H", "8H", "7C", "8C", "9D", "7D"] });
+  assert.deepEqual(a, { type: "bid", amount: 90, suit: "H" });
+  // Jeu : le partenaire (siège 1) a joué l'As de cœur maître, le robot (siège 3, dernier) n'a plus de cœur.
+  const play = { phase: "playing", turn: 3, contract: { seat: 0, amount: 80, suit: "S" }, tricks: [], auction: [] };
+  const trick = [{ seat: 0, card: "7H" }, { seat: 1, card: "AH" }, { seat: 2, card: "8H" }];
+  a = botAction({ ...play, trick, hand: ["7S", "10C", "8D"], legal: ["7S", "10C", "8D"] });
+  assert.equal(a.card, "10C", "il charge le pli du partenaire au lieu de couper");
+  // Pli perdu face à un adversaire : la plus petite carte.
+  const lost = [{ seat: 0, card: "AH" }, { seat: 1, card: "7H" }, { seat: 2, card: "8H" }];
+  a = botAction({ ...play, contract: { seat: 1, amount: 80, suit: "S" }, trick: lost, hand: ["9H", "10H"], legal: ["9H", "10H"] });
+  assert.equal(a.card, "9H");
 });

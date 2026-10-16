@@ -1835,6 +1835,7 @@ export function createApp({
       "index.html",
       "app.js",
       "cards.js",
+      "tips.js",
       "style.css",
       "cards-LICENSE.txt",
       "sw.js",

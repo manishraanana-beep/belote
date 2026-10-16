@@ -1,4 +1,5 @@
 import { cardImage } from "./cards.js";
+import { nextTip } from "./tips.js";
 // Les 32 cartes sont chargées et décodées d'avance : une carte jouée s'affiche aussitôt, jamais en rectangle blanc.
 const CARD_CACHE = [];
 setTimeout(() => {
@@ -397,6 +398,14 @@ function shopUse(id) {
   toast(it.kind === "emoji" ? "Favoris mis à jour" : "C’est équipé !");
   const before = itemStatus(it);
   reopenWhen(id, (x) => itemStatus(x) !== before);
+}
+
+// Astuce de joueur : une par moment (table, donne), stable d'un rafraîchissement à l'autre.
+const tipCache = new Map();
+function tipLine(key) {
+  if (!tipCache.has(key)) tipCache.set(key, nextTip());
+  const tip = tipCache.get(key);
+  return `<p class="tip-line"><span>💡 Astuce · ${e(tip.category)}</span>${e(tip.text)}</p>`;
 }
 
 // ———————————————————————————————————————————————————————————— salon d'attente
@@ -1072,6 +1081,7 @@ function roomView() {
     ${onlineBlock(t, me, free)}
     ${stake}
     <div class="stack">${actions}</div>
+    ${tipLine("room:" + t.id)}
     <p class="foot-link">${btn(`${icon("doc")} Règles de la table`, "rulesInfo", "inline-link")}${owner && !t.quick && !t.lobby ? ` · ${btn("Modifier", "editRules", "inline-link")}` : ""}</p>`,
     { vip, cls: "page-room", right: btn(icon("menu"), "roomMenu", "round-btn", 'aria-label="Menu"'), sub: vip ? "VIP" : "" },
   );
@@ -1227,6 +1237,7 @@ function dealResult(g, t, me) {
     <p class="op-sub">Score total de la partie</p>
     <div class="total-pill"><div><small>Nous</small><b>${g.scores[me % 2]}</b></div><i></i><div class="them"><small>Eux</small><b>${g.scores[1 - (me % 2)]}</b></div></div>
     <p class="next-auto">Donne suivante dans <b data-deadline="${t.nextAt ?? 0}"></b></p>
+    ${tipLine(`deal:${t.gameId}:${h.deal}`)}
   </div></div>`;
 }
 // Maquette « Victoire ! » + règlement des crédits + revanche.
@@ -2809,6 +2820,14 @@ async function connect() {
     };
   } catch {
     setTimeout(connect, 3000);
+  }
+}
+// Écran de chargement : une astuce de joueur pendant que la partie se prépare.
+{
+  const sp = document.querySelector("#app .splash p");
+  if (sp && location.pathname.replace(/\/$/, "") !== "/admin") {
+    const tip = nextTip();
+    sp.insertAdjacentHTML("afterend", `<p class="tip-line"><span>💡 Astuce · ${e(tip.category)}</span>${e(tip.text)}</p>`);
   }
 }
 // Back office : page séparée (/admin), jamais affichée dans l'application des joueurs.

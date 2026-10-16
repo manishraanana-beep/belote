@@ -283,20 +283,115 @@ export function view(g, seat) {
         : [],
   };
 }
-// Bots receive precisely the same redacted observation as human players.
-export function botAction(v) {
-  if (v.phase === "playing") return { type: "play", card: v.legal[0] };
-  if (v.phase === "bidding") {
-    if (!v.contract) {
-      const best = SUITS.map((s) => ({
-        s,
-        n: v.hand
-          .filter((c) => suit(c) === s)
-          .reduce((n, c) => n + value(c, s), 0),
-      })).sort((a, b) => b.n - a.n)[0];
-      return { type: "bid", amount: 80, suit: best.s };
-    }
+// Robots : ils reçoivent exactement la même observation qu'un joueur humain (leur main et ce qui
+// est public), jamais les cartes cachées. Stratégie de joueurs de contrée : annonces fondées sur
+// Valet/9 d'atout et la longueur, soutien du partenaire (+10 avec le Valet ou 3 atouts, +10 par As
+// extérieur), contre raisonné, jeu de la carte (faire tomber les atouts, protéger ses As, charger
+// le pli du partenaire maître, ne pas couper son partenaire, ne pas donner de points).
+const AMOUNTS = [80, 90, 100, 110, 120, 130, 140, 150, 160];
+const roundBid = (n) => AMOUNTS.filter((a) => a <= n).at(-1) ?? null;
+function handFor(hand, s) {
+  const tr = hand.filter((c) => suit(c) === s);
+  const has = (r) => tr.includes(r + s);
+  const sideAces = hand.filter((c) => suit(c) !== s && rank(c) === "A").length;
+  const sideTens = hand.filter((c) => suit(c) !== s && rank(c) === "10" && hand.includes("A" + suit(c))).length;
+  return { n: tr.length, J: has("J"), nine: has("9"), A: has("A"), ten: has("10"), sideAces, sideTens, belote: has("K") && has("Q") };
+}
+// Valeur d'annonce estimée d'une main pour un atout donné (null : ne pas prendre).
+function ownBid(hand, s) {
+  const h = handFor(hand, s);
+  let base = null;
+  if (h.J && h.nine && h.n >= 3) base = 80 + (h.n - 3) * 10; // Valet + 9 : excellente base
+  else if (h.J && h.A && h.n >= 3) base = 80 + Math.max(0, h.n - 4) * 10; // Valet + As, prudence sans le 9
+  else if (h.J && h.n >= 4) base = 80 + (h.n - 4) * 10;
+  else if (h.nine && h.A && h.n >= 4) base = 80; // sans le Valet, il faut de la longueur
+  if (base === null) return null;
+  base += h.sideAces * 10 + h.sideTens * 5 + (h.belote ? 10 : 0);
+  return Math.min(160, base);
+}
+function botBid(v, me) {
+  const partner = (me + 2) % 4,
+    c = v.contract;
+  const mine = SUITS.map((s) => ({ s, amount: ownBid(v.hand, s) })).filter((x) => x.amount).sort((a, b) => b.amount - a.amount)[0];
+  if (!c) return mine && roundBid(mine.amount) ? { type: "bid", amount: roundBid(mine.amount), suit: mine.s } : { type: "pass" };
+  if (c.seat === partner) {
+    // Soutien du partenaire selon la convention : indication de force, jamais automatique.
+    const h = handFor(v.hand, c.suit);
+    let support = 0;
+    if (h.J || h.n >= 3) support += 10;
+    if (c.amount >= 100 || support) support += Math.min(2, h.sideAces) * 10;
+    const target = roundBid(c.amount + support);
+    if (support >= 10 && target && target > c.amount && target <= 140) return { type: "bid", amount: target, suit: c.suit };
     return { type: "pass" };
   }
+  if (team(c.seat) === team(me)) return { type: "pass" }; // notre propre contrat
+  // Contrat adverse : surenchérir seulement avec une vraie main, sinon envisager le contre.
+  if (mine && mine.amount >= c.amount + 10) {
+    const amount = roundBid(Math.min(mine.amount, c.amount + 20));
+    if (amount && amount > c.amount) return { type: "bid", amount, suit: mine.s };
+  }
+  const h = handFor(v.hand, c.suit);
+  const strongTrump = [h.J, h.nine, h.A].filter(Boolean).length;
+  const counter = c.amount <= 160 && ((c.amount >= 100 && strongTrump >= 2 && h.n >= 2) || (c.amount >= 120 && strongTrump >= 1 && h.sideAces >= 2));
+  if (counter && !(v.auction ?? []).some((a) => a.type === "counter")) return { type: "counter" };
+  return { type: "pass" };
+}
+function botPlay(v, me) {
+  const t = v.contract.suit,
+    legal = v.legal,
+    trick = v.trick,
+    partner = (me + 2) % 4;
+  if (legal.length === 1) return legal[0];
+  const played = new Set([...v.tricks.flatMap((x) => x.cards.map((p) => p.card)), ...trick.map((p) => p.card)]);
+  const order = (s) => (s === t ? ["7", "8", "Q", "K", "10", "A", "9", "J"] : ["7", "8", "9", "J", "Q", "K", "10", "A"]);
+  const unseenHigher = (c) => {
+    const s = suit(c),
+      o = order(s);
+    return o.slice(o.indexOf(rank(c)) + 1).some((r) => !played.has(r + s) && !v.hand.includes(r + s));
+  };
+  const master = (c) => !unseenHigher(c);
+  const trumpsOut = order(t).filter((r) => !played.has(r + t) && !v.hand.includes(r + t)).length;
+  const cheap = (c) => value(c, t) + strength(c, t) * 0.1 + (suit(c) === t ? 30 : 0);
+  const byCheap = [...legal].sort((a, b) => cheap(a) - cheap(b));
+  const takers = team(v.contract.seat) === team(me);
+  if (!trick.length) {
+    // Entame : faire tomber les atouts adverses quand on est preneur et maître à l'atout.
+    const myTrumps = legal.filter((c) => suit(c) === t);
+    if (takers && trumpsOut > 0 && myTrumps.some(master)) return myTrumps.filter(master).sort((a, b) => strength(b, t) - strength(a, t))[0];
+    // Cartes maîtresses à côté de l'atout, tant que la couleur n'a pas trop circulé (risque de coupe).
+    const sideMasters = legal.filter((c) => suit(c) !== t && master(c) && value(c, t) >= 10 && [...played].filter((x) => suit(x) === suit(c)).length <= 3);
+    if (sideMasters.length) return sideMasters.sort((a, b) => value(b, t) - value(a, t))[0];
+    // Sinon une petite carte d'une couleur longue, en gardant ses atouts.
+    const side = byCheap.filter((c) => suit(c) !== t);
+    return (side[0] ?? byCheap[0]);
+  }
+  const w = winner(trick, t),
+    winCard = trick.find((p) => p.seat === w).card,
+    last = trick.length === 3;
+  const beats = (c) => winner([...trick, { seat: me, card: c }], t) === me;
+  if (team(w) === team(me)) {
+    // Partenaire maître du pli : ne pas le couper ; le charger s'il est sûr de le garder.
+    const safe = last || (master(winCard) && (suit(winCard) === t || trumpsOut === 0 || suit(trick[0].card) === suit(winCard)));
+    const nonTrump = legal.filter((c) => suit(c) !== t || suit(trick[0].card) === t);
+    const pool = nonTrump.length ? nonTrump : legal;
+    if (safe) return [...pool].sort((a, b) => value(b, t) - value(a, t) || cheap(a) - cheap(b))[0];
+    return [...pool].sort((a, b) => cheap(a) - cheap(b))[0];
+  }
+  const winners = legal.filter(beats).sort((a, b) => cheap(a) - cheap(b));
+  if (winners.length) {
+    if (last) return winners[0]; // gagner au plus juste
+    const sure = winners.filter(master);
+    const points = trick.reduce((n, p) => n + value(p.card, t), 0);
+    // Une coupe peut être décisive : on prend les plis qui valent la peine.
+    if (sure.length && (points >= 10 || suit(sure[0]) !== t)) return sure.sort((a, b) => cheap(a) - cheap(b))[0];
+    if (points >= 10 || suit(winners[0]) !== t) return winners[0];
+  }
+  // Pli perdu : ne pas donner de points aux adversaires.
+  return byCheap[0];
+}
+export function botAction(v) {
+  const me = v.turn;
+  if (v.phase === "playing") return { type: "play", card: botPlay(v, me) };
+  if (v.phase === "bidding") return botBid(v, me);
   return null;
 }

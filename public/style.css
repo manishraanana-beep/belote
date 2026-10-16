@@ -1469,3 +1469,6 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 /* Éventail légèrement arrondi et resserré autour de l'avatar */
 .screen.game .seat .backs i { transform-origin: 50% 210%; }
 .wallet-note { text-align: center; margin: 10px 0 0; }
+/* Astuces de joueurs : une ligne discrète, sans fenêtre ni défilement */
+.tip-line { margin: 10px auto 0; max-width: 34em; padding: 8px 12px; border-radius: 12px; border: 1px solid #f6c85f55; background: #00000033; color: #fdf3dc; font-size: 14px; line-height: 1.35; text-align: center; }
+.tip-line span { display: block; margin-bottom: 2px; color: var(--gold); font-weight: 700; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
