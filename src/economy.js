@@ -119,16 +119,22 @@ export function createEconomy(db, config = economyConfig()) {
       return e;
     },
     // Réservation au lancement : min(disponible, 3 × mise), figée pour toute la partie.
-    reserve(t, players) {
+    // house : les places sans joueur (robots) sont tenues par la Maison, qui engage le maximum.
+    reserve(t, players, { house = false } = {}) {
       const stake = toUnits(t.stake);
       const stakes = [];
       for (let seat = 0; seat < 4; seat++) {
         const p = players[seat];
+        if (!p && house) continue;
         if (!p) throw Error("Les parties avec crédits se jouent à quatre joueurs");
         if (available(p) < stake) throw Error(`${p.name} n’a pas assez de crédits disponibles`);
       }
       for (let seat = 0; seat < 4; seat++) {
         const p = players[seat];
+        if (!p) {
+          stakes.push({ seat, pid: null, name: "Maison", engaged: 3 * stake, house: true });
+          continue;
+        }
         const engaged = Math.min(available(p), 3 * stake);
         wallet(p).reserved += engaged;
         stakes.push({ seat, pid: p.id, name: p.name, engaged });

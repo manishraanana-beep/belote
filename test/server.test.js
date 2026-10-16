@@ -1098,3 +1098,24 @@ test("boutique : achat unique, solde insuffisant, jetons engagés, équipement e
     await f.close();
   }
 });
+
+test("Jouer maintenant : partie à 200 avec les robots de la Maison, gratuite sans crédits", async () => {
+  const f = await fixture({ fillSeconds: 0.05, env: { BELOTE_LOGIN_BONUS: "0", BELOTE_SIGNUP_BONUS: "1000" } });
+  try {
+    const a = await member(f, "rapide@exemple.fr");
+    await a.command("quick");
+    await a.wait((c) => c.state.table?.game);
+    const t = f.app.db.tables[a.state.table.id];
+    assert.equal(t.stake, 200);
+    assert.equal(t.money.seats.filter((x) => x.house).length, 3);
+    const p = f.app.db.players[a.state.player.id];
+    assert.equal(p.wallet.reserved, Math.min(p.wallet.balance, 3 * 400));
+    // Un invité sans compte joue la partie rapide gratuitement.
+    const g = await f.client();
+    await g.command("quick");
+    await g.wait((c) => c.state.table?.game);
+    assert.equal(f.app.db.tables[g.state.table.id].stake, 0);
+  } finally {
+    await f.close();
+  }
+});

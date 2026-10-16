@@ -109,3 +109,17 @@ test("achats désactivés par défaut, boutique de test jamais en production", (
   assert.equal(economyConfig({ BELOTE_TEST_SHOP: "on", NODE_ENV: "production" }).testShop, false);
   assert.equal(economyConfig({ BELOTE_TEST_SHOP: "on", RAILWAY_ENVIRONMENT: "production" }).testShop, false);
 });
+
+test("règlement avec les robots de la Maison : le joueur gagne ou perd contre la Maison", async () => {
+  const { createEconomy, toUnits } = await import("../src/economy.js");
+  const db = { players: {}, ledger: [], ledgerKeys: {}, settings: {} };
+  const eco = createEconomy(db);
+  const p = { id: "p1", wallet: { balance: toUnits(1000), reserved: 0 } };
+  db.players.p1 = p;
+  const money = eco.reserve({ stake: 200 }, [p, null, null, null], { house: true });
+  assert.equal(money.seats.length, 4);
+  const r = eco.settle(db.players, money, [1000, 300], "g1");
+  assert.ok(r);
+  assert.equal(p.wallet.reserved, 0);
+  assert.ok(p.wallet.balance > toUnits(1000), "victoire : crédits versés par la Maison");
+});
