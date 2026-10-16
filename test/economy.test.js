@@ -15,25 +15,25 @@ test("victoire simple : chaque perdant perd la mise, chaque gagnant gagne la mis
   assert.deepEqual(credits(r), [200, -200, 200, -200]);
 });
 test("rubicon : strictement plus du double ; égalité au double = victoire simple", () => {
-  assert.deepEqual(credits(computeSettlement(money(200, [600, 600, 600, 600]), [1001, 500])), [600, -600, 600, -600]);
+  assert.deepEqual(credits(computeSettlement(money(200, [600, 600, 600, 600]), [1001, 500])), [400, -400, 400, -400]);
   assert.equal(computeSettlement(money(200, [600, 600, 600, 600]), [1000, 500]).rubicon, false);
   assert.deepEqual(credits(computeSettlement(money(200, [600, 600, 600, 600]), [1000, 500])), [200, -200, 200, -200]);
 });
-test("rubicon avec adversaires peu engagés : 350 + 500 = 850, soit 425 par gagnant", () => {
+test("rubicon (double de la mise) avec adversaires peu engagés : 350 + 400 = 750, soit 375 par gagnant", () => {
   const r = computeSettlement(money(200, [600, 350, 1000 / 1000 * 600, 500]), [1200, 300]);
-  assert.deepEqual(credits(r), [425, -350, 425, -500]);
+  assert.deepEqual(credits(r), [375, -350, 375, -400]);
   assert.equal(r.rows.find((x) => x.seat === 0).adjusted, true);
 });
 test("montant impair : demi-crédits exacts, rien n'est créé", () => {
   const r = computeSettlement(money(100, [300, 150.5, 300, 300]), [1100, 100]);
-  // 150,5 + 300 = 450,5 : le dernier demi-crédit ne se partage pas, il n'est pas prélevé → 225 chacun.
+  // 150,5 + 200 = 350,5 : le dernier demi-crédit ne se partage pas, il n'est pas prélevé → 175 chacun.
   const d = credits(r);
   assert.equal(d.reduce((a, b) => a + b, 0), 0);
-  assert.deepEqual(d, [225, -150.5, 225, -299.5]);
+  assert.deepEqual(d, [175, -150.5, 175, -199.5]);
   const r2 = computeSettlement(money(100, [300, 150.5, 300, 151]), [1100, 100]);
   assert.deepEqual(credits(r2), [150.5, -150.5, 150.5, -150.5]);
 });
-test("réservation : min(solde disponible, 3 × mise) ; règlement unique et équilibré", () => {
+test("réservation : min(solde disponible, 2 × mise) ; règlement unique et équilibré", () => {
   const db = { players: {} };
   const eco = createEconomy(db, { ...economyConfig({}), dayStartUtc: 3 });
   const players = [200, 350, 1000, 5000].map((c, i) => {
@@ -44,14 +44,14 @@ test("réservation : min(solde disponible, 3 × mise) ; règlement unique et éq
   });
   const t = { stake: 200, gameId: "g1" };
   const m = eco.reserve(t, players);
-  assert.deepEqual(m.seats.map((s) => toCredits(s.engaged)), [200, 350, 600, 600]);
-  assert.deepEqual(players.map((p) => toCredits(eco.available(p))), [0, 0, 400, 4400]);
+  assert.deepEqual(m.seats.map((s) => toCredits(s.engaged)), [200, 350, 400, 400]);
+  assert.deepEqual(players.map((p) => toCredits(eco.available(p))), [0, 0, 600, 4600]);
   // Un achat pendant la partie ne change pas les montants engagés.
   eco.post(players[1], "purchase:test:x", "purchase", toUnits(1000));
   const r = eco.settle(db.players, m, [300, 1100], "g1"); // équipe 1 (J1, J3) gagne en rubicon
   assert.equal(r.rubicon, true);
-  assert.deepEqual(credits(r), [-200, 400, -600, 400]);
-  assert.deepEqual(players.map((p) => toCredits(p.wallet.balance)), [0, 1750, 400, 5400]);
+  assert.deepEqual(credits(r), [-200, 300, -400, 300]);
+  assert.deepEqual(players.map((p) => toCredits(p.wallet.balance)), [0, 1650, 600, 5300]);
   assert.deepEqual(players.map((p) => p.wallet.reserved), [0, 0, 0, 0]);
   assert.equal(eco.settle(db.players, m, [300, 1100], "g1"), null, "réglé une seule fois");
   const moved = db.ledger.filter((x) => x.gameId === "g1").reduce((a, x) => a + x.amount, 0);
