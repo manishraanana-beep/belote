@@ -1441,7 +1441,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .tcard.seen { animation: none; }
 /* Joueur du haut : l'annonce du preneur à droite de son avatar, jamais cachée par les cartes du pli */
 .seat.p2 .taker-badge { position: absolute; left: calc(100% + 8px); top: 38%; margin: 0; z-index: 6; font-size: 14px; padding: 3px 12px; }
-.seat.p2:has(.taker-badge) { z-index: 7; }
+
 /* Écrans larges (ordinateur, tablette en paysage) : « Dernier pli » dans le coin, jamais sur les cartes du pli */
 @media (min-aspect-ratio: 4/5) {
   .screen.game .last-trick-btn { top: 12px; bottom: auto; left: auto; right: 16px; translate: none; }
@@ -1472,3 +1472,6 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 /* Astuces de joueurs : une ligne discrète, sans fenêtre ni défilement */
 .tip-line { margin: 10px auto 0; max-width: 34em; padding: 8px 12px; border-radius: 12px; border: 1px solid #f6c85f55; background: #00000033; color: #fdf3dc; font-size: 14px; line-height: 1.35; text-align: center; }
 .tip-line span { display: block; margin-bottom: 2px; color: var(--gold); font-weight: 700; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+/* Le pli commence sous le nom et l'étiquette du joueur d'en face : sa carte n'est jamais cachée */
+.screen.game .center { top: calc(var(--av) + 64px); }
+@media (orientation: landscape) and (max-height: 520px) { .screen.game .center { top: 50%; } }
