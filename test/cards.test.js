@@ -30,3 +30,16 @@ test("rendu HTML sans suggestion de carte", () => {
   assert.match(card("7H", { play: true }), /data-action="play"/);
   assert.throws(() => card("6H"));
 });
+test("astuces : plus de 100, classées, courtes, sans répétition rapprochée", async () => {
+  const { TIPS, TIP_CATEGORIES, nextTip } = await import("../public/tips.js");
+  assert.ok(TIPS.length >= 100);
+  for (const [cat, text] of TIPS) {
+    assert.ok(TIP_CATEGORIES[cat], cat);
+    assert.ok(text.length <= 110, text);
+  }
+  const mem = new Map();
+  const store = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, v) };
+  const seen = new Set();
+  for (let i = 0; i < 30; i++) seen.add(nextTip(store).text);
+  assert.equal(seen.size, 30);
+});
