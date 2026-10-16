@@ -134,6 +134,8 @@ export function createApp({
   const economy = createEconomy(db, economyConfig(env));
   const progression = createProgression({ db, economy, env });
   const shop = createShop({ db, economy });
+  // Mise de « Jouer maintenant » (robots compris) ; 0 pour la désactiver.
+  const QUICK_STAKE = Number(env.BELOTE_QUICK_STAKE ?? 200);
   const avatarOk = (v, p) => validAvatar(v, p) || (isShopAvatar(v) && !!p && shop.owns(p, v));
   const integrity = createIntegrity(db, integrityConfig(env));
   const pushCfg = pushConfig(env);
@@ -614,10 +616,15 @@ export function createApp({
     const gameId = id();
     if (t.stake) {
       // Parties avec crédits : quatre humains avec compte, réservation au lancement.
-      check(t.seats.every((s) => !s.bot), "Les parties avec crédits se jouent entre quatre joueurs");
-      check(t.seats.every((s) => db.players[s.id]?.accountId), "Chaque joueur doit avoir un compte pour miser des crédits");
+      // Partie rapide : les robots jouent pour la Maison ; un joueur sans les crédits joue gratuitement.
+      const humans = t.seats.filter((s) => !s.bot).map((s) => db.players[s.id]);
+      if (t.houseBots && humans.some((h) => !h?.accountId || economy.available(h) < toUnits(t.stake))) t.stake = 0;
+    }
+    if (t.stake) {
+      if (!t.houseBots) check(t.seats.every((s) => !s.bot), "Les parties avec crédits se jouent entre quatre joueurs");
+      check(t.seats.every((s) => s.bot || db.players[s.id]?.accountId), "Chaque joueur doit avoir un compte pour miser des crédits");
       t.gameId = gameId;
-      t.money = economy.reserve(t, t.seats.map((s) => db.players[s.id]));
+      t.money = economy.reserve(t, t.seats.map((s) => (s.bot ? null : db.players[s.id])), { house: !!t.houseBots });
     } else t.money = null;
     t.game = newGame(t.rules);
     t.gameId = gameId;
@@ -1058,12 +1065,15 @@ export function createApp({
           check(!t.game || t.game.phase === "finished", "Vous jouez déjà une partie");
           leave(p);
         }
+        // Avec un compte et assez de crédits : partie à 200 (robots compris, adossés à la Maison).
+        const quickStake = p.accountId && economy.available(p) >= toUnits(QUICK_STAKE) ? QUICK_STAKE : 0;
         let target = Object.values(db.tables).find(
-          (x) => x.quick && !x.game && x.seats.includes(null),
+          (x) => x.quick && !x.game && x.seats.includes(null) && (x.stake ?? 0) === quickStake,
         );
         if (!target) {
-          target = table("Partie rapide", pid, false);
+          target = table(quickStake ? `Partie rapide · ${quickStake}` : "Partie rapide", pid, false, {}, quickStake);
           target.quick = true;
+          target.houseBots = !!quickStake;
         }
         target.seats[target.seats.indexOf(null)] = { id: pid, name: p.name, avatar: p.avatar };
         p.tableId = target.id;
