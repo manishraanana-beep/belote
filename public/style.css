@@ -1468,3 +1468,4 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 
 /* Éventail légèrement arrondi et resserré autour de l'avatar */
 .screen.game .seat .backs i { transform-origin: 50% 210%; }
+.wallet-note { text-align: center; margin: 10px 0 0; }
