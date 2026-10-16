@@ -74,7 +74,8 @@ const avatarUrl = (v) =>
       : /^av-(?:\d\d|or-\d|roi-\d)$/.test(v ?? "")
         ? `/shop/avatars/${v}.webp`
         : `/avatars/${AVATARS.includes(v) ? v : "jacques"}.webp`;
-const avatar = (v, cls = "") => `<img class="avatar ${cls}" src="${avatarUrl(v)}" alt="" draggable="false">`;
+// Les avatars de la boutique ont déjà leur propre cadre (doré, couronne) : on n'y ajoute pas d'anneau.
+const avatar = (v, cls = "") => `<img class="avatar ${cls} ${/^av-/.test(v ?? "") ? "framed" : ""}" src="${avatarUrl(v)}" alt="" draggable="false">`;
 const btn = (text, action, cls = "", data = "", disabled = false) =>
   `<button type="button" class="${cls}" data-action="${action}" ${data} ${disabled ? "disabled" : ""}>${text}</button>`;
 const suitHtml = (s) => `<span class="suit ${isRed(s) ? "red" : ""}">${SUITS[s]}</span>`;
