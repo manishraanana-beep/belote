@@ -106,17 +106,24 @@ for (const [name, viewport, mobile] of [
     await inView(page, ".bid-panel .amount, .bid-panel .suit-btn, .bid-panel .bid-actions button");
     await inView(page, ".status-row .turn-pill");
     await page.screenshot({ path: `${shots}${name}-1-encheres.png` });
+    // L'annonce du preneur est brève : on la mémorise dès son apparition.
+    await page.evaluate(() => {
+      window.__banner = "";
+      new MutationObserver(() => {
+        const b = document.querySelector(".contract-banner");
+        if (b && !window.__banner) window.__banner = b.textContent;
+      }).observe(document.getElementById("app"), { childList: true, subtree: true });
+    });
     await bid(page, "S", 90);
-    const banner = page.locator(".contract-banner");
     // Les robots peuvent surenchérir ou contrer : on passe jusqu'à ce que le contrat soit fixé.
-    for (let i = 0; i < 60 && !(await banner.isVisible()); i++) {
+    for (let i = 0; i < 120 && !(await page.evaluate(() => window.__banner)); i++) {
       const pass = page.locator('.bid-panel [data-action="pass"]');
-      if (await pass.isVisible().catch(() => false)) await pass.click().catch(() => {});
-      await page.waitForTimeout(250);
+      if (await pass.isVisible().catch(() => false)) await pass.click({ timeout: 1000 }).catch(() => {});
+      await page.waitForTimeout(150);
     }
-    await expect(banner).toBeVisible({ timeout: 15000 });
-    await expect(banner).toContainText("a pris");
-    await expect(banner).toContainText(/Votre équipe|Équipe adverse/);
+    const bannerText = await page.evaluate(() => window.__banner);
+    expect(bannerText).toContain("a pris");
+    expect(bannerText).toMatch(/Votre équipe|Équipe adverse/);
     await expect(page.locator(".taker-badge")).toHaveCount(1);
     await page.screenshot({ path: `${shots}${name}-2-preneur.png` });
     await noScroll(page);
@@ -126,7 +133,7 @@ for (const [name, viewport, mobile] of [
     await page.screenshot({ path: `${shots}${name}-3-a-vous.png` });
     await tap(page.locator(`.hand [data-card="${first}"]`)); // une seule touche joue la carte
     await expect(page.locator(".trick .tcard").first()).toBeVisible();
-    await expect(banner).toHaveCount(0);
+    await expect(page.locator(".contract-banner")).toHaveCount(0);
     await page.waitForTimeout(500);
     await page.screenshot({ path: `${shots}${name}-4-pli.png` });
     await expect(page.locator('[data-action="lastTrick"]')).toBeEnabled({ timeout: 15000 });

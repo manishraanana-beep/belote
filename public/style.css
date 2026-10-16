@@ -1473,5 +1473,5 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .tip-line { margin: 10px auto 0; max-width: 34em; padding: 8px 12px; border-radius: 12px; border: 1px solid #f6c85f55; background: #00000033; color: #fdf3dc; font-size: 14px; line-height: 1.35; text-align: center; }
 .tip-line span { display: block; margin-bottom: 2px; color: var(--gold); font-weight: 700; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
 /* Le pli commence sous le nom et l'étiquette du joueur d'en face : sa carte n'est jamais cachée */
-.screen.game .center { top: calc(var(--av) + 64px); }
-@media (orientation: landscape) and (max-height: 520px) { .screen.game .center { top: 50%; } }
+.screen.game.phase-playing .center { top: calc(var(--av) + 64px); }
+@media (orientation: landscape) and (max-height: 520px) { .screen.game.phase-playing .center { top: 50%; } }
