@@ -1476,3 +1476,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .screen.game.phase-playing .center { top: calc(var(--av) + 64px); }
 @media (orientation: landscape) and (max-height: 520px) { .screen.game.phase-playing .center { top: 50%; } }
 .quick-btn { flex-wrap: wrap; } .quick-btn .quick-stake { flex-basis: 100%; display: block; font: 600 13px var(--ui, sans-serif); opacity: 0.85; margin-top: 2px; }
+/* Avatars de la boutique : cadre intégré à l'image, sans anneau ni fond doré autour */
+.avatar.framed { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; object-fit: contain; outline: 0 !important; }
+.seat-avatar:has(> .avatar.framed), .slot-ring:has(> .avatar.framed), .me-seat:has(> .avatar.framed) { background: none !important; box-shadow: none !important; padding: 0 !important; border: 0 !important; }
+.seat-avatar:has(> .avatar.framed) { border-radius: 0; }
