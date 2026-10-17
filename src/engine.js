@@ -128,7 +128,12 @@ export function scoreDeal(g) {
       g.contract.amount;
   const score = [0, 0],
     base = capot ? g.rules.capotValue : g.contract.amount;
-  if (made) {
+  // Capot réalisé sans l'avoir annoncé : annonce + 250 points (les points des plis ne s'ajoutent pas).
+  const unannouncedCapot = !capot && g.tricks.length === 8 && g.tricks.every((t) => team(t.winner) === taker);
+  if (made && unannouncedCapot) {
+    score[taker] = (g.contract.amount + 250) * g.multiplier + g.belote[taker];
+    score[def] = g.belote[def];
+  } else if (made) {
     score[taker] =
       (g.rules.scoring === "contract" ? base : g.points[taker] + base) *
         g.multiplier +
@@ -142,6 +147,7 @@ export function scoreDeal(g) {
   }
   return {
     made,
+    capot: capot || unannouncedCapot,
     score,
     points: [...g.points],
     belote: [...g.belote],

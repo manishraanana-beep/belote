@@ -1235,6 +1235,7 @@ function dealResult(g, t, me) {
     <div class="res-box ${h.made ? "ok" : "ko"}">${h.made ? icon("check", "res-ico") : '<span class="res-ico x">✕</span>'}<div><b>${h.made ? "Contrat réussi" : "Contrat chuté"}</b><small>${h.made ? `${ours ? "Bravo" : "Ils ont"} atteint ${amountLabel(h.contract.amount)} !` : `${ours ? "Dommage" : "Bien défendu"} : ${amountLabel(h.contract.amount)} non atteint.`}</small></div></div>
     <div class="duo"><div class="${h.score[me % 2] >= h.score[1 - (me % 2)] ? "lead" : ""}">${h.score[me % 2] >= h.score[1 - (me % 2)] ? icon("crown") : ""}<small>Nous</small><b>${h.score[me % 2]}</b></div><div class="${h.score[1 - (me % 2)] > h.score[me % 2] ? "lead" : ""}"><small>Eux</small><b>${h.score[1 - (me % 2)]}</b></div></div>
     ${belote}
+    ${h.capot && h.contract.amount !== 250 ? `<div class="res-line">${icon("trophy", "big")}<div><b>Capot ! ${amountLabel(h.contract.amount)} + 250 points</b><small>Tous les plis, sans l’avoir annoncé</small></div></div>` : ""}
     <p class="op-sub">Score total de la partie</p>
     <div class="total-pill"><div><small>Nous</small><b>${g.scores[me % 2]}</b></div><i></i><div class="them"><small>Eux</small><b>${g.scores[1 - (me % 2)]}</b></div></div>
     <p class="next-auto">Donne suivante dans <b data-deadline="${t.nextAt ?? 0}"></b></p>
