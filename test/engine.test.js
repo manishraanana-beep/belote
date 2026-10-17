@@ -215,3 +215,25 @@ test("robots : soutien du partenaire, pas de coupe sur le partenaire maître, pa
   a = botAction({ ...play, contract: { seat: 1, amount: 80, suit: "S" }, trick: lost, hand: ["9H", "10H"], legal: ["9H", "10H"] });
   assert.equal(a.card, "9H");
 });
+
+test("capot non annoncé : annonce + 250 points", () => {
+  const g = newGame();
+  g.contract = { seat: 0, amount: 90, suit: "S" };
+  g.multiplier = 1;
+  g.points = [162, 0];
+  g.belote = [0, 0];
+  g.tricks = Array.from({ length: 8 }, () => ({ winner: 0, cards: [], points: 0 }));
+  let r = scoreDeal(g);
+  assert.deepEqual(r.score, [340, 0]);
+  assert.equal(r.capot, true);
+  // Contré : (annonce + 250) × 2.
+  g.multiplier = 2;
+  assert.deepEqual(scoreDeal(g).score, [680, 0]);
+  // Sans capot : calcul habituel.
+  g.multiplier = 1;
+  g.tricks[7].winner = 1;
+  g.points = [150, 12];
+  r = scoreDeal(g);
+  assert.equal(r.capot, false);
+  assert.deepEqual(r.score, [240, 12]);
+});
