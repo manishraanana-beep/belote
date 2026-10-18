@@ -1480,3 +1480,41 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .avatar.framed { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; object-fit: contain; outline: 0 !important; }
 .seat-avatar:has(> .avatar.framed), .slot-ring:has(> .avatar.framed), .me-seat:has(> .avatar.framed) { background: none !important; box-shadow: none !important; padding: 0 !important; border: 0 !important; }
 .seat-avatar:has(> .avatar.framed) { border-radius: 0; }
+/* Téléphone à l'horizontale : mêmes repères qu'en portrait (décor, solde, partenaire), sans chevauchement */
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen.game { background: linear-gradient(#0007, #000a), url(/decor/salle-table.webp) center top / cover no-repeat, #0b2a26; }
+  .screen.game.felt-ocean { background-image: linear-gradient(#0007, #000a), url(/decor/salle-table-ocean.webp); }
+  .screen.game.felt-bordeaux { background-image: linear-gradient(#0007, #000a), url(/decor/salle-table-bordeaux.webp); }
+  .screen.game.felt-velours { background-image: linear-gradient(#0007, #000a), url(/decor/salle-table-velours.webp); }
+  .screen.game.felt-lagon { background-image: linear-gradient(#0007, #000a), url(/decor/salle-table-lagon.webp); }
+  /* Solde et mode de jeu : à droite, à côté du menu, plus cachés */
+  .gt-chips { visibility: visible; justify-content: flex-end; padding: 0 8px 0 0; }
+  .gt-chip { font-size: 14px; padding: 5px 12px; }
+  /* « À vous de jouer » : au-dessus de son avatar, à gauche de la main, plus sur les cartes */
+  .turn-pill, .turn-pill.on { position: absolute; left: 8px; bottom: calc(100% + 6px); display: flex; flex-direction: column; align-items: center; gap: 2px; max-width: max(104px, calc(50vw - (var(--step) * 7 + var(--cw)) / 2 - 34px)); padding: 5px 10px; font-size: 14px; line-height: 1.1; white-space: normal; text-align: center; border-radius: 16px; }
+  .turn-pill::before, .turn-pill::after { display: none; }
+  /* Panneau d'annonce plus compact : il ne recouvre plus la main */
+  .bid-zone { top: 0; }
+  .bid-zone .last-bid-pill { font-size: 13px; padding: 2px 12px; }
+  .bid-zone .bid-panel { padding: 6px 8px; gap: 4px; }
+  .bid-zone .suit-btn { min-height: 0; height: 32px; font-size: 22px; }
+  .bid-zone .amount { min-height: 0; height: 28px; padding: 0; }
+  .bid-zone .bid-actions button { min-height: 0; height: 36px; font-size: 14px; line-height: 1.05; padding: 2px 6px; }
+  /* Le partenaire reste visible pendant votre annonce, en petit à gauche du score */
+  .bidding-me .seat.p2 { display: flex; flex-direction: column; align-items: center; top: -58px; left: calc(50% - 92px); translate: -100% 0; scale: 0.8; transform-origin: 100% 0; }
+  .bidding-me .seat.p2 .backs, .bidding-me .seat.p2 .robot-tag, .bidding-me .seat.p2 .seat-timer, .bidding-me .seat.p2 .bid-tag { display: none; }
+}
+@media (orientation: landscape) and (max-height: 520px) and (max-width: 760px) {
+  .gt-chip.table { display: none; }
+}
+/* Paysage : le pli s'étale en ligne sous le joueur d'en face, sans jamais couvrir son avatar */
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen.game .seat.p2 .robot-tag { display: none; }
+  .screen.game .center, .screen.game.phase-playing .center { top: calc(2% + var(--av) + 26px); translate: -50% 0; }
+  .trick { width: calc(var(--tc) * 4.5); height: calc(var(--tc) * 1.6); }
+  .tcard.p1 { left: 0; right: auto; top: calc(var(--tc) * 0.08); bottom: auto; }
+  .tcard.p2 { left: calc(var(--tc) * 1.15); top: 0; bottom: auto; }
+  .tcard.p0 { left: calc(var(--tc) * 2.3); top: auto; bottom: 0; }
+  .tcard.p3 { right: 0; left: auto; top: calc(var(--tc) * 0.08); bottom: auto; }
+  .screen.game .last-trick-btn { top: auto; bottom: 6px; left: auto; right: 12px; translate: none; padding: 4px 12px; font-size: 14px; }
+}
