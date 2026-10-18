@@ -1482,11 +1482,10 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .seat-avatar:has(> .avatar.framed) { border-radius: 0; }
 /* Téléphone à l'horizontale : mêmes repères qu'en portrait (décor, solde, partenaire), sans chevauchement */
 @media (orientation: landscape) and (max-height: 520px) {
-  .screen.game { background: linear-gradient(#0007, #000a), url(/decor/salle-table.webp) center top / cover no-repeat, #0b2a26; }
-  .screen.game.felt-ocean { background-image: linear-gradient(#0007, #000a), url(/decor/salle-table-ocean.webp); }
-  .screen.game.felt-bordeaux { background-image: linear-gradient(#0007, #000a), url(/decor/salle-table-bordeaux.webp); }
-  .screen.game.felt-velours { background-image: linear-gradient(#0007, #000a), url(/decor/salle-table-velours.webp); }
-  .screen.game.felt-lagon { background-image: linear-gradient(#0007, #000a), url(/decor/salle-table-lagon.webp); }
+  /* Le tapis couvre tout l'écran : une seule table, sans ovale ni photo de salle derrière */
+  .screen.game { isolation: isolate; background: #0b2a26; }
+  .screen.game > .ambient { display: none; }
+  .screen.game .felt { position: fixed; inset: 0; z-index: -1; width: auto; translate: none; top: 0; bottom: 0; left: 0; right: 0; border-radius: 0; box-shadow: inset 0 0 0 clamp(5px, 1.4vmin, 9px) var(--rim-1), inset 0 0 0 clamp(7px, 1.9vmin, 12px) var(--rim-2), inset 0 0 90px #000a; }
   /* Solde et mode de jeu : à droite, à côté du menu, plus cachés */
   .gt-chips { visibility: visible; justify-content: flex-end; padding: 0 8px 0 0; }
   .gt-chip { font-size: 14px; padding: 5px 12px; }
@@ -1507,14 +1506,15 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 @media (orientation: landscape) and (max-height: 520px) and (max-width: 760px) {
   .gt-chip.table { display: none; }
 }
-/* Paysage : le pli s'étale en ligne sous le joueur d'en face, sans jamais couvrir son avatar */
+/* Paysage : le pli en croix comme en portrait, resserré entre le joueur d'en face et la main */
 @media (orientation: landscape) and (max-height: 520px) {
+  .screen.game { --tc: clamp(38px, 12.5vh, 56px); }
   .screen.game .seat.p2 .robot-tag { display: none; }
-  .screen.game .center, .screen.game.phase-playing .center { top: calc(2% + var(--av) + 26px); translate: -50% 0; }
-  .trick { width: calc(var(--tc) * 4.5); height: calc(var(--tc) * 1.6); }
-  .tcard.p1 { left: 0; right: auto; top: calc(var(--tc) * 0.08); bottom: auto; }
-  .tcard.p2 { left: calc(var(--tc) * 1.15); top: 0; bottom: auto; }
-  .tcard.p0 { left: calc(var(--tc) * 2.3); top: auto; bottom: 0; }
-  .tcard.p3 { right: 0; left: auto; top: calc(var(--tc) * 0.08); bottom: auto; }
+  .screen.game .center, .screen.game.phase-playing .center { top: calc(2% + var(--av) + 24px); translate: -50% 0; }
+  .trick { width: calc(var(--tc) * 3.1); height: calc(var(--tc) * 2.15); }
+  .tcard.p2 { top: 0; }
+  .tcard.p0 { bottom: 0; }
+  .tcard.p1, .tcard.p3 { top: calc(50% - var(--tc) * 0.75); }
   .screen.game .last-trick-btn { top: auto; bottom: 6px; left: auto; right: 12px; translate: none; padding: 4px 12px; font-size: 14px; }
+  .bidding-me .seat.p2 .bubble { left: auto; right: calc(100% + 4px); top: 10%; }
 }
