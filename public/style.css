@@ -1545,3 +1545,9 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 @media (max-aspect-ratio: 4/5) and (max-width: 400px) {
   .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: auto; bottom: 2%; translate: none; }
 }
+/* Portrait : bandeau du tour plus compact, il ne touche plus l'avatar ni les boutons */
+@media (max-aspect-ratio: 4/5) {
+  .screen.game .turn-pill, .screen.game .turn-pill.on { font-size: 15px; padding: 5px 14px; max-width: 100%; justify-self: center; }
+  .screen.game .turn-pill .my-timer { font-size: 13px; }
+  .screen.game .status-row { gap: 10px; }
+}
