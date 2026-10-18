@@ -1597,3 +1597,8 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 @media (orientation: landscape) and (max-height: 520px) {
   .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: 18%; translate: none; }
 }
+/* Le pli garde la même place jusqu'à la dernière carte (résultat de la donne compris) */
+.screen.game .center, .screen.game.phase-summary .center, .screen.game.phase-finished .center { top: calc(var(--av) + 64px); }
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen.game .center, .screen.game.phase-playing .center, .screen.game.phase-summary .center, .screen.game.phase-finished .center { top: calc(2% + var(--av) + 24px); translate: -50% 0; }
+}
