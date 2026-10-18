@@ -1499,9 +1499,6 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .bid-zone .suit-btn { min-height: 0; height: 32px; font-size: 22px; }
   .bid-zone .amount { min-height: 0; height: 28px; padding: 0; }
   .bid-zone .bid-actions button { min-height: 0; height: 36px; font-size: 14px; line-height: 1.05; padding: 2px 6px; }
-  /* Le partenaire reste visible pendant votre annonce, en petit à gauche du score */
-  .bidding-me .seat.p2 { display: flex; flex-direction: column; align-items: center; top: -58px; left: calc(50% - 92px); translate: -100% 0; scale: 0.8; transform-origin: 100% 0; }
-  .bidding-me .seat.p2 .backs, .bidding-me .seat.p2 .robot-tag, .bidding-me .seat.p2 .seat-timer, .bidding-me .seat.p2 .bid-tag { display: none; }
 }
 @media (orientation: landscape) and (max-height: 520px) and (max-width: 760px) {
   .gt-chip.table { display: none; }
@@ -1516,7 +1513,6 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .tcard.p0 { bottom: 0; }
   .tcard.p1, .tcard.p3 { top: calc(50% - var(--tc) * 0.75); }
   .screen.game .last-trick-btn { top: auto; bottom: 6px; left: auto; right: 12px; translate: none; padding: 4px 12px; font-size: 14px; }
-  .bidding-me .seat.p2 .bubble { left: auto; right: calc(100% + 4px); top: 10%; }
 }
 /* Paysage : main un peu plus basse, cartes du pli plus grandes et lisibles */
 @media (orientation: landscape) and (max-height: 520px) {
@@ -1570,3 +1566,15 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .screen.game .turn-pill .my-timer { padding: 1px 6px; }
 }
 @media (max-aspect-ratio: 4/5) { .screen.game .turn-pill::before, .screen.game .turn-pill::after { display: none; } }
+/* Paysage : pendant votre annonce, le joueur d'en face reste à sa place en haut ;
+   le panneau, plus carré (montants sur deux rangées), se place juste en dessous */
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen.game.bidding-me .seat.p2 { display: grid; }
+  .screen.game.bidding-me .seat.p2 .robot-tag, .screen.game.bidding-me .seat.p2 .seat-timer { display: none; }
+  .screen.game .bid-zone { top: calc(2% + var(--av) + 22px); width: min(54vw, 420px); gap: 3px; }
+  .screen.game .bid-zone .bid-amounts { grid-template-columns: repeat(5, 1fr); gap: 3px; }
+  .screen.game .bid-zone .last-bid-pill { font-size: 12px; padding: 1px 10px; }
+  .screen.game .bid-zone .suit-btn { height: 28px; font-size: 20px; }
+  .screen.game .bid-zone .amount { height: 24px; font-size: 13px; }
+  .screen.game .bid-zone .bid-actions button { height: 32px; font-size: 13px; }
+}
