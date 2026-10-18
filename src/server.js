@@ -615,11 +615,12 @@ export function createApp({
   function start(t) {
     check(t.seats.every(Boolean), "Il faut quatre joueurs");
     const gameId = id();
-    if (t.stake) {
-      // Parties avec crédits : quatre humains avec compte, réservation au lancement.
-      // Partie rapide : les robots jouent pour la Maison ; un joueur sans les crédits joue gratuitement.
+    if (t.houseBots) {
+      // Partie rapide : les robots jouent pour la Maison. La mise d'origine est reprise à chaque partie
+      // (revanche comprise) ; elle n'est suspendue que si un joueur n'a pas de compte ou pas les crédits.
+      t.quickStake ??= t.stake;
       const humans = t.seats.filter((s) => !s.bot).map((s) => db.players[s.id]);
-      if (t.houseBots && humans.some((h) => !h?.accountId || economy.available(h) < toUnits(t.stake))) t.stake = 0;
+      t.stake = humans.some((h) => !h?.accountId || economy.available(h) < toUnits(t.quickStake)) ? 0 : t.quickStake;
     }
     if (t.stake) {
       if (!t.houseBots) check(t.seats.every((s) => !s.bot), "Les parties avec crédits se jouent entre quatre joueurs");
@@ -1104,7 +1105,7 @@ export function createApp({
         // Avec un compte et assez de crédits : partie à 200 (robots compris, adossés à la Maison).
         const quickStake = p.accountId && economy.available(p) >= toUnits(QUICK_STAKE) ? QUICK_STAKE : 0;
         let target = Object.values(db.tables).find(
-          (x) => x.quick && !x.game && x.seats.includes(null) && (x.stake ?? 0) === quickStake,
+          (x) => x.quick && !x.game && x.seats.includes(null) && (x.quickStake ?? x.stake ?? 0) === quickStake,
         );
         if (!target) {
           target = table(quickStake ? `Partie rapide · ${quickStake}` : "Partie rapide", pid, false, {}, quickStake);

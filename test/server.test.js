@@ -1144,12 +1144,21 @@ test("Jouer maintenant : revanche relancée, robots de la Maison et absents remp
       }
     }
     assert.equal(t.game.phase, "finished");
+    const pa = f.app.db.players[a.state.player.id];
+    // Partie 1 réglée : gain ou perte appliqué, plus rien de réservé.
+    assert.equal(t.money.settled, true);
+    assert.notEqual(pa.wallet.balance, 10000);
+    assert.equal(pa.wallet.reserved, 0);
+    // Même si la mise avait été suspendue, la revanche repart avec la mise d'origine.
+    t.stake = 0;
     // A accepte ; B ne répond pas : après le délai, un robot prend sa place et la revanche démarre.
     await a.command("rematchVote", { accept: true });
     await a.wait(() => t.game.phase !== "finished");
     assert.equal(t.seats.filter((s) => s.bot).length, 3);
     assert.equal(f.app.db.players[b.state.player.id].tableId, null);
     assert.equal(t.stake, 200);
+    assert.ok(t.money && !t.money.settled, "mise de la revanche engagée");
+    assert.ok(pa.wallet.reserved > 0);
   } finally {
     await f.close();
   }
