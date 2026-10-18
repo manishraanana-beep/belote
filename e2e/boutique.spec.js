@@ -35,6 +35,13 @@ test("boutique : catégories, aperçu, achat, solde insuffisant, équipement et 
   await expect(page.locator(".shop-modal [data-action='shopUse']")).toBeVisible();
   await page.locator(".shop-modal [data-action='shopUse']").click();
   await expect(page.locator(".shop-modal")).toContainText("Équipé");
+  // Retour au tapis vert d'origine, puis on remet le violet.
+  await page.locator('.shop-modal [data-action="feltDefault"]').click();
+  await page.locator('[data-action="shopItem"][data-id="tapis-violet"]').click();
+  await expect(page.locator(".shop-modal .status")).toContainText("Possédé");
+  await expect(page.locator(".shop-modal [data-action='shopUse']")).toBeVisible();
+  await page.locator(".shop-modal [data-action='shopUse']").click();
+  await expect(page.locator(".shop-modal")).toContainText("Équipé");
   await page.keyboard.press("Escape");
   await expect(page.locator(".shop-balance")).toContainText("9 800 jetons");
   // Avatars couronnés : un premier achat, puis solde insuffisant pour le second.
