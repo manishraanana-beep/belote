@@ -1529,3 +1529,19 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .trick { width: calc(var(--tc) * 3.3); height: calc(var(--tc) * 2.1); }
   .tcard.p1, .tcard.p3 { top: calc(50% - var(--tc) * 0.72); }
 }
+/* Portrait : tapis uni sur tout l'écran (plus de photo de salle), joueurs de côté centrés en hauteur */
+.screen.game .me-mini small { display: none; }
+@media (max-aspect-ratio: 4/5) {
+  .screen.game, .screen.game.theme-vip, .screen.game.felt-ocean, .screen.game.felt-bordeaux, .screen.game.felt-lagon, .screen.game.felt-velours { isolation: isolate; background: #0b2a26; }
+  .screen.game .felt { display: block; position: fixed; inset: 0; z-index: -1; width: auto; translate: none; top: 0; bottom: 0; left: 0; right: 0; border-radius: 0; box-shadow: inset 0 0 0 clamp(5px, 1.4vmin, 9px) var(--rim-1), inset 0 0 0 clamp(7px, 1.9vmin, 12px) var(--rim-2), inset 0 0 90px #000a; }
+  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: 50%; translate: 0 -50%; }
+}
+@media (max-aspect-ratio: 4/5) {
+  /* Pendant les annonces, le panneau occupe le centre : les joueurs de côté juste en dessous */
+  /* « Dernier pli » sous le pli, jamais sur la carte jouée */
+  .screen.game .last-trick-btn { top: min(calc(var(--av) + 72px + var(--tc) * 2.9), calc(100% - 46px)); bottom: auto; left: 50%; right: auto; translate: -50% 0; }
+}
+/* Écrans étroits en portrait : le panneau d'annonce couvre toute la largeur, les joueurs de côté passent dessous */
+@media (max-aspect-ratio: 4/5) and (max-width: 400px) {
+  .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: auto; bottom: 2%; translate: none; }
+}
