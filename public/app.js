@@ -1404,6 +1404,8 @@ const release = () =>
   }, 0);
 document.addEventListener("pointerup", release, true);
 document.addEventListener("pointercancel", release, true);
+let lastShape = "",
+  lastShapeNode = null;
 function render() {
   if (!state) return;
   if (pressing) {
@@ -1448,7 +1450,16 @@ function render() {
   const key = (el) => el.closest("form").id + ":" + el.name + (el.type === "radio" ? ":" + el.value : "");
   const box = (el) => el.type === "checkbox" || el.type === "radio";
   document.querySelectorAll("#app form[id] input:not([type=hidden])").forEach((el) => (fields[key(el)] = box(el) ? el.checked : el.value));
-  $("#app").innerHTML = g ? gameView() : t ? roomView() : pageView();
+  // On ne reconstruit l'écran que s'il a changé (le texte des chronos mis à part) :
+  // sinon chaque message du serveur relançait les animations et faisait clignoter l'écran.
+  const html = g ? gameView() : t ? roomView() : pageView();
+  const shape = html.replace(/(data-(?:deadline|countdown)="[^"]*">)[^<]*/g, "$1");
+  const app = $("#app");
+  if (shape !== lastShape || !app.firstElementChild || app.firstElementChild !== lastShapeNode) {
+    app.innerHTML = html;
+    lastShape = shape;
+    lastShapeNode = app.firstElementChild;
+  }
   if (g) animateTrick();
   if (state.player.avatar) localStorage.setItem("lastAvatar", state.player.avatar);
   document.querySelectorAll("#app form[id] input:not([type=hidden])").forEach((el) => {
