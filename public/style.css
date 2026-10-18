@@ -1602,3 +1602,5 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 @media (orientation: landscape) and (max-height: 520px) {
   .screen.game .center, .screen.game.phase-playing .center, .screen.game.phase-summary .center, .screen.game.phase-finished .center { top: calc(2% + var(--av) + 24px); translate: -50% 0; }
 }
+/* Annonce du preneur en face : fixée à hauteur de l'avatar, elle ne bouge plus quand le minuteur apparaît */
+.screen.game .seat.p2 .taker-badge { top: calc(var(--av) * 0.5); translate: 0 -50%; }
