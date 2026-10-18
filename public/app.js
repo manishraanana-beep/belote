@@ -342,6 +342,7 @@ function shopItemModal(id) {
       ${shopPreview(it)}
       <div class="shop-modal-meta"><span><i class="coin"></i>${jetons(it.price)}</span><span class="status ${st}">${STATUS_LABEL[st]}</span></div>
       ${action}
+      ${it.kind === "felt" && state.player.progress.equipped.felt?.startsWith("tapis-") ? btn("Revenir au tapis vert d’origine", "feltDefault", "line-btn wide") : ""}
       <p class="muted small">${it.kind === "back" || it.kind === "felt" ? "Visible uniquement sur votre écran : les autres joueurs gardent leurs propres choix." : it.kind === "emoji" ? "Apparaît quelques secondes près de votre avatar, sans masquer les cartes." : "Visible par tous les joueurs à votre table."} Purement cosmétique, aucun avantage de jeu.</p></div>`,
     "sheet-modal shop-item-modal",
   );
@@ -2154,6 +2155,11 @@ document.addEventListener("click", async (ev) => {
       break;
     case "shopBuy":
       shopBuy(el.dataset.id);
+      break;
+    case "feltDefault":
+      cmd("equip", { id: "felt-emeraude" });
+      toast("Tapis vert d’origine remis");
+      closeModal();
       break;
     case "shopUse":
       shopUse(el.dataset.id);
