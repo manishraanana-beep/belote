@@ -1518,3 +1518,14 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .screen.game .last-trick-btn { top: auto; bottom: 6px; left: auto; right: 12px; translate: none; padding: 4px 12px; font-size: 14px; }
   .bidding-me .seat.p2 .bubble { left: auto; right: calc(100% + 4px); top: 10%; }
 }
+/* Paysage : main un peu plus basse, cartes du pli plus grandes et lisibles */
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen.game { --tc: clamp(46px, 17vh, 74px); }
+  .hcard { bottom: calc(var(--cw) * -0.34); }
+  /* Avatar et boutons posés dans les coins : la main descend tout en bas */
+  .status-row { position: absolute; left: 0; right: 0; bottom: calc(4px + var(--safe-b)); padding: 0 10px; pointer-events: none; }
+  .status-row > * { pointer-events: auto; }
+  .dock { padding-bottom: calc(2px + var(--safe-b)); }
+  .trick { width: calc(var(--tc) * 3.3); height: calc(var(--tc) * 2.1); }
+  .tcard.p1, .tcard.p3 { top: calc(50% - var(--tc) * 0.72); }
+}
