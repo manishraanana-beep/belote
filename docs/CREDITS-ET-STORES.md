@@ -39,9 +39,14 @@
 | Android | Google Play Billing | API Google Play Developer, état d'achat, consommation | `GOOGLE_PLAY_PACKAGE`, `GOOGLE_PLAY_SERVICE_ACCOUNT` |
 | Développement | paiement fictif | refusé si `NODE_ENV=production` ou sur Railway | `BELOTE_TEST_SHOP=on` |
 
-Les packs se configurent avec `BELOTE_PACKS` (JSON : `id`, `credits`, `price`, `priceCents`, `bonus`). Les identifiants doivent
-correspondre aux produits créés dans App Store Connect et Google Play Console. Le code Apple et Google n'a pas encore été testé contre les
-vrais services (aucun compte développeur disponible ici) : à valider en bac à sable avant ouverture.
+Les packs se configurent avec `BELOTE_PACKS` (JSON : `id`, `credits`, `price`, `priceCents`, `bonus`). Les identifiants
+(`credits_1000`, `credits_3000`, `credits_8000`, `credits_20000` par défaut) doivent être **identiques** aux produits consommables créés
+dans App Store Connect et Google Play Console (lettres minuscules, chiffres, points et soulignés uniquement : ni tiret ni espace).
+
+Dans les applications, l'achat passe par `public/native.js` : le store encaisse, le serveur vérifie et crédite (une seule fois par
+transaction), puis la transaction est terminée (iOS) ou consommée par le serveur (Android). Un achat interrompu est repris au lancement
+suivant. Tests : `test/stores.test.js` et `e2e/natif.spec.js` (certificats et réponses simulés) ; à valider ensuite en bac à sable
+(TestFlight + compte Sandbox, test interne Google Play + testeurs de licence) avant ouverture.
 
 ## Exigences des stores et points bloquants à traiter avant d'ouvrir les achats
 

@@ -1,0 +1,28 @@
+{
+  "name": "belote-prestige-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Applications iOS et Android de Belote Prestige (Capacitor). L'interface est celle du site, chargée depuis le serveur.",
+  "scripts": {
+    "sync": "cap sync",
+    "ios": "cap open ios",
+    "android": "cap open android",
+    "assets": "capacitor-assets generate --iconBackgroundColor '#0c3436' --splashBackgroundColor '#0c3436'",
+    "check": "node check-config.mjs"
+  },
+  "dependencies": {
+    "@capacitor-firebase/messaging": "8.5.2",
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/ios": "8.5.3",
+    "@capacitor/splash-screen": "8.0.2",
+    "@capacitor/status-bar": "8.0.4",
+    "@capgo/capacitor-social-login": "8.7.3",
+    "@capgo/native-purchases": "8.9.6"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "3.0.5",
+    "@capacitor/cli": "8.5.3"
+  }
+}

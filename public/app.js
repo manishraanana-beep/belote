@@ -1,5 +1,6 @@
 import { cardImage } from "./cards.js";
 import { nextTip } from "./tips.js";
+import * as native from "./native.js";
 // Les 32 cartes sont chargées et décodées d'avance : une carte jouée s'affiche aussitôt, jamais en rectangle blanc.
 const CARD_CACHE = [];
 setTimeout(() => {
@@ -551,10 +552,13 @@ function tabBar() {
 }
 const field = (ic, name, type, label, extra = "") =>
   `<label class="field">${icon(ic)}<input name="${name}" type="${type}" placeholder="${label}" aria-label="${label}" ${extra}>${type === "password" ? `<button type="button" class="eye" data-action="peek" aria-label="Afficher le mot de passe">${icon("eye")}</button>` : ""}</label>`;
+const socialOn = (p) => (native.isNative ? native.socialAvailable(p, authConfig) : !!authConfig[p]);
 function socialButtons() {
   const b = (p, label, logoHtml) =>
-    `<button type="button" class="social ${p}" data-action="oidc" data-provider="${p}" ${authConfig[p] ? "" : "disabled"}>${logoHtml}<span>${label}</span>${authConfig[p] ? "" : "<small>bientôt</small>"}</button>`;
-  return `<div class="or"><span>Ou continuer avec</span></div><div class="socials">${b("apple", "Continuer avec Apple", '<span class="s-apple"></span>')}${b("google", "Continuer avec Google", '<span class="s-google">G</span>')}</div>`;
+    `<button type="button" class="social ${p}" data-action="oidc" data-provider="${p}" ${socialOn(p) ? "" : "disabled"}>${logoHtml}<span>${label}</span>${socialOn(p) ? "" : "<small>bientôt</small>"}</button>`;
+  // Application Android : pas de connexion Apple (réservée à l'iPhone et au site).
+  const apple = native.platform === "android" ? "" : b("apple", "Continuer avec Apple", '<span class="s-apple"></span>');
+  return `<div class="or"><span>Ou continuer avec</span></div><div class="socials">${apple}${b("google", "Continuer avec Google", '<span class="s-google">G</span>')}</div>`;
 }
 const levelTitle = () => {
   const l = state.player.progress.level;
@@ -985,8 +989,7 @@ function partnerModal() {
 // ———————————————— notifications push (navigateur, iPhone/iPad en application installée, Android)
 let pushInfo = null;
 function pushState() {
-  const native = window.Capacitor?.Plugins?.PushNotifications;
-  if (native) return localStorage.getItem("pushNative") === "on" ? "on" : "ask";
+  if (native.pushAvailable()) return native.pushEnabled() ? "on" : "ask";
   if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return "unsupported";
   if (Notification.permission === "denied") return "denied";
   if (Notification.permission === "granted" && state?.player.push?.web) return "on";
@@ -995,16 +998,9 @@ function pushState() {
 // Demandée au moment de l'inscription : si elle est refusée, les rappels restent dans l'application.
 async function ensurePush() {
   try {
-    const native = window.Capacitor?.Plugins?.PushNotifications;
-    if (native) {
-      const perm = await native.requestPermissions();
-      if (perm.receive !== "granted") return;
-      native.addListener("registration", async (t) => {
-        await fetch("/api/push/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "fcm", token: t.value, platform: window.Capacitor.getPlatform?.() }) });
-        localStorage.setItem("pushNative", "on");
-      });
-      native.addListener("pushNotificationActionPerformed", (a) => a.notification?.data?.url && (location.href = a.notification.data.url));
-      await native.register();
+    // Application iOS / Android : notifications natives (Firebase Cloud Messaging).
+    if (native.pushAvailable()) {
+      if (await native.enablePush()) toast("Notifications activées");
       return;
     }
     if (pushState() !== "ask") return;
@@ -1623,7 +1619,8 @@ function loadScript(src) {
 async function oidc(provider) {
   try {
     let idToken;
-    if (provider === "google") {
+    if (native.isNative) idToken = await native.socialLogin(provider, authConfig);
+    else if (provider === "google") {
       await loadScript("https://accounts.google.com/gsi/client");
       idToken = await new Promise((resolve, reject) => {
         window.google.accounts.id.initialize({ client_id: authConfig.google, callback: (r) => resolve(r.credential) });
@@ -1670,15 +1667,18 @@ async function shopModal() {
     shopConfig = await (await fetch("/api/shop/config")).json();
   } catch {}
   const c = shopConfig ?? { packs: [], purchases: false };
-  const open = c.purchases || c.test;
+  // Application : achat intégré obligatoire (App Store / Google Play), prix affichés par le store.
+  const store = native.isNative ? (native.platform === "ios" ? c.apple : c.google) : null;
+  const open = native.isNative ? !!(c.purchases && store) : c.purchases || c.test;
+  const prices = native.isNative && open ? await native.storePrices(c.packs.map((pk) => pk.id)) : {};
   modal(
     `<div class="modal-head"><span class="modal-icon">🪙</span><h2>Boutique de crédits</h2></div>
     <p class="muted">Solde : ${coins(state.player.wallet.balance / 2)}</p>
     <div class="packs">${c.packs.map((pk) => `<article class="pack">${pk.bonus ? `<span class="pack-tag">${e(pk.bonus)}</span>` : ""}<span class="pack-coins">${"<i class=\"coin\"></i>".repeat(Math.min(4, 1 + Math.round(Math.log10(pk.credits / 500))))}</span><b>${fmt(pk.credits)}</b><small>crédits</small>
-      ${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(pk.price)) : e(pk.price), "buy", "pill small", `data-pack="${pk.id}"`, !open || !state.player.account)}</article>`).join("")}</div>
+      ${btn(open ? (c.test && !c.purchases && !native.isNative ? "Acheter (test)" : e(prices[pk.id] ?? pk.price)) : e(prices[pk.id] ?? pk.price), "buy", "pill small", `data-pack="${pk.id}"`, !open || !state.player.account || (native.isNative && !prices[pk.id]))}</article>`).join("")}</div>
     ${!state.player.account ? '<p class="warn">Créez un compte pour acheter des crédits.</p>' : open ? "" : '<p class="warn">Les achats ne sont pas encore ouverts. En attendant : bonus du jour, défis et entraînement gratuit.</p>'}
-    ${c.test && !c.purchases ? '<p class="warn">Mode développement : paiement fictif, jamais disponible en production.</p>' : ""}
-    <p class="muted small">Achats vérifiés par le serveur (App Store sur iPhone, Google Play sur Android, paiement sécurisé sur le site). Crédits sans valeur monétaire, non remboursables en argent, non transférables. Réservé aux joueurs majeurs.</p>`,
+    ${c.test && !c.purchases && !native.isNative ? '<p class="warn">Mode développement : paiement fictif, jamais disponible en production.</p>' : ""}
+    <p class="muted small">${native.platform === "ios" ? "Paiement par l’App Store, vérifié par le serveur." : native.platform === "android" ? "Paiement par Google Play, vérifié par le serveur." : "Achats vérifiés par le serveur (App Store sur iPhone, Google Play sur Android, paiement sécurisé sur le site)."} Crédits sans valeur monétaire, non remboursables en argent, non transférables. Réservé aux joueurs majeurs.</p>`,
     "sheet-modal",
   );
 }
@@ -2171,7 +2171,12 @@ document.addEventListener("click", async (ev) => {
     case "buy": {
       try {
         const c = shopConfig ?? {};
-        if (c.stripe && c.purchases) {
+        if (native.isNative) {
+          el.disabled = true;
+          const r = await native.buyCredits(el.dataset.pack);
+          toast(r?.credited === false ? "Achat déjà crédité" : "Crédits ajoutés, merci !");
+          closeModal();
+        } else if (c.stripe && c.purchases) {
           const r = await api("/api/shop/checkout", { pack: el.dataset.pack });
           location.href = r.url;
         } else if (c.test) {
@@ -2784,6 +2789,8 @@ async function connect() {
         state = msg;
         render();
         if (first && pendingInvite && !state.table) joinModal(pendingInvite);
+        if (first && native.isNative && state.player.account)
+          native.recoverPurchases().then((n) => n && toast("Achat précédent crédité")).catch(() => {});
       }
       if (msg.type === "bonus") showBonus(msg);
       if (msg.type === "notice") {

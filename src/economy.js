@@ -14,10 +14,10 @@ export const toCredits = (units) => units / U;
 export function economyConfig(env = process.env) {
   const num = (k, d) => (env[k] !== undefined && env[k] !== "" ? Number(env[k]) : d);
   let packs = [
-    { id: "pack-1000", credits: 1000, price: "0,99 €", priceCents: 99 },
-    { id: "pack-3000", credits: 3000, price: "2,49 €", priceCents: 249, bonus: "+20 %" },
-    { id: "pack-8000", credits: 8000, price: "4,99 €", priceCents: 499, bonus: "+60 %" },
-    { id: "pack-20000", credits: 20000, price: "9,99 €", priceCents: 999, bonus: "Meilleure offre" },
+    { id: "credits_1000", credits: 1000, price: "0,99 €", priceCents: 99 },
+    { id: "credits_3000", credits: 3000, price: "2,49 €", priceCents: 249, bonus: "+20 %" },
+    { id: "credits_8000", credits: 8000, price: "4,99 €", priceCents: 499, bonus: "+60 %" },
+    { id: "credits_20000", credits: 20000, price: "9,99 €", priceCents: 999, bonus: "Meilleure offre" },
   ];
   try {
     if (env.BELOTE_PACKS) packs = JSON.parse(env.BELOTE_PACKS);

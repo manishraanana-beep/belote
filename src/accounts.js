@@ -65,7 +65,8 @@ const PROVIDERS = {
   google: {
     jwks: "https://www.googleapis.com/oauth2/v3/certs",
     issuers: ["accounts.google.com", "https://accounts.google.com"],
-    audience: (env) => env.GOOGLE_CLIENT_ID,
+    // Identifiants web (site et application Android) et iOS : chacun peut émettre le jeton.
+    audience: (env) => [env.GOOGLE_CLIENT_ID, env.GOOGLE_IOS_CLIENT_ID].filter(Boolean).join(",") || null,
   },
   apple: {
     jwks: "https://appleid.apple.com/auth/keys",

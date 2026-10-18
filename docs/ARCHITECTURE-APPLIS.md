@@ -45,7 +45,8 @@ et vérifient l’origine.
 |---|---|
 | `BELOTE_PUBLIC_URL` | Adresse publique utilisée dans les e-mails (ex. `https://appi-belote.up.railway.app`) |
 | `RESEND_API_KEY`, `BELOTE_MAIL_FROM` | Envoi réel des e-mails (vérification, mot de passe oublié) |
-| `GOOGLE_CLIENT_ID` | Identifiant(s) OAuth Google, séparés par des virgules (web, iOS, Android) |
+| `GOOGLE_CLIENT_ID` | Identifiant OAuth Google « Web » (site et application Android) |
+| `GOOGLE_IOS_CLIENT_ID` | Identifiant OAuth Google « iOS » (application iPhone) |
 | `APPLE_CLIENT_ID` | Service ID (web) et/ou Bundle ID (iOS), séparés par des virgules |
 | `BELOTE_FILL_SECONDS` | Délai avant l’ajout de robots dans « Jouer maintenant » (8 s par défaut) |
 | `BELOTE_SECURE_COOKIE` | `true` derrière HTTPS (Railway) |
@@ -63,17 +64,14 @@ lorsque la connexion correspondante est configurée.
 3. **Apple** : Apple Developer (99 $/an) → App ID avec « Sign in with Apple », Service ID
    pour le web (domaine + URL de retour), clé. Apple impose Sign in with Apple dès qu’une
    connexion Google est proposée dans l’app iOS (règle 4.8).
-4. **Applications mobiles** (non créées dans ce dépôt) : recommandation **Capacitor** :
-   - `npm i @capacitor/core @capacitor/cli @capacitor/ios @capacitor/android`, `npx cap init`,
-     `webDir: "public"`, puis `npx cap add ios` / `android`.
-   - L’interface est embarquée dans l’app ; le serveur reste celui de Railway
-     (`connect-src` vers son domaine). Les cookies de session fonctionnent en origine
-     identique ; pour une app embarquée, prévoir une variante de session par en-tête
-     `Authorization: Bearer` (non implémentée à ce jour).
-   - Connexion native : plugins `@capacitor-community/apple-sign-in` et Google ; le jeton
-     d’identité obtenu est envoyé tel quel à `POST /api/auth/oidc`, déjà prêt.
-   - Publication : comptes Apple Developer et Google Play Console, fiches, captures,
-     politique de confidentialité, gestion de la suppression de compte (déjà fournie).
+4. **Applications mobiles** : créées dans `mobile/` (Capacitor 8). Voir **`mobile/README.md`** pour
+   l’état détaillé, les étapes sur le Mac et dans les comptes développeur.
+   - L’app charge l’interface depuis le serveur (`server.url`) : même origine, cookies de session et
+     WebSocket inchangés, graphisme identique au site.
+   - `public/native.js` : achat intégré (`@capgo/native-purchases` → `/api/shop/apple` et `/api/shop/google`),
+     notifications Firebase (`@capacitor-firebase/messaging` → `/api/push/subscribe`, type `fcm`), connexion
+     native Apple / Google (`@capgo/capacitor-social-login` → `/api/auth/oidc`). Sans effet dans un navigateur.
+   - Pages publiques exigées par les stores : `/confidentialite.html`, `/suppression-compte.html`.
 5. **Montée en charge** : une seule instance et un stockage JSON. Pour les stores, passer à
    une base (Postgres est déjà présent sur Railway) et à des sessions partagées si plusieurs
    instances.

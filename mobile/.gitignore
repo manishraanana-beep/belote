@@ -1,0 +1,5 @@
+node_modules/
+# Fichier Firebase iOS propre au compte (à ajouter localement dans Xcode)
+ios/App/App/GoogleService-Info.plist
+# Liens générés par « npx cap sync » (chemins propres à chaque ordinateur)
+ios/App/CapApp-SPM/symlinks/
