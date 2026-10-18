@@ -115,6 +115,7 @@ export function createApp({
   env = process.env,
   reactionCooldownMs = 4000,
   clock = () => Date.now(), // horloge des tournois (remplaçable dans les tests)
+  QUICK_REMATCH_WAIT = 15_000, // partie rapide : délai laissé aux autres pour accepter la revanche
   summaryMs = (Number(process.env.BELOTE_SUMMARY_SECONDS) || 5) * 1000, // résultat de la donne affiché avant la suivante
   inviteWaitMs = (Number(process.env.BELOTE_INVITE_WAIT_SECONDS) || 60) * 1000, // délai laissé aux invités avant les robots
 } = {}) {
@@ -652,6 +653,11 @@ export function createApp({
     check(t.game?.phase === "finished", "La partie n’est pas terminée");
     check(!t.tournament, "Rencontre de tournoi : la suite se joue au tour suivant");
     t.rematch ??= { votes: {}, blocked: [] };
+    if (!accept && t.quick) {
+      // Partie rapide : celui qui refuse s'en va seul ; un robot prendra sa place pour les autres.
+      leave(db.players[pid]);
+      return;
+    }
     if (!accept) {
       // Retour au salon avec les participants restants.
       t.game = null;
@@ -660,14 +666,44 @@ export function createApp({
       return;
     }
     t.rematch.votes[pid] = true;
-    for (const s of t.seats) if (s?.bot && !t.stake && !s.owner) t.rematch.votes[s.id] = true;
+    // « Jouer maintenant » : les absents sont remplacés par des robots, sans attendre personne.
+    if (t.quick) {
+      t.rematch.deadline ??= Date.now() + QUICK_REMATCH_WAIT;
+      for (let i = 0; i < 4; i++) {
+        if (!t.seats[i]) t.seats[i] = makeBot(i);
+        else if (t.seats[i].bot && t.seats[i].owner) t.seats[i] = { ...t.seats[i], owner: null };
+      }
+    }
+    tryRematch(t);
+  }
+  // Revanche prête : tout le monde a dit oui (les robots de la Maison votent d'office).
+  function tryRematch(t) {
+    if (!t.rematch) return;
+    const botsVote = !t.stake || t.houseBots;
+    for (const s of t.seats) if (s?.bot && botsVote && !s.owner) t.rematch.votes[s.id] = true;
     const ready = t.seats.every((s) => s && t.rematch.votes[s.id]);
     if (!ready) return;
     if (t.stake) {
-      t.rematch.blocked = t.seats.filter((s) => s.bot || economy.available(db.players[s.id]) < 2 * t.stake).map((s) => s.name);
+      t.rematch.blocked = t.seats.filter((s) => (s.bot ? !t.houseBots : economy.available(db.players[s.id]) < 2 * t.stake)).map((s) => s.name);
       if (t.rematch.blocked.length) return;
     }
     start(t);
+  }
+  // Partie rapide : un joueur qui n'a pas répondu à la revanche à temps laisse sa place à un robot.
+  function expireQuickRematch(t, now) {
+    if (!t.quick || !t.rematch?.deadline || now < t.rematch.deadline || t.game?.phase !== "finished") return false;
+    for (let i = 0; i < 4; i++) {
+      const s = t.seats[i];
+      if (s && !s.bot && !t.rematch.votes[s.id]) {
+        const p = db.players[s.id];
+        if (p?.tableId === t.id) p.tableId = null;
+        t.seats[i] = makeBot(i);
+      }
+    }
+    t.rematch.deadline = null;
+    tryRematch(t);
+    if (t.game?.phase === "finished") update(t);
+    return true;
   }
   // Départ d'une table. Pendant une partie, un robot reprend aussitôt la main et la place :
   // les cartes, le contrat et les scores sont conservés pour les autres joueurs.
@@ -1959,6 +1995,10 @@ export function createApp({
     for (const t of Object.values(db.tables)) {
       if (t.idleSince && now - t.idleSince > 14 * 86400_000 && !t.seats.some(Boolean)) {
         delete db.tables[t.id];
+        continue;
+      }
+      if (expireQuickRematch(t, now)) {
+        dirty = true;
         continue;
       }
       if ((t.quick || (t.fillBots && !t.stake)) && (!t.game || t.game.phase === "finished") && t.fillAt && now >= t.fillAt) {
