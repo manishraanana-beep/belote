@@ -1121,7 +1121,8 @@ test("Jouer maintenant : partie à 200 avec les robots de la Maison, gratuite sa
 });
 
 test("Jouer maintenant : revanche relancée, robots de la Maison et absents remplacés", async () => {
-  const f = await fixture({ fillSeconds: 0.05, botDelay: 1, QUICK_REMATCH_WAIT: 200, env: { BELOTE_LOGIN_BONUS: "0", BELOTE_SIGNUP_BONUS: "5000" } });
+  // Donnes suivantes automatiques (résultat affiché 5 ms) : la partie en 1 500 points s'enchaîne sans commandes.
+  const f = await fixture({ fillSeconds: 0.05, botDelay: 1, summaryMs: 5, QUICK_REMATCH_WAIT: 200, env: { BELOTE_LOGIN_BONUS: "0", BELOTE_SIGNUP_BONUS: "5000" } });
   try {
     const a = await member(f, "rev-a@exemple.fr"),
       b = await member(f, "rev-b@exemple.fr");
@@ -1134,8 +1135,7 @@ test("Jouer maintenant : revanche relancée, robots de la Maison et absents remp
     for (let guard = 0; t.game.phase !== "finished" && guard < 20000; guard++) {
       const g = t.game;
       const seat = t.seats[g.turn];
-      if (g.phase === "summary") await a.command("next");
-      else if (g.phase === "counter" || seat.bot) await delay(2);
+      if (g.phase === "summary" || g.phase === "counter" || seat.bot) await delay(2);
       else {
         const v = view(g, g.turn);
         const action = g.phase === "bidding" ? { type: "pass" } : { type: "play", card: v.legal[0] };

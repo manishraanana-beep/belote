@@ -665,11 +665,14 @@ function homePage() {
 }
 function tablesPage() {
   const myPublic = state.player.myTables.filter((t) => !t.vip);
+  // Seules les tables qu'on peut rejoindre : une place libre, pas de partie en cours.
+  // Les parties rapides se remplissent toutes seules (« Jouer maintenant ») : jamais listées.
+  const joinable = state.tables.filter((t) => !t.lobby && !t.quick && t.available > 0 && t.status !== "Partie en cours");
   return shell(
     `<h1 class="page-title">Tables publiques</h1>
     ${myPublic.length ? `<h2 class="section">Mes tables</h2><div class="list">${myPublic.map((t) => `<div class="row-del"><button type="button" class="vip-row pub" data-action="enterTable" data-id="${t.id}"><span class="vr-main"><b>${e(t.name)}</b><small>${t.stake ? `Mise ${fmt(t.stake)} jetons` : "Partie gratuite"}</small></span><span class="vr-count">${icon("users")} ${t.players}/4</span>${icon("chevron", "tiny")}</button>${btn(icon("trash"), "closeTableAsk", "round-btn small del-btn", `data-id="${t.id}" aria-label="Supprimer la table"`, t.playing)}</div>`).join("")}</div><h2 class="section">Toutes les tables</h2>` : ""}
     ${stakeTables()}
-    ${state.tables.some((t) => !t.lobby) ? `<h2 class="section orn-title">Tables des joueurs</h2><div class="list">${state.tables.filter((t) => !t.lobby).map(tableCard).join("")}</div>` : ""}
+    ${joinable.length ? `<h2 class="section orn-title">Tables des joueurs</h2><div class="list">${joinable.map(tableCard).join("")}</div>` : ""}
     <div class="stack">${btn("Créer une table publique", "createPublic", "gold-btn wide")}${btn(`${icon("link")} Rejoindre avec un code`, "joinCode", "line-btn wide")}</div>`,
     { tabs: true, backBtn: false },
   );
