@@ -614,6 +614,9 @@ export function createApp({
   }
   function start(t) {
     check(t.seats.every(Boolean), "Il faut quatre joueurs");
+    // Tables publiques et « Jouer maintenant » : règles de la maison (1 500 points, donneur suivant si tous passent),
+    // y compris pour les tables enregistrées avant ce changement.
+    if (t.quick || t.lobby) Object.assign(t.rules, { target: DEFAULT_RULES.target, allPass: "rotate" });
     const gameId = id();
     if (t.houseBots) {
       // Partie rapide : les robots jouent pour la Maison. La mise d'origine est reprise à chaque partie
