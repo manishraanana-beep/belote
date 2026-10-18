@@ -185,7 +185,7 @@ test("règles par défaut : belote perdue à la chute, donneur suivant si tous p
   assert.equal(g.rules.beloteRetained, false);
   assert.equal(g.rules.allPass, "rotate");
   assert.equal(g.rules.flyingCounter, true);
-  assert.deepEqual([g.rules.target, g.rules.turnSeconds, g.rules.counterWindowSeconds, g.rules.capotValue, g.rules.reconnectSeconds, g.rules.scoring], [1000, 20, 8, 250, 90, "added"]);
+  assert.deepEqual([g.rules.target, g.rules.turnSeconds, g.rules.counterWindowSeconds, g.rules.capotValue, g.rules.reconnectSeconds, g.rules.scoring], [1500, 20, 8, 250, 90, "added"]);
 });
 test("temps écoulé : carte autorisée la plus forte", () => {
   assert.equal(strongestCard(["7H", "AH", "10H"], "S"), "AH");
@@ -236,4 +236,21 @@ test("capot non annoncé : annonce + 250 points", () => {
   r = scoreDeal(g);
   assert.equal(r.capot, false);
   assert.deepEqual(r.score, [240, 12]);
+});
+
+test("tout le monde passe : nouvelle donne, donneur suivant, partie en 1 500 points", () => {
+  const g = newGame({});
+  assert.equal(g.rules.target, 1500);
+  const dealer = g.dealer;
+  for (let i = 0; i < 4; i++) act(g, g.turn, { type: "pass" });
+  assert.equal(g.dealer, (dealer + 1) % 4);
+  assert.equal(g.deal, 2);
+  assert.equal(g.phase, "bidding");
+  assert.equal(g.allPassed, true);
+  assert.equal(g.turn, (g.dealer + 1) % 4, "le joueur après le nouveau donneur parle en premier");
+  assert.ok(g.hands.every((h) => h.length === 8));
+  // Une donne normale efface l'indication.
+  act(g, g.turn, { type: "bid", amount: 80, suit: "S" });
+  for (let i = 0; i < 3; i++) act(g, g.turn, { type: "pass" });
+  assert.equal(g.phase, "playing");
 });

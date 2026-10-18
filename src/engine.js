@@ -2,7 +2,7 @@ import { randomInt } from "node:crypto";
 export const SUITS = ["S", "H", "D", "C"];
 export const RANKS = ["7", "8", "9", "J", "Q", "K", "10", "A"];
 export const DEFAULT_RULES = {
-  target: 1000,
+  target: 1500,
   turnSeconds: 20,
   reconnectSeconds: 90,
   counterWindowSeconds: 8,
@@ -102,6 +102,7 @@ export function deal(g) {
     belotePlayed: [],
     counterDeadline: null,
     lastEvent: "Nouvelle donne",
+    allPassed: false,
     deal: g.deal + 1,
   });
   g.beloteOwner = g.hands.findIndex((h) =>
@@ -210,8 +211,11 @@ export function act(g, seat, a, now = Date.now()) {
     g.turn = (g.turn + 1) % 4;
     if (g.contract && g.passes === 3) startPlay(g);
     else if (!g.contract && g.passes === 4) {
+      // Tout le monde a passé : on redistribue, le donneur suivant prend la main.
       if (g.rules.allPass === "rotate") g.dealer = (g.dealer + 1) % 4;
       deal(g);
+      g.allPassed = true;
+      g.lastEvent = "Tout le monde a passé · nouvelle donne";
     }
   } else if (a.type === "play") {
     if (g.phase !== "playing" || seat !== g.turn)

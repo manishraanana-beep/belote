@@ -49,7 +49,7 @@ const coins = (n, cls = "") => `<span class="coins ${cls}"><i class="coin"></i>$
 const signed = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n));
 const stakeRisk = (s) => `Mise : ${fmt(s)} crédits. En rubicon, vous risquez jusqu’à ${fmt(2 * s)} crédits (double de la mise), dans la limite de votre solde engagé. Les gains dépendent des crédits engagés par les adversaires.`;
 const DEFAULT_RULES = {
-  target: 1000,
+  target: 1500,
   turnSeconds: 20,
   counterWindowSeconds: 8,
   reconnectSeconds: 90,
@@ -822,7 +822,7 @@ function vipCreatePage() {
       <input type="hidden" name="vip" value="true">
       <label class="lbl">Nom de la table<input name="name" value="La table de ${e(state.player.name)}" maxlength="40" required></label>
       <label class="lbl">Mot de passe · <em>facultatif</em><input name="password" type="password" placeholder="Aucun mot de passe" maxlength="128" autocomplete="new-password"></label>
-      <div class="lbl">Score de la partie<div class="seg radio">${[500, 1000, 1500].map((n) => `<label><input type="radio" name="target" value="${n}" ${n === 1000 ? "checked" : ""}><span>${fmt(n)}</span></label>`).join("")}</div></div>
+      <div class="lbl">Score de la partie<div class="seg radio">${[500, 1000, 1500].map((n) => `<label><input type="radio" name="target" value="${n}" ${n === 1500 ? "checked" : ""}><span>${fmt(n)}</span></label>`).join("")}</div></div>
       <label class="toggle-row">${icon("bolt")}<span>Contrée à la volée</span><input type="checkbox" name="flyingCounter" checked><i class="sw"></i></label>
       <label class="toggle-row">${icon("robot")}<span>Compléter avec des robots</span><input type="checkbox" name="fillBots" checked><i class="sw"></i></label>
       <label class="toggle-row">${icon("clock")}<span>Temps de réflexion par tour</span><select name="turnSeconds">${[15, 20, 30, 45, 60].map((n) => `<option value="${n}" ${n === r.turnSeconds ? "selected" : ""}>${n} s</option>`).join("")}</select></label>
@@ -2452,7 +2452,7 @@ function tourForm(t) {
   const nowLocal = `${n0.getFullYear()}-${pad(n0.getMonth() + 1)}-${pad(n0.getDate())}T${pad(n0.getHours())}:${pad(n0.getMinutes())}`; // inscriptions ouvertes dès la publication
   const v = t
     ? { ...t, ...t.local }
-    : { name: "", description: "", timeZone: myTz(), teams: 8, minTeams: 4, minBalance: 0, rules: { target: 1000, turnSeconds: 20, flyingCounter: true, reconnectSeconds: 120, forfeitSeconds: 300 }, insufficient: "postpone", postponeMinutes: 30, rewards: { winner: ["tournoi-vainqueur", "frame-champion"], finalist: ["tournoi-finaliste"], participant: ["tournoi-participant"] }, regOpen: nowLocal, regClose: `${day}T20:00`, confirmBy: `${day}T20:50`, start: `${day}T21:00` };
+    : { name: "", description: "", timeZone: myTz(), teams: 8, minTeams: 4, minBalance: 0, rules: { target: 1500, turnSeconds: 20, flyingCounter: true, reconnectSeconds: 120, forfeitSeconds: 300 }, insufficient: "postpone", postponeMinutes: 30, rewards: { winner: ["tournoi-vainqueur", "frame-champion"], finalist: ["tournoi-finaliste"], participant: ["tournoi-participant"] }, regOpen: nowLocal, regClose: `${day}T20:00`, confirmBy: `${day}T20:50`, start: `${day}T21:00` };
   const sel = (name, opts, cur) => `<select name="${name}">${opts.map(([val, label]) => `<option value="${val}" ${String(val) === String(cur) ? "selected" : ""}>${label}</option>`).join("")}</select>`;
   const rw = (kind, label) => `<fieldset><legend>${label}</legend>${d.rewards.map((r) => `<label class="check-line"><input type="checkbox" name="rw-${kind}" value="${r.id}" ${v.rewards[kind].includes(r.id) ? "checked" : ""}>${e(r.name)}</label>`).join("")}</fieldset>`;
   $("#admin-tours").innerHTML = `<form id="tour-form" class="form">
@@ -2777,6 +2777,10 @@ async function connect() {
       const msg = JSON.parse(ev.data);
       if (msg.type === "state") {
         const first = !state;
+        const prevDeal = state?.table?.game?.deal;
+        const ng = msg.table?.game;
+        if (ng?.allPassed && prevDeal && ng.deal > prevDeal)
+          toast(`Tout le monde a passé · nouvelle donne, ${msg.table.seats[ng.dealer]?.name ?? "le joueur suivant"} distribue`);
         const m = msg.table?.game?.multiplier ?? 1;
         if (m > lastMultiplier) tone([880, 660, 990], 0.1, 0.07);
         lastMultiplier = m;
