@@ -1119,3 +1119,38 @@ test("Jouer maintenant : partie à 200 avec les robots de la Maison, gratuite sa
     await f.close();
   }
 });
+
+test("Jouer maintenant : revanche relancée, robots de la Maison et absents remplacés", async () => {
+  const f = await fixture({ fillSeconds: 0.05, botDelay: 1, QUICK_REMATCH_WAIT: 200, env: { BELOTE_LOGIN_BONUS: "0", BELOTE_SIGNUP_BONUS: "5000" } });
+  try {
+    const a = await member(f, "rev-a@exemple.fr"),
+      b = await member(f, "rev-b@exemple.fr");
+    await a.command("quick");
+    await b.command("quick");
+    await a.wait((c) => c.state.table?.game);
+    const t = f.app.db.tables[a.state.table.id];
+    assert.equal(t.stake, 200);
+    const human = { [a.state.player.id]: a, [b.state.player.id]: b };
+    for (let guard = 0; t.game.phase !== "finished" && guard < 20000; guard++) {
+      const g = t.game;
+      const seat = t.seats[g.turn];
+      if (g.phase === "summary") await a.command("next");
+      else if (g.phase === "counter" || seat.bot) await delay(2);
+      else {
+        const v = view(g, g.turn);
+        const action = g.phase === "bidding" ? { type: "pass" } : { type: "play", card: v.legal[0] };
+        await human[seat.id].send("action", { version: g.version, action });
+        await delay(2);
+      }
+    }
+    assert.equal(t.game.phase, "finished");
+    // A accepte ; B ne répond pas : après le délai, un robot prend sa place et la revanche démarre.
+    await a.command("rematchVote", { accept: true });
+    await a.wait(() => t.game.phase !== "finished");
+    assert.equal(t.seats.filter((s) => s.bot).length, 3);
+    assert.equal(f.app.db.players[b.state.player.id].tableId, null);
+    assert.equal(t.stake, 200);
+  } finally {
+    await f.close();
+  }
+});
