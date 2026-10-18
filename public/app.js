@@ -1105,7 +1105,7 @@ function topBar(g, t, me) {
   const c = contractInfo(g, t, me);
   return `<header class="game-top">
     <div class="gt-logo">${logo()}</div>
-    <div class="gt-chips"><span class="gt-chip wallet">${coins(state.player.wallet.available / 2)}</span><span class="gt-chip table"><i class="poker-chip" aria-hidden="true"></i><span>${tableLabel(t)}</span></span></div>
+    <div class="gt-chips"><span class="gt-chip wallet">${coins(state.player.wallet.available / 2)}</span><span class="gt-chip table" title="${tableLabel(t)}"><i class="poker-chip" aria-hidden="true"></i><span>${t.stake ? `${fmt(t.stake)} jetons` : tableLabel(t)}</span></span></div>
     ${btn(icon("menu"), "menu", "square-btn", 'aria-label="Menu de la partie"')}
   </header>
   <div class="scoreboard" aria-label="Scores"><div class="us"><small>Nous</small><b>${fmt(g.scores[me % 2])}</b></div><i></i><div class="them"><small>Eux</small><b>${fmt(g.scores[1 - (me % 2)])}</b></div></div>
