@@ -1167,7 +1167,7 @@ function seatView(g, t, me, i) {
     ${g.contract?.seat === i ? '<span class="crown-top" title="Preneur">♛</span>' : ""}
     <div class="seat-avatar ${human ? "tappable" : ""}" ${human ? `data-action="player" data-id="${s.id}" role="button" aria-label="Profil de ${e(s.name)}"` : ""}>${avatar(s?.avatar)}${g.dealer === i ? '<span class="dealer" title="Donneur">D</span>' : ""}</div>
     <div class="name-pill"><b>${e(s?.name ?? "—")}</b></div>${takerBadge(g, i)}${s?.bot ? '<span class="robot-tag">ROBOT</span>' : ""}${status}
-    ${rel !== 0 ? `<div class="backs">${Array.from({ length: Math.min(8, g.handCounts[i]) }, () => "<i></i>").join("")}</div>` : ""}
+    ${rel !== 0 ? `<div class="backs bk${Math.min(8, g.handCounts[i])}">${Array.from({ length: Math.min(8, g.handCounts[i]) }, () => "<i></i>").join("")}</div>` : ""}
     ${seatBubble(g, i)}${chatBubble(t, s)}${reactionBubble(t, s)}
   </div>`;
 }
