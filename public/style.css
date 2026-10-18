@@ -1551,3 +1551,6 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .screen.game .turn-pill .my-timer { font-size: 13px; }
   .screen.game .status-row { gap: 10px; }
 }
+/* Solde jamais rogné : la pastille de la table cède la place si besoin */
+.gt-chip.wallet { flex: none; }
+.gt-chip.table { flex: 0 1 auto; }
