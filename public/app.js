@@ -1481,7 +1481,8 @@ function fitBidZone() {
     limit = $(".status-row");
   if (!z || !limit) return;
   z.style.removeProperty("scale");
-  const room = limit.getBoundingClientRect().top - 4 - z.getBoundingClientRect().top;
+  const handTop = ($(".hand")?.getBoundingClientRect().top ?? Infinity) - 8;
+  const room = Math.min(limit.getBoundingClientRect().top, handTop) - 4 - z.getBoundingClientRect().top;
   const need = z.scrollHeight;
   if (need > room && room > 0) z.style.setProperty("scale", String(Math.max(0.6, room / need)));
 }
