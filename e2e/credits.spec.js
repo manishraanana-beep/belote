@@ -64,7 +64,7 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   await A.locator(".shop-buy-coins").click();
   await expect(A.locator(".pack")).toHaveCount(4);
   await A.screenshot({ path: `${shots}achat-jetons.png` });
-  await A.locator('.pack [data-pack="pack-1000"]').click();
+  await A.locator('.pack [data-pack="credits_1000"]').click();
   await A.keyboard.press("Escape");
   await A.locator('.tabbar [data-page="home"]').click();
   await expect(A.locator(".shop-balance")).toContainText("1 800");
@@ -195,7 +195,7 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
       await expect(p.locator("#modal")).toContainText("Solde insuffisant");
       await p.screenshot({ path: `${shots}revanche-solde-insuffisant.png` });
       await p.locator('#modal .menu-item[data-action="shop"]').click();
-      await p.locator('.pack [data-pack="pack-1000"]').click();
+      await p.locator('.pack [data-pack="credits_1000"]').click();
       await expect.poll(async () => (await st(p)).player.wallet.available).toBeGreaterThanOrEqual(400);
     }
     await p.locator('[data-action="rematchYes"]').click();

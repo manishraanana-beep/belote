@@ -1,0 +1,61 @@
+{
+  "appId": "com.beloteprestige.app",
+  "appName": "Belote Prestige",
+  "webDir": "www",
+  "server": {
+    "url": "https://appi-belote.up.railway.app",
+    "errorPath": "hors-ligne.html",
+    "allowNavigation": [
+      "appi-belote.up.railway.app"
+    ]
+  },
+  "backgroundColor": "#0c3436",
+  "ios": {
+    "contentInset": "never",
+    "scheme": "Belote Prestige",
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#0c3436",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#0c3436",
+      "overlaysWebView": true
+    },
+    "FirebaseMessaging": {
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
+    },
+    "SocialLogin": {
+      "providers": {
+        "google": true,
+        "apple": true,
+        "facebook": false,
+        "twitter": false
+      },
+      "logLevel": 1
+    }
+  },
+  "experimental": {
+    "ios": {
+      "spm": {
+        "packageOptions": {
+          "@capacitor-firebase/messaging": {
+            "symlink": true
+          }
+        }
+      }
+    }
+  }
+}

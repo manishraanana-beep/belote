@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { WebSocket } from "ws";
-import { randomUUID } from "node:crypto";
+import { X509Certificate, createPrivateKey, randomUUID, sign as cryptoSign } from "node:crypto";
 import { createApp } from "../src/server.js";
 import { strongestCard } from "../src/engine.js";
 import { view } from "../src/engine.js";
@@ -660,12 +660,12 @@ test("crédits : table à 200, réservations, achat en cours, départ, règlemen
     for (const p of ps) assert.equal(db.players[p.state.player.id].wallet.reserved, 800);
     assert.deepEqual(ps[0].state.table.money.seats.map((x) => x.engaged), [400, 400, 400, 400]);
     // Le joueur 1 achète des crédits pendant la partie : sa mise engagée ne change pas.
-    const buy = await api(f, ps[1].cookie, "/api/shop/test", { pack: "pack-1000", transactionId: "tx-1" });
+    const buy = await api(f, ps[1].cookie, "/api/shop/test", { pack: "credits_1000", transactionId: "tx-1" });
     assert.equal(buy.body.credited, true);
-    assert.equal((await api(f, ps[1].cookie, "/api/shop/test", { pack: "pack-1000", transactionId: "tx-1" })).body.credited, false, "transaction rejouée ignorée");
+    assert.equal((await api(f, ps[1].cookie, "/api/shop/test", { pack: "credits_1000", transactionId: "tx-1" })).body.credited, false, "transaction rejouée ignorée");
     // Notification Stripe reçue deux fois : créditée une seule fois.
     const pid2 = ps[2].state.player.id;
-    const raw = JSON.stringify({ type: "checkout.session.completed", data: { object: { id: "cs_1", payment_status: "paid", client_reference_id: pid2, metadata: { pack: "pack-3000" } } } });
+    const raw = JSON.stringify({ type: "checkout.session.completed", data: { object: { id: "cs_1", payment_status: "paid", client_reference_id: pid2, metadata: { pack: "credits_3000" } } } });
     const t = Math.floor(Date.now() / 1000);
     const sig = `t=${t},v1=${createHmac("sha256", "whsec").update(`${t}.${raw}`).digest("hex")}`;
     for (let i = 0; i < 2; i++)
@@ -1159,6 +1159,33 @@ test("Jouer maintenant : revanche relancée, robots de la Maison et absents remp
     assert.equal(t.stake, 200);
     assert.ok(t.money && !t.money.settled, "mise de la revanche engagée");
     assert.ok(pa.wallet.reserved > 0);
+  } finally {
+    await f.close();
+  }
+});
+
+test("achat App Store : crédité une seule fois, même transaction renvoyée deux fois", async () => {
+  const fx = JSON.parse(readFileSync(new URL("./fixtures/stores-test.json", import.meta.url)));
+  const rootSha = new X509Certificate(Buffer.from(fx.x5c[2], "base64")).fingerprint256;
+  const f = await fixture({ env: { BELOTE_PURCHASES: "on", APPLE_IAP_BUNDLE_ID: "com.beloteprestige.app", APPLE_ROOT_CA_SHA256: rootSha, BELOTE_SIGNUP_BONUS: "0", BELOTE_LOGIN_BONUS: "0" } });
+  try {
+    const c = await member(f, "iap@exemple.fr");
+    const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+    const head = b64({ alg: "ES256", x5c: fx.x5c });
+    const body = b64({ bundleId: "com.beloteprestige.app", productId: "credits_3000", transactionId: "4100", environment: "Production" });
+    const sig = cryptoSign("sha256", Buffer.from(`${head}.${body}`), { key: createPrivateKey(fx.leafKey), dsaEncoding: "ieee-p1363" }).toString("base64url");
+    const signedTransaction = `${head}.${body}.${sig}`;
+    const r1 = await api(f, c.cookie, "/api/shop/apple", { signedTransaction });
+    assert.equal(r1.status, 200, r1.body.error);
+    assert.equal(r1.body.credited, true);
+    const r2 = await api(f, c.cookie, "/api/shop/apple", { signedTransaction });
+    assert.equal(r2.status, 200);
+    assert.equal(r2.body.credited, false, "pas de double crédit");
+    assert.equal(f.app.db.players[c.state.player.id].wallet.balance, 3000 * 2);
+    // Invité sans compte : refusé.
+    const s = await fetch(f.base + "/api/session", { method: "POST" });
+    const guest = await api(f, s.headers.get("set-cookie").split(";")[0], "/api/shop/apple", { signedTransaction });
+    assert.equal(guest.status, 400);
   } finally {
     await f.close();
   }

@@ -1537,6 +1537,7 @@ export function createApp({
     if (url.pathname === "/api/auth/config") {
       return json(res, 200, {
         google: process.env.GOOGLE_CLIENT_ID?.split(",")[0] || null,
+        googleIos: process.env.GOOGLE_IOS_CLIENT_ID || null,
         apple: process.env.APPLE_CLIENT_ID?.split(",")[0] || null,
         mail: !!(process.env.RESEND_API_KEY && process.env.BELOTE_MAIL_FROM),
       });
@@ -1883,7 +1884,11 @@ export function createApp({
       "app.js",
       "cards.js",
       "tips.js",
+      "native.js",
       "style.css",
+      "legal.css",
+      "confidentialite.html",
+      "suppression-compte.html",
       "cards-LICENSE.txt",
       "sw.js",
       "manifest.webmanifest",
