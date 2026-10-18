@@ -1578,3 +1578,22 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .screen.game .bid-zone .amount { height: 24px; font-size: 13px; }
   .screen.game .bid-zone .bid-actions button { height: 32px; font-size: 13px; }
 }
+/* Éventail de dos toujours centré sur l'avatar, quel que soit le nombre de cartes restantes */
+.screen.game .seat .backs { --fan: 0deg; }
+.screen.game .seat .backs.bk7 { --fan: 3deg; } .screen.game .seat .backs.bk6 { --fan: 6deg; }
+.screen.game .seat .backs.bk5 { --fan: 9deg; } .screen.game .seat .backs.bk4 { --fan: 12deg; }
+.screen.game .seat .backs.bk3 { --fan: 15deg; } .screen.game .seat .backs.bk2 { --fan: 18deg; }
+.screen.game .seat .backs.bk1 { --fan: 21deg; }
+.screen.game .seat.p2 .backs { rotate: calc(180deg + var(--fan)); }
+.screen.game .seat.p1 .backs { rotate: calc(90deg + var(--fan)); }
+.screen.game .seat.p3 .backs { rotate: calc(-90deg + var(--fan)); }
+/* Joueurs de côté en portrait : ancrés par le haut, ils ne bougent plus quand un minuteur ou une annonce apparaît */
+@media (max-aspect-ratio: 4/5) {
+  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: calc(50% - var(--av) * 0.75); translate: none; }
+}
+/* Pendant la partie, l'écran est figé : rien ne peut faire défiler la page (cartes ramassées, animations) */
+html:has(body.in-game) { overflow: hidden; overscroll-behavior: none; }
+body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: 18%; translate: none; }
+}
