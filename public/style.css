@@ -1763,3 +1763,4 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .screen.game.tapis .felt::after { content: ""; position: absolute; inset: 0; margin: auto; width: 46%; height: 46%; background: #000; opacity: 0.22; mix-blend-mode: multiply; -webkit-mask: url(/decor/logo.webp) center / contain no-repeat; mask: url(/decor/logo.webp) center / contain no-repeat; filter: none; pointer-events: none; z-index: 0; }
 .screen.game.tapis-ivoire .felt::after { opacity: 0.14; }
 .rk-cup { margin-right: 2px; } .rk-cup small { font-size: 10px; margin-left: 1px; }
+.target-note { margin: 6px auto 10px; width: fit-content; padding: 6px 14px; border-radius: 999px; background: #0006; border: 1px solid var(--gold, #e8c46a); color: #f6e7b8; font-size: 15px; text-align: center; }
