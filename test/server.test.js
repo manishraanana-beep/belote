@@ -1193,3 +1193,29 @@ test("tables publiques : places libres complétées par des robots variés, mise
     await f.close();
   }
 });
+
+test("joueurs réels d'abord : regroupés entre tables rapides et publiques avant les robots", async () => {
+  const f = await fixture({ fillSeconds: 0.4, env: { BELOTE_LOGIN_BONUS: "0", BELOTE_SIGNUP_BONUS: "5000" } });
+  try {
+    // A attend à la table à 200 ; B touche « Jouer maintenant » (200 jetons) : il rejoint A.
+    const a = await member(f, "attente-a@exemple.fr"),
+      b = await member(f, "attente-b@exemple.fr");
+    await a.command("playLobby", { stake: 200 });
+    await b.command("quick");
+    assert.equal(b.state.table.id, a.state.table.id);
+    await a.wait((c) => c.state.table?.game);
+    assert.equal(a.state.table.seats.filter((s) => !s.bot).length, 2);
+    assert.equal(a.state.table.seats.filter((s) => s.bot).length, 2);
+    // Invités (gratuit) : C en partie rapide, D à la table gratuite. Avant les robots, ils sont réunis.
+    const c = await f.client(),
+      d = await f.client();
+    await c.command("quick");
+    await d.command("playLobby", { stake: 0 });
+    await c.wait((x) => x.state.table?.game);
+    await d.wait((x) => x.state.table?.game);
+    assert.equal(c.state.table.id, d.state.table.id, "réunis à la même table");
+    assert.equal(c.state.table.seats.filter((s) => !s.bot).length, 2);
+  } finally {
+    await f.close();
+  }
+});

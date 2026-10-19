@@ -828,6 +828,32 @@ export function createApp({
       console.error("Départ automatique impossible :", e.message);
     }
   }
+  // Joueurs réels d'abord : tables publiques ou rapides de même mise, pas encore lancées,
+  // où au moins un joueur attend et une place est libre (les plus remplies en premier).
+  const humansAt = (x) => x.seats.filter((s) => s && !s.bot).length;
+  const stakeKey = (x) => x.quickStake ?? x.stake ?? 0;
+  function waitingTables(stake, exclude) {
+    return Object.values(db.tables)
+      .filter((x) => (x.quick || x.lobby) && x !== exclude && !x.game && stakeKey(x) === stake && humansAt(x) > 0 && x.seats.includes(null))
+      .sort((a, b) => humansAt(b) - humansAt(a));
+  }
+  // Avant d'installer des robots : on rapatrie les joueurs qui attendent seuls à une autre table compatible.
+  function gatherHumans(t) {
+    for (const x of waitingTables(stakeKey(t), t)) {
+      for (let i = 0; i < 4 && t.seats.includes(null); i++) {
+        const s = x.seats[i];
+        if (!s || s.bot) continue;
+        x.seats[i] = null;
+        t.seats[t.seats.indexOf(null)] = s;
+        if (db.players[s.id]) db.players[s.id].tableId = t.id;
+      }
+      if (!x.seats.some(Boolean)) {
+        x.fillAt = null;
+        if (x.quick) delete db.tables[x.id];
+      } else if (x.owner && !x.seats.some((s) => s?.id === x.owner)) x.owner = x.seats.find((s) => s && !s.bot)?.id ?? null;
+      update(x);
+    }
+  }
   function seatPlayer(target, p, seat = target.seats.indexOf(null)) {
     check(seat >= 0 && !target.seats[seat], "Table complète");
     target.seats[seat] = { id: p.id, name: p.name, avatar: p.avatar };
@@ -976,7 +1002,7 @@ export function createApp({
         ensureLobby();
         const open = Object.values(db.tables)
           .filter((x) => x.lobby && x.stake === stake && (!x.game || x.game.phase === "finished") && x.seats.some((s) => !s))
-          .sort((a, b) => b.seats.filter(Boolean).length - a.seats.filter(Boolean).length);
+          .sort((a, b) => humansAt(b) - humansAt(a));
         const target = open[0];
         check(target, "Aucune table disponible");
         if (target.game) target.game = null;
@@ -1126,9 +1152,17 @@ export function createApp({
         }
         // Avec un compte et assez de crédits : partie à 200 (robots compris, adossés à la Maison).
         const quickStake = p.accountId && economy.available(p) >= toUnits(QUICK_STAKE) ? QUICK_STAKE : 0;
-        let target = Object.values(db.tables).find(
-          (x) => x.quick && !x.game && x.seats.includes(null) && (x.quickStake ?? x.stake ?? 0) === quickStake,
-        );
+        // Un joueur attend déjà (partie rapide ou table publique de même mise) : on le rejoint.
+        let target =
+          waitingTables(quickStake)[0] ??
+          Object.values(db.tables).find((x) => x.quick && !x.game && x.seats.includes(null) && stakeKey(x) === quickStake);
+        if (target?.lobby) {
+          seatPlayer(target, p);
+          autoStart(target);
+          ensureLobby();
+          changed = target;
+          break;
+        }
         if (!target) {
           target = table(quickStake ? `Partie rapide · ${quickStake}` : "Partie rapide", pid, false, {}, quickStake);
           target.quick = true;
@@ -2030,6 +2064,7 @@ export function createApp({
           t.fillAt = null; // plus personne : on n'installe pas de robots dans le vide
           continue;
         }
+        if (!t.game && (t.quick || t.lobby)) gatherHumans(t); // joueurs réels d'abord, robots ensuite
         for (let i = 0; i < 4; i++) if (!t.seats[i]) t.seats[i] = makeBot(i, null, t);
         t.fillAt = null;
         if (!t.game) start(t);
