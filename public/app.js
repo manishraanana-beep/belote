@@ -2433,7 +2433,10 @@ document.addEventListener("click", async (ev) => {
     case "start":
     case "next":
     case "rematch":
+      cmd(a);
+      break;
     case "leave":
+      closeModal();
       cmd(a);
       break;
     case "reaction":
