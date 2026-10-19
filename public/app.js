@@ -638,6 +638,8 @@ const needVerify = () => !!(state.player.account && !state.player.account.verifi
 function homePage() {
   const p = state.player;
   const pending = p.friendIn.length;
+  // Parties réellement en cours sur les tables publiques (chacune a au moins un joueur).
+  const live = state.tables.filter((t) => t.status === "Partie en cours").length;
   return shell(
     `<div class="shop-head home-head">${coinHead()}</div>
     <div class="me-row">
@@ -647,6 +649,7 @@ function homePage() {
     ${needVerify() ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
     ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 crédits offerts ${icon("chevron", "tiny")}</button>`}
     ${btn(`${icon("cards")} Jouer maintenant${p.account && p.wallet.available / 2 >= 200 ? '<small class="quick-stake">Partie à 200 jetons · gains contre les robots aussi</small>' : ""}`, "quick", "gold-btn wide big quick-btn")}
+    ${live ? `<p class="live-now"><i class="live-dot"></i>${live} partie${live > 1 ? "s" : ""} en cours en ce moment</p>` : ""}
     ${invitesBlock()}
     <div class="features">
       ${featureCard("go", 'data-page="tables"', "f-public", "Tables publiques", "Jouez avec d’autres joueurs", '<img src="/decor/f-publiques.webp" alt="">')}
@@ -695,13 +698,13 @@ function stakeTables() {
         <span class="sc-go">Jouer</span>
       </button>`;
     })
-    .join("")}</div><p class="hint mid">4 joueurs avec compte, placés automatiquement ; la partie démarre dès que la table est complète.</p>`;
+    .join("")}</div><p class="hint mid">Placés automatiquement avec les autres joueurs ; les places encore libres après quelques secondes sont prises par des robots.</p>`;
 }
 function tableCard(t) {
   const busy = t.status === "Partie en cours";
   const taken = 4 - t.available;
   return `<article class="table-card ${busy ? "busy" : ""}">
-    <div class="tc-main"><b>${e(t.name)}</b><small>${t.quick ? "Partie rapide · " : ""}${t.rules.target} points · ${t.stake ? `mise ${fmt(t.stake)} jetons · 4 joueurs avec compte` : "gratuite"}</small></div>
+    <div class="tc-main"><b>${e(t.name)}</b><small>${t.quick ? "Partie rapide · " : ""}${t.rules.target} points · ${t.stake ? `mise ${fmt(t.stake)} jetons` : "gratuite"}</small></div>
     <span class="tc-count">${icon("users")} ${taken}/4</span>
     ${btn(busy ? "En jeu" : "Rejoindre", "join", "gold-btn small", `data-table="${t.id}"`, busy || !t.available)}
   </article>`;

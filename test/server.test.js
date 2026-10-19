@@ -71,7 +71,8 @@ test("quatre connexions : mains privées, arbitrage simultané, doublons, surcon
     );
     const t = players[0].state.tables[0];
     for (const p of players) await p.command("join", { tableId: t.id });
-    await players[0].command("start");
+    // Table publique permanente : départ automatique dès le quatrième joueur assis.
+    await players[0].wait((c) => c.state.table?.game);
     await players[3].wait((c) => c.state.table?.game);
     const all = players.flatMap((p) => p.state.table.game.hand);
     assert.equal(new Set(all).size, 32);
@@ -363,7 +364,8 @@ test("enchère concurrente à une contre : une seule action, contrat cohérent",
     );
     const tableId = players[0].state.tables[0].id;
     for (const p of players) await p.command("join", { tableId });
-    await players[0].command("start");
+    // Table publique permanente : départ automatique dès le quatrième joueur assis.
+    await players[0].wait((c) => c.state.table?.game);
     await players[3].wait((c) => c.state.table?.game);
     await players[0].command("action", {
       version: players[0].state.table.game.version,
@@ -405,7 +407,8 @@ test("expiration surcontre, tours expirés et remplacement après absence", asyn
     );
     const tableId = players[0].state.tables[0].id;
     for (const p of players) await p.command("join", { tableId });
-    await players[0].command("start");
+    // Table publique permanente : départ automatique dès le quatrième joueur assis.
+    await players[0].wait((c) => c.state.table?.game);
     await players[3].wait((c) => c.state.table?.game);
     await players[0].command("action", {
       version: players[0].state.table.game.version,
@@ -605,7 +608,8 @@ test("quitter la partie : un robot reprend la main, les autres continuent", asyn
     const players = await Promise.all(Array.from({ length: 4 }, () => f.client()));
     const t = players[0].state.tables[0];
     for (const p of players) await p.command("join", { tableId: t.id });
-    await players[0].command("start");
+    // Table publique permanente : départ automatique dès le quatrième joueur assis.
+    await players[0].wait((c) => c.state.table?.game);
     await players[1].wait((c) => c.state.table?.game);
     const before = players[1].state.table.game;
     const hand = f.app.db.tables[t.id].game.hands[1].slice();
@@ -1159,6 +1163,32 @@ test("Jouer maintenant : revanche relancée, robots de la Maison et absents remp
     assert.equal(t.stake, 200);
     assert.ok(t.money && !t.money.settled, "mise de la revanche engagée");
     assert.ok(pa.wallet.reserved > 0);
+  } finally {
+    await f.close();
+  }
+});
+
+test("tables publiques : places libres complétées par des robots variés, mise tenue par la Maison", async () => {
+  const f = await fixture({ fillSeconds: 0.05, env: { BELOTE_LOGIN_BONUS: "0", BELOTE_SIGNUP_BONUS: "5000" } });
+  try {
+    const a = await member(f, "seul@exemple.fr");
+    await a.command("playLobby", { stake: 200 });
+    await a.wait((c) => c.state.table?.game);
+    const t = f.app.db.tables[a.state.table.id];
+    const bots = t.seats.filter((s) => s.bot);
+    assert.equal(bots.length, 3);
+    assert.equal(new Set(t.seats.map((s) => s.name)).size, 4, "prénoms tous différents");
+    assert.equal(new Set(t.seats.map((s) => s.avatar)).size, 4, "avatars tous différents");
+    assert.equal(t.stake, 200);
+    assert.ok(t.money && t.money.seats.filter((x) => x.house).length === 3, "robots adossés à la Maison");
+    // Les robots restent signalés comme tels à tous les joueurs.
+    assert.ok(a.state.table.seats.filter((s) => s.bot).length === 3);
+    // Table gratuite (invité) : même chose, sans mise.
+    const g = await f.client();
+    await g.command("playLobby", { stake: 0 });
+    await g.wait((c) => c.state.table?.game);
+    assert.equal(g.state.table.seats.filter((s) => s.bot).length, 3);
+    assert.equal(f.app.db.tables[g.state.table.id].stake, 0);
   } finally {
     await f.close();
   }
