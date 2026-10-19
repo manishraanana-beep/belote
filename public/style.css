@@ -1604,3 +1604,7 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 }
 /* Annonce du preneur en face : fixée à hauteur de l'avatar, elle ne bouge plus quand le minuteur apparaît */
 .screen.game .seat.p2 .taker-badge { top: calc(var(--av) * 0.5); translate: 0 -50%; }
+/* Accueil : nombre de parties en cours */
+.live-now { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 8px 0 0; font-size: 14px; color: #d9efe6; }
+.live-now .live-dot { width: 9px; height: 9px; border-radius: 50%; background: #4fe0b0; box-shadow: 0 0 0 3px #4fe0b033; animation: livePulse 1.6s ease-in-out infinite; }
+@keyframes livePulse { 50% { box-shadow: 0 0 0 6px #4fe0b000; } }

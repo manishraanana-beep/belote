@@ -1,6 +1,6 @@
 import http from "node:http";
 import { WebSocketServer } from "ws";
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { randomBytes, randomInt, scryptSync, timingSafeEqual } from "node:crypto";
 import {
   mkdirSync,
   readFileSync,
@@ -81,7 +81,14 @@ function rules(input = {}) {
 // Avatars illustrés repris des maquettes du graphiste (public/avatars/<id>.webp) ; les robots ont leurs mascottes SVG.
 export const AVATARS = ["jacques", "sophie", "camille", "emma", "malik", "henri", "leo", "chat", "chien"];
 export const BOT_AVATARS = ["robot-bleu", "robot-corail", "robot-menthe", "robot-soleil"];
-const BOT_NAMES = ["Léon", "Margot", "Basile", "Rosalie", "Gaston", "Suzon", "Firmin", "Odette"];
+// Robots : prénoms et avatars tirés au hasard, jamais deux fois les mêmes à une table.
+// Ils restent toujours signalés comme robots (badge « Robot ») : aucun ne se fait passer pour un joueur.
+const BOT_NAMES = [
+  "Léon", "Margot", "Basile", "Rosalie", "Gaston", "Suzon", "Firmin", "Odette", "Marcel", "Lucienne",
+  "Jules", "Paulette", "Albert", "Yvette", "Émile", "Josette", "Fernand", "Ginette", "Lucien", "Colette",
+  "Raymond", "Simone", "Gustave", "Madeleine", "Octave", "Huguette", "Anatole", "Germaine", "Félix", "Augustine",
+  "Hector", "Clémence",
+];
 // Messages et réactions prédéfinis : impossible d'y décrire sa main à son partenaire.
 export const REACTIONS = [
   { id: "bravo", text: "Bien joué !", emoji: "👏" },
@@ -198,11 +205,17 @@ export function createApp({
     db.players[p.id] = p;
     return p;
   }
-  function makeBot(seat, replaced) {
+  function makeBot(seat, replaced, t) {
+    const pick = (list, taken) => {
+      const free = list.filter((x) => !taken.includes(x));
+      const pool = free.length ? free : list;
+      return pool[randomInt(pool.length)];
+    };
+    const others = (t?.seats ?? []).filter(Boolean);
     return {
       id: "bot-" + id(),
-      name: BOT_NAMES[seat * 2 + (randomBytes(1)[0] % 2)],
-      avatar: BOT_AVATARS[seat % BOT_AVATARS.length],
+      name: pick(BOT_NAMES, others.map((s) => s.name)),
+      avatar: pick([...AVATARS, ...BOT_AVATARS], others.map((s) => s.avatar)),
       bot: true,
       replaced: replaced ?? null,
     };
@@ -290,6 +303,7 @@ export function createApp({
       if (!open.length) {
         const t = table(stake ? `Table à ${stake.toLocaleString("fr-FR")} jetons` : "Le Salon • Partie gratuite", null, false, {}, stake);
         t.lobby = true;
+        t.houseBots = stake > 0;
         changed = true;
       }
       // Pas plus d'une table vide par montant.
@@ -657,7 +671,7 @@ export function createApp({
     check(t.game?.phase === "finished", "La partie n’est pas terminée");
     check(!t.tournament, "Rencontre de tournoi : la suite se joue au tour suivant");
     t.rematch ??= { votes: {}, blocked: [] };
-    if (!accept && t.quick) {
+    if (!accept && (t.quick || t.lobby)) {
       // Partie rapide : celui qui refuse s'en va seul ; un robot prendra sa place pour les autres.
       leave(db.players[pid]);
       return;
@@ -671,10 +685,10 @@ export function createApp({
     }
     t.rematch.votes[pid] = true;
     // « Jouer maintenant » : les absents sont remplacés par des robots, sans attendre personne.
-    if (t.quick) {
+    if (t.quick || t.lobby) {
       t.rematch.deadline ??= Date.now() + QUICK_REMATCH_WAIT;
       for (let i = 0; i < 4; i++) {
-        if (!t.seats[i]) t.seats[i] = makeBot(i);
+        if (!t.seats[i]) t.seats[i] = makeBot(i, null, t);
         else if (t.seats[i].bot && t.seats[i].owner) t.seats[i] = { ...t.seats[i], owner: null };
       }
     }
@@ -695,13 +709,13 @@ export function createApp({
   }
   // Partie rapide : un joueur qui n'a pas répondu à la revanche à temps laisse sa place à un robot.
   function expireQuickRematch(t, now) {
-    if (!t.quick || !t.rematch?.deadline || now < t.rematch.deadline || t.game?.phase !== "finished") return false;
+    if (!(t.quick || t.lobby) || !t.rematch?.deadline || now < t.rematch.deadline || t.game?.phase !== "finished") return false;
     for (let i = 0; i < 4; i++) {
       const s = t.seats[i];
       if (s && !s.bot && !t.rematch.votes[s.id]) {
         const p = db.players[s.id];
         if (p?.tableId === t.id) p.tableId = null;
-        t.seats[i] = makeBot(i);
+        t.seats[i] = makeBot(i, null, t);
       }
     }
     t.rematch.deadline = null;
@@ -723,7 +737,7 @@ export function createApp({
       return;
     }
     if (seat >= 0) {
-      t.seats[seat] = playing ? { ...makeBot(seat, p.name), owner: p.id } : null;
+      t.seats[seat] = playing ? { ...makeBot(seat, p.name, t), owner: p.id } : null;
       if (playing && t.money && !t.money.settled) integrity.leave(p.id, t.gameId);
     }
     if (t.rematch) delete t.rematch.votes[p.id];
@@ -801,8 +815,13 @@ export function createApp({
   const blockedEither = (a, b) => !!(a.blocked?.[b.id] || b.blocked?.[a.id]);
   // Tables permanentes avec mise : départ automatique dès que quatre joueurs sont assis.
   function autoStart(target) {
-    if (!target.lobby || !(target.stake > 0) || (target.game && target.game.phase !== "finished")) return;
-    if (!target.seats.every((s) => s && !s.bot)) return;
+    if (!target.lobby || (target.game && target.game.phase !== "finished")) return;
+    // Places encore libres après le délai : complétées par des robots (les joueurs déjà assis restent ensemble).
+    if (!target.seats.every(Boolean)) {
+      target.fillAt ??= Date.now() + fillSeconds * 1000;
+      return;
+    }
+    target.fillAt = null;
     try {
       start(target);
     } catch (e) {
@@ -1061,7 +1080,7 @@ export function createApp({
               !t.seats[d.seat],
             "Place indisponible",
           );
-          t.seats[d.seat] = makeBot(d.seat);
+          t.seats[d.seat] = makeBot(d.seat, null, t);
         }
         if (msg.type === "kick") {
           check(
@@ -1077,7 +1096,7 @@ export function createApp({
         }
         if (msg.type === "start") {
           // Option « Compléter avec des robots » (parties gratuites uniquement).
-          if (t.fillBots && !t.stake) for (let i = 0; i < 4; i++) if (!t.seats[i]) t.seats[i] = makeBot(i);
+          if (t.fillBots && !t.stake) for (let i = 0; i < 4; i++) if (!t.seats[i]) t.seats[i] = makeBot(i, null, t);
           start(t);
         }
         if (msg.type === "rematch") voteRematch(t, pid, true);
@@ -1090,7 +1109,7 @@ export function createApp({
         changed = table("Entraînement", pid, true, d.rules);
         changed.practice = true;
         changed.seats[0] = { id: pid, name: p.name, avatar: p.avatar };
-        for (let i = 1; i < 4; i++) changed.seats[i] = makeBot(i);
+        for (let i = 1; i < 4; i++) changed.seats[i] = makeBot(i, null, changed);
         p.tableId = changed.id;
         start(changed);
         break;
@@ -2005,8 +2024,13 @@ export function createApp({
         dirty = true;
         continue;
       }
-      if ((t.quick || (t.fillBots && !t.stake)) && (!t.game || t.game.phase === "finished") && t.fillAt && now >= t.fillAt) {
-        for (let i = 0; i < 4; i++) if (!t.seats[i]) t.seats[i] = makeBot(i);
+      if ((t.quick || t.lobby || (t.fillBots && !t.stake)) && (!t.game || t.game.phase === "finished") && t.fillAt && now >= t.fillAt) {
+        if (t.lobby && t.stake) t.houseBots = true; // tables enregistrées avant les robots de la Maison
+        if (t.lobby && !t.seats.some((x) => x && !x.bot)) {
+          t.fillAt = null; // plus personne : on n'installe pas de robots dans le vide
+          continue;
+        }
+        for (let i = 0; i < 4; i++) if (!t.seats[i]) t.seats[i] = makeBot(i, null, t);
         t.fillAt = null;
         if (!t.game) start(t);
         else update(t);
