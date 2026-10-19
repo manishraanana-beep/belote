@@ -679,7 +679,7 @@ function tablesPage() {
     ${myPublic.length ? `<h2 class="section">Mes tables</h2><div class="list">${myPublic.map((t) => `<div class="row-del"><button type="button" class="vip-row pub" data-action="enterTable" data-id="${t.id}"><span class="vr-main"><b>${e(t.name)}</b><small>${t.stake ? `Mise ${fmt(t.stake)} jetons` : "Partie gratuite"}</small></span><span class="vr-count">${icon("users")} ${t.players}/4</span>${icon("chevron", "tiny")}</button>${btn(icon("trash"), "closeTableAsk", "round-btn small del-btn", `data-id="${t.id}" aria-label="Supprimer la table"`, t.playing)}</div>`).join("")}</div><h2 class="section">Toutes les tables</h2>` : ""}
     ${stakeTables()}
     ${joinable.length ? `<h2 class="section orn-title">Tables des joueurs</h2><div class="list">${joinable.map(tableCard).join("")}</div>` : ""}
-    <div class="stack">${btn("Créer une table publique", "createPublic", "gold-btn wide")}${btn(`${icon("link")} Rejoindre avec un code`, "joinCode", "line-btn wide")}</div>`,
+    <div class="stack">${btn(`<i class="plus-dot">+</i>Créer une table publique`, "createPublic", "gold-btn wide")}${btn(`${icon("link")} Rejoindre avec un code`, "joinCode", "line-btn wide")}</div>`,
     { tabs: true, backBtn: false },
   );
 }
@@ -697,13 +697,14 @@ function stakeTables() {
       const playing = state.tables.filter((t) => t.lobby && t.stake === stake && t.status === "Partie en cours").length;
       const [cls, title] = STAKE_LOOK[stake] ?? ["royale", `Table à ${fmt(stake)}`];
       return `<button type="button" class="stake-card ${cls}" data-action="playLobby" data-stake="${stake}">
+        <span class="sc-photo" aria-hidden="true"></span>
         <span class="sc-chip"><b>${fmt(stake)}</b><small>jetons</small></span>
-        <span class="sc-main"><b>${title}</b><small>Mise ${fmt(stake)} · gain jusqu’à +${fmt(2 * stake)}</small>
-        <span class="sc-meta"><span class="sc-seats">${[0, 1, 2, 3].map((i) => `<i class="${i < waiting ? "on" : ""}"></i>`).join("")}</span>${waiting ? `${waiting}/4 en attente` : "Soyez le premier"}${playing ? ` · ${playing} en jeu` : ""}</span></span>
+        <span class="sc-main"><b>${title}<i class="sc-flag" aria-hidden="true"></i></b><small>Mise ${fmt(stake)} · gain jusqu’à +${fmt(2 * stake)}</small>
+        <span class="sc-meta"><span class="sc-seats">${[0, 1, 2, 3].map((i) => `<i class="${i < waiting ? "on" : ""}"></i>`).join("")}</span>${waiting}/4 joueurs${playing ? ` · ${playing} en jeu` : ""}</span></span>
         <span class="sc-go">Jouer</span>
       </button>`;
     })
-    .join("")}</div><p class="hint mid">Placés automatiquement avec les autres joueurs ; les places encore libres après quelques secondes sont prises par des robots.</p>`;
+    .join("")}</div><p class="robot-note">${icon("robot")}<span>Tables automatiquement complétées avec d’autres joueurs. Les places encore libres après quelques secondes sont prises par des robots.</span></p>`;
 }
 function tableCard(t) {
   const busy = t.status === "Partie en cours";
