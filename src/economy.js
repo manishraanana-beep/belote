@@ -7,7 +7,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 export const U = 2; // unités par crédit
 export const STAKES = [100, 200, 500, 1000, 2500, 10000];
 // Rubicon : la victoire écrasante rapporte le double de la mise.
-export const RUBICON = 2;
+export const RUBICON = 1; // perte limitée à la mise, même en Rubicon
 export const toUnits = (credits) => Math.round(credits * U);
 export const toCredits = (units) => units / U;
 
@@ -152,6 +152,18 @@ export function createEconomy(db, config = economyConfig()) {
       }
       money.settled = true;
       money.cancelled = reason;
+    },
+    // Abandon en cours de partie : la mise est perdue tout de suite, la place passe à la Maison.
+    forfeit(players, money, pid, gameKey) {
+      if (!money || money.settled) return null;
+      const s = money.seats.find((x) => x.pid === pid);
+      const p = players[pid];
+      if (!s || !p) return null;
+      wallet(p).reserved = Math.max(0, wallet(p).reserved - s.engaged);
+      const lost = Math.min(money.stake, wallet(p).balance);
+      const e = post(p, `forfeit:${gameKey}:${pid}`, "loss", -lost, { gameId: gameKey, stake: money.stake, engaged: s.engaged, label: "Abandon de la partie" });
+      Object.assign(s, { pid: null, name: "Maison", house: true, engaged: money.stake * RUBICON });
+      return e;
     },
     // Règlement atomique, exécuté une seule fois par partie.
     settle(players, money, scores, gameKey) {

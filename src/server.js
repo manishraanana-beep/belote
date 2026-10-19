@@ -465,7 +465,7 @@ export function createApp({
       engagedPreview: t.stake
         ? t.seats.map((s) => {
             const p = s && !s.bot ? db.players[s.id] : null;
-            return p ? { engaged: toCredits(Math.min(economy.available(p), 4 * t.stake)), enough: economy.available(p) >= 2 * t.stake, account: !!p.accountId } : null;
+            return p ? { engaged: toCredits(Math.min(economy.available(p), 2 * t.stake)), enough: economy.available(p) >= 2 * t.stake, account: !!p.accountId } : null;
           })
         : null,
       rematch: t.rematch ? { votes: t.rematch.votes, blocked: t.rematch.blocked ?? [] } : null,
@@ -638,7 +638,7 @@ export function createApp({
   }
   function start(t) {
     check(t.seats.every(Boolean), "Il faut quatre joueurs");
-    // Tables publiques et « Jouer maintenant » : règles de la maison (1 500 points, donneur suivant si tous passent),
+    // Tables publiques et « Jouer maintenant » : règles de la maison (1 000 points, donneur suivant si tous passent),
     // y compris pour les tables enregistrées avant ce changement.
     if (t.quick || t.lobby) Object.assign(t.rules, { target: DEFAULT_RULES.target, allPass: "rotate" });
     const gameId = id();
@@ -749,6 +749,7 @@ export function createApp({
     if (seat >= 0) {
       t.seats[seat] = playing ? { ...makeBot(seat, p.name, t), owner: p.id } : null;
       if (playing && t.money && !t.money.settled) integrity.leave(p.id, t.gameId);
+      if (playing && t.money && !t.money.settled) economy.forfeit(db.players, t.money, p.id, t.gameId);
     }
     if (t.rematch) delete t.rematch.votes[p.id];
     if (t.owner === p.id) t.owner = t.seats.find((s) => s && !s.bot)?.id ?? (t.vip && !t.practice && t.host === p.id ? p.id : null);

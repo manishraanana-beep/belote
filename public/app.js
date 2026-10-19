@@ -49,9 +49,9 @@ const REPORT_REASONS = {
 const fmt = (n) => Number(n).toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 const coins = (n, cls = "") => `<span class="coins ${cls}"><i class="coin"></i>${fmt(n)}</span>`;
 const signed = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n));
-const stakeRisk = (s) => `Mise : ${fmt(s)} crédits. En rubicon, vous risquez jusqu’à ${fmt(2 * s)} crédits (double de la mise), dans la limite de votre solde engagé. Les gains dépendent des crédits engagés par les adversaires.`;
+const stakeRisk = (s) => `Mise : ${fmt(s)} crédits. Vous ne pouvez perdre que votre mise. Quitter la partie en cours fait perdre la mise.`;
 const DEFAULT_RULES = {
-  target: 1500,
+  target: 1000,
   turnSeconds: 20,
   counterWindowSeconds: 8,
   reconnectSeconds: 90,
@@ -699,7 +699,7 @@ function stakeTables() {
       return `<button type="button" class="stake-card ${cls}" data-action="playLobby" data-stake="${stake}">
         <span class="sc-photo" aria-hidden="true"></span>
         <span class="sc-chip"><b>${fmt(stake)}</b><small>jetons</small></span>
-        <span class="sc-main"><b>${title}<i class="sc-flag" aria-hidden="true"></i></b><small>Mise ${fmt(stake)} · gain jusqu’à +${fmt(2 * stake)}</small>
+        <span class="sc-main"><b>${title}<i class="sc-flag" aria-hidden="true"></i></b><small>Mise ${fmt(stake)} · gain +${fmt(stake)}</small>
         <span class="sc-meta"><span class="sc-seats">${[0, 1, 2, 3].map((i) => `<i class="${i < waiting ? "on" : ""}"></i>`).join("")}</span>${waiting}/4 joueurs${playing ? ` · ${playing} en jeu` : ""}</span></span>
         <span class="sc-go">Jouer</span>
       </button>`;
@@ -834,11 +834,11 @@ function vipCreatePage() {
       <input type="hidden" name="vip" value="true">
       <label class="lbl">Nom de la table<input name="name" value="La table de ${e(state.player.name)}" maxlength="40" required></label>
       <label class="lbl">Mot de passe · <em>facultatif</em><input name="password" type="password" placeholder="Aucun mot de passe" maxlength="128" autocomplete="new-password"></label>
-      <div class="lbl">Score de la partie<div class="seg radio">${[500, 1000, 1500].map((n) => `<label><input type="radio" name="target" value="${n}" ${n === 1500 ? "checked" : ""}><span>${fmt(n)}</span></label>`).join("")}</div></div>
+      <div class="lbl">Score de la partie<div class="seg radio">${[500, 1000, 1500].map((n) => `<label><input type="radio" name="target" value="${n}" ${n === 1000 ? "checked" : ""}><span>${fmt(n)}</span></label>`).join("")}</div></div>
       <label class="toggle-row">${icon("bolt")}<span>Contrée à la volée</span><input type="checkbox" name="flyingCounter" checked><i class="sw"></i></label>
       <label class="toggle-row">${icon("robot")}<span>Compléter avec des robots</span><input type="checkbox" name="fillBots" checked><i class="sw"></i></label>
       <label class="toggle-row">${icon("clock")}<span>Temps de réflexion par tour</span><select name="turnSeconds">${[15, 20, 30, 45, 60].map((n) => `<option value="${n}" ${n === r.turnSeconds ? "selected" : ""}>${n} s</option>`).join("")}</select></label>
-      <div class="lbl">Mise par joueur<div class="seg radio">${[0, ...STAKES].map((n) => `<label><input type="radio" name="stake" value="${n}" ${n ? "" : "checked"}><span>${n ? fmt(n) : "Gratuit"}</span></label>`).join("")}</div><small class="hint">Avec crédits : quatre joueurs humains, rubicon jusqu’à 2 × la mise.</small></div>
+      <div class="lbl">Mise par joueur<div class="seg radio">${[0, ...STAKES].map((n) => `<label><input type="radio" name="stake" value="${n}" ${n ? "" : "checked"}><span>${n ? fmt(n) : "Gratuit"}</span></label>`).join("")}</div><small class="hint">Avec crédits : quatre joueurs humains, perte limitée à la mise.</small></div>
       <input type="hidden" name="counterWindowSeconds" value="${r.counterWindowSeconds}"><input type="hidden" name="reconnectSeconds" value="${r.reconnectSeconds}"><input type="hidden" name="capotValue" value="${r.capotValue}"><input type="hidden" name="scoring" value="${r.scoring}"><input type="hidden" name="allPass" value="${r.allPass}">${r.beloteRetained ? '<input type="hidden" name="beloteRetained" value="on">' : ""}<input type="hidden" name="beloteCountsContract" value="on">
       <button class="gold-btn wide">${icon("crown")} Créer ma table</button>
     </form>
@@ -1893,7 +1893,7 @@ function createModal(r = DEFAULT_RULES, editing = false) {
       ${editing ? "" : `<label>Nom de la table<input name="name" placeholder="Le salon de Sophie" maxlength="40" required></label>
       <div class="seg radio"><label><input type="radio" name="vip" value="true" checked><span>👑 Privée</span></label><label><input type="radio" name="vip" value="false"><span>🌍 Publique</span></label></div>
       <label>Mot de passe <small>facultatif</small><input name="password" type="password" maxlength="128" autocomplete="new-password"></label>`}
-      <fieldset class="stakes"><legend>Mise par joueur</legend><div class="seg radio">${[0, ...STAKES].map((n) => `<label><input type="radio" name="stake" value="${n}" ${n === (editing ? state.table.stake : 0) ? "checked" : ""}><span>${n ? `🪙 ${fmt(n)}` : "Gratuit"}</span></label>`).join("")}</div><small class="muted">Avec crédits : quatre joueurs, rubicon jusqu’à 2 × la mise.</small></fieldset>
+      <fieldset class="stakes"><legend>Mise par joueur</legend><div class="seg radio">${[0, ...STAKES].map((n) => `<label><input type="radio" name="stake" value="${n}" ${n === (editing ? state.table.stake : 0) ? "checked" : ""}><span>${n ? `🪙 ${fmt(n)}` : "Gratuit"}</span></label>`).join("")}</div><small class="muted">Avec crédits : quatre joueurs, perte limitée à la mise.</small></fieldset>
       <details class="advanced" ${editing ? "open" : ""}><summary>Règles et délais</summary>
       <div class="form-grid">${num("target", "Points pour gagner", 100, 10000)}${num("turnSeconds", "Temps par tour (s)", 5, 120)}${num("counterWindowSeconds", "Délai de surcontre (s)", 2, 30)}${num("capotValue", "Valeur du capot", 160, 500)}${num("reconnectSeconds", "Délai d’absence (s)", 10, 600)}
       <label>Score<select name="scoring"><option value="added" ${r.scoring === "added" ? "selected" : ""}>Points + contrat</option><option value="contract" ${r.scoring === "contract" ? "selected" : ""}>Contrat seul</option></select></label>

@@ -657,12 +657,12 @@ test("crédits : table à 200, réservations, achat en cours, départ, règlemen
     await guest.command("join", { tableId: table }, "error");
     await ps[0].command("bot", { seat: 1 }, "error");
     for (const p of ps.slice(1)) await p.command("join", { tableId: table });
-    await ps[0].wait((c) => c.state.table.engagedPreview?.every((x) => x?.engaged === 400));
+    await ps[0].wait((c) => c.state.table.engagedPreview?.every((x) => x?.engaged === 200));
     await ps[0].command("start");
     await ps[3].wait((c) => c.state.table?.game);
     const db = f.app.db;
-    for (const p of ps) assert.equal(db.players[p.state.player.id].wallet.reserved, 800);
-    assert.deepEqual(ps[0].state.table.money.seats.map((x) => x.engaged), [400, 400, 400, 400]);
+    for (const p of ps) assert.equal(db.players[p.state.player.id].wallet.reserved, 400);
+    assert.deepEqual(ps[0].state.table.money.seats.map((x) => x.engaged), [200, 200, 200, 200]);
     // Le joueur 1 achète des crédits pendant la partie : sa mise engagée ne change pas.
     const buy = await api(f, ps[1].cookie, "/api/shop/test", { pack: "pack-1000", transactionId: "tx-1" });
     assert.equal(buy.body.credited, true);
@@ -676,24 +676,20 @@ test("crédits : table à 200, réservations, achat en cours, départ, règlemen
       assert.equal((await fetch(f.base + "/api/shop/stripe-webhook", { method: "POST", headers: { "Stripe-Signature": sig }, body: raw })).status, 200);
     assert.equal(db.ledger.filter((x) => x.key === "purchase:stripe:cs_1").length, 1);
     assert.equal((await fetch(f.base + "/api/shop/stripe-webhook", { method: "POST", headers: { "Stripe-Signature": "t=1,v1=00" }, body: raw })).status, 401);
-    // Tout le monde quitte : les robots finissent la partie, les crédits restent engagés.
+    // Tout le monde quitte : chacun perd sa mise tout de suite, les robots de la Maison finissent la partie.
     for (const p of ps) await p.command("leave");
     const tb = db.tables[table];
     await ps[0].wait(() => tb.game?.phase === "finished");
     assert.equal(tb.money.settled, true);
     const deltas = db.ledger.filter((x) => x.gameId === tb.gameId).map((x) => x.amount);
-    assert.equal(deltas.length, 4);
-    assert.equal(deltas.reduce((a, b) => a + b, 0), 0, "crédits prélevés = distribués");
-    const rubicon = tb.money.result.rubicon;
-    assert.ok(deltas.every((d) => Math.abs(d) === (rubicon ? 800 : 400)));
+    assert.deepEqual(deltas, [-400, -400, -400, -400]);
     for (const p of ps) {
       const w = db.players[p.state.player.id].wallet;
       assert.equal(w.reserved, 0);
       assert.ok(w.balance >= 0);
     }
-    await ps[0].wait((c) => c.state.player.lastResult);
     const hist = await ps[0].command("wallet");
-    assert.ok(hist.wallet.some((x) => x.gameId === tb.gameId && x.stake === 200 && x.engaged === 400));
+    assert.ok(hist.wallet.some((x) => x.gameId === tb.gameId && x.stake === 200 && x.label === "Abandon de la partie"));
   } finally {
     await f.close();
   }
@@ -799,7 +795,7 @@ test("revanche : chaque joueur confirme, nouvelles réservations, refus = retour
     await ps[3].command("rematchVote", { accept: true });
     assert.equal(t.game.phase, "bidding");
     assert.ok(t.money && !t.money.settled);
-    for (const p of ps) assert.equal(f.app.db.players[p.state.player.id].wallet.reserved, 400);
+    for (const p of ps) assert.equal(f.app.db.players[p.state.player.id].wallet.reserved, 200);
     // Fin de la revanche puis refus : retour au salon.
     f.app.db.tables[t.id].game.phase = "finished";
     await ps[1].command("rematchVote", { accept: false });
@@ -1113,7 +1109,7 @@ test("Jouer maintenant : partie à 200 avec les robots de la Maison, gratuite sa
     assert.equal(t.stake, 200);
     assert.equal(t.money.seats.filter((x) => x.house).length, 3);
     const p = f.app.db.players[a.state.player.id];
-    assert.equal(p.wallet.reserved, Math.min(p.wallet.balance, 2 * 400));
+    assert.equal(p.wallet.reserved, Math.min(p.wallet.balance, 400));
     // Un invité sans compte joue la partie rapide gratuitement.
     const g = await f.client();
     await g.command("quick");

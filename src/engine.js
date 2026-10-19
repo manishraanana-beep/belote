@@ -2,7 +2,7 @@ import { randomInt } from "node:crypto";
 export const SUITS = ["S", "H", "D", "C"];
 export const RANKS = ["7", "8", "9", "J", "Q", "K", "10", "A"];
 export const DEFAULT_RULES = {
-  target: 1500,
+  target: 1000,
   turnSeconds: 20,
   reconnectSeconds: 90,
   counterWindowSeconds: 8,
