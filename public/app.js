@@ -897,7 +897,7 @@ function classementPage() {
   const list = (ranking?.players ?? []).filter((x) => tab !== "ratio" || x.games >= min).sort(sorters[tab]);
   const mine = list.findIndex((x) => x.me);
   const medal = (i) => (i < 3 ? `<span class="rk-medal m${i}">${i + 1}</span>` : `<span class="rk-pos">${i + 1}</span>`);
-  const row = (x, i) => `<li class="rk-row ${x.me ? "me" : ""}">${medal(i)}${avatar(x.avatar)}<b>${e(x.name)}</b>
+  const row = (x, i) => `<li class="rk-row ${x.me ? "me" : ""}">${medal(i)}${avatar(x.avatar)}<b>${x.cups ? `<span class="rk-cup" title="Vainqueur de tournoi">🏆${x.cups > 1 ? `<small>×${x.cups}</small>` : ""}</span> ` : ""}${e(x.name)}</b>
     <span class="rk-val ${tab === "wins" ? "on" : ""}"><b>${fmt(x.wins)}</b><small>victoires</small></span>
     <span class="rk-val ${tab === "ratio" ? "on" : ""}"><b>${x.ratio.toLocaleString("fr-FR")} %</b><small>ratio</small></span>
     <span class="rk-val ${tab === "games" ? "on" : ""}"><b>${fmt(x.games)}</b><small>parties</small></span></li>`;
@@ -2559,7 +2559,7 @@ function tourForm(t) {
       <label>Report de (min)<input type="number" name="postponeMinutes" min="5" max="10080" value="${v.postponeMinutes}"></label>
     </div>
     <label class="check-line"><input type="checkbox" name="flyingCounter" ${v.rules.flyingCounter ? "checked" : ""}>Contrée à la volée</label>
-    <fieldset><legend>Enjeux (crédits offerts à chaque joueur, sans droit d’entrée)</legend><div class="form-grid"><label>🏆 Vainqueurs<input type="number" name="prizeWinner" min="0" max="1000000" step="1" value="${v.prizes?.winner ?? 0}"></label><label>🥈 Finalistes<input type="number" name="prizeFinalist" min="0" max="1000000" step="1" value="${v.prizes?.finalist ?? 0}"></label></div></fieldset>
+    <fieldset><legend>💰 Jetons gagnés (par joueur de l’équipe, offerts par la Maison)</legend><div class="form-grid"><label>🏆 Vainqueurs<input type="number" name="prizeWinner" min="0" max="1000000" step="1" value="${v.prizes?.winner ?? 0}"></label><label>🥈 Finalistes<input type="number" name="prizeFinalist" min="0" max="1000000" step="1" value="${v.prizes?.finalist ?? 0}"></label></div></fieldset>
     ${rw("winner", "Récompenses des vainqueurs")}${rw("finalist", "Récompenses des finalistes")}${rw("participant", "Récompenses de participation")}
     <p class="muted small">Après le départ, seuls le nom et la description restent modifiables.</p>
     <div class="row"><button class="chip-btn" name="publish" value="">Enregistrer le brouillon</button><button class="pill small" name="publish" value="1">${t?.status === "published" ? "Enregistrer" : "Publier"}</button>${btn("Retour", "tourAdminBack", "chip-btn ghost")}</div>
