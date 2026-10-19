@@ -1702,3 +1702,7 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
   .screen.game .turn-pill, .screen.game .turn-pill.on { max-width: calc(var(--side) - 14px); padding: 4px 8px; font-size: 13px; }
   .screen.game .status-row .me-mini .bubble, .screen.game .me-seat .bubble { max-width: calc(var(--side) - 14px); }
 }
+/* Paysage : marge latérale élargie, la première carte (inclinée) ne passe plus sous le bandeau du tour */
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen.game { --side: 185px; }
+}
