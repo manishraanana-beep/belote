@@ -1608,3 +1608,11 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .live-now { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 8px 0 0; font-size: 14px; color: #d9efe6; }
 .live-now .live-dot { width: 9px; height: 9px; border-radius: 50%; background: #4fe0b0; box-shadow: 0 0 0 3px #4fe0b033; animation: livePulse 1.6s ease-in-out infinite; }
 @keyframes livePulse { 50% { box-shadow: 0 0 0 6px #4fe0b000; } }
+/* Salon d'attente : un joueur ou un robot qui arrive prend sa place en douceur */
+.slot.arrive .slot-ring { animation: slotArrive 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.slot.arrive b, .slot.arrive .robot-tag { animation: fade 0.4s both; }
+@keyframes slotArrive { from { scale: 0.4; opacity: 0; } }
+/* Écrans étroits en portrait, pendant les annonces : joueurs de côté sous le panneau (ancrés par le bas uniquement) */
+@media (max-aspect-ratio: 4/5) and (max-width: 400px) {
+  .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: auto; bottom: 2%; translate: none; }
+}
