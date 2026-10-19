@@ -1217,13 +1217,7 @@ function centerView(g, t, me) {
   // Seule notre propre carte interrompt l'affichage du pli précédent ; les cartes des autres
   // apparaissent juste après, avec leur animation.
   if (collection && sentCard && Date.now() < sentCard.until && !collection.cards.some((x) => x.card === sentCard.card)) collection = null;
-  if (collection) {
-    // Qui remporte le pli : son nom s'affiche, puis les cartes se retournent et filent vers lui.
-    const w = collection.winner;
-    const who = w === me ? "Vous remportez le pli" : `${e(t.seats[w]?.name ?? "")} remporte le pli`;
-    const tag = `<div class="trick-winner ${w % 2 === me % 2 ? "us" : "them"}">${who}</div>`;
-    return (collection.stage === "hold" ? trickCards(collection.cards, me) : trickCards(collection.cards, me, `collecting to${(w - me + 4) % 4}`)) + tag;
-  }
+  if (collection) return collection.stage === "hold" ? trickCards(collection.cards, me) : trickCards(collection.cards, me, `collecting to${(collection.winner - me + 4) % 4}`);
   const c = contractInfo(g, t, me);
   if (g.phase === "counter") return contractBanner(c, g);
   if (g.phase === "playing") {
