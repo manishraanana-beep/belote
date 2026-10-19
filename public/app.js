@@ -1038,6 +1038,7 @@ function pageView() {
 }
 
 // ———————————————————————————————————————————————————————————— salon d'attente (maquette « Salon privé »)
+const seenSlots = new Set();
 function roomView() {
   const t = state.table,
     me = t.seats.findIndex((s) => s?.id === state.player.id),
@@ -1052,7 +1053,10 @@ function roomView() {
     if (!s)
       return `<div class="slot empty"><button type="button" class="slot-ring" data-action="${owner && !t.stake && !t.quick ? "bot" : "friends"}" data-seat="${i}" aria-label="Place libre">+</button><b>Place libre</b>${me >= 0 && !t.quick && !t.lobby ? btn("S’asseoir", "seat", "mini-btn", `data-seat="${i}"`) : ""}</div>`;
     const pv = t.engagedPreview?.[i];
-    return `<div class="slot ${i % 2 === (me < 0 ? 0 : me) % 2 ? "us" : "them"}">
+    // Nouveau venu (joueur ou robot) : il apparaît à sa place avec une petite animation.
+    const arrive = !seenSlots.has(s.id);
+    seenSlots.add(s.id);
+    return `<div class="slot ${i % 2 === (me < 0 ? 0 : me) % 2 ? "us" : "them"} ${arrive ? "arrive" : ""}">
       <div class="slot-ring">${t.owner === s.id ? '<span class="crown-top">♛</span>' : ""}${avatar(s.avatar)}</div>
       <b>${e(s.name)}</b>${s.bot ? '<span class="robot-tag">ROBOT</span>' : ""}
       ${t.stake && pv ? `<span class="engaged ${pv.enough && pv.account ? "" : "short"}">${pv.account ? (pv.enough ? `${coins(pv.engaged)}` : "Solde insuffisant") : "Compte requis"}</span>` : ""}
@@ -1060,9 +1064,9 @@ function roomView() {
     </div>`;
   };
   const top = t.quick
-    ? `<h1 class="page-title">${free ? "On cherche des joueurs" : "C’est parti !"}</h1><p class="lead">${t.humans} joueur${t.humans > 1 ? "s" : ""} présent${t.humans > 1 ? "s" : ""}${free ? ` · ${free} place${free > 1 ? "s" : ""} en recherche` : ""}</p>${free ? `<div class="fill-timer">${icon("robot")} Robots dans <b data-deadline="${t.fillAt ?? 0}"></b></div>` : ""}`
+    ? `<h1 class="page-title">${free ? "On cherche des joueurs" : "C’est parti !"}</h1><p class="lead">${t.humans} joueur${t.humans > 1 ? "s" : ""} présent${t.humans > 1 ? "s" : ""}${free ? ` · ${free} place${free > 1 ? "s" : ""} en recherche` : ""}</p>${free ? `<div class="fill-timer">${icon("robot")} ${t.seats.some((x) => x?.bot) ? "Les robots s’installent…" : `Robots dans <b data-deadline="${t.fillAt ?? 0}"></b>`}</div>` : ""}`
     : t.lobby
-      ? `<h1 class="page-title">${e(t.name)}</h1><p class="lead">${free ? `On attend ${free} joueur${free > 1 ? "s" : ""} · la partie démarre toute seule à quatre` : "C’est parti !"}</p>`
+      ? `<h1 class="page-title">${e(t.name)}</h1><p class="lead">${free ? `On attend ${free} joueur${free > 1 ? "s" : ""} · la partie démarre toute seule à quatre` : "C’est parti !"}</p>${free && t.fillAt ? `<div class="fill-timer">${icon("robot")} ${t.seats.some((x) => x?.bot) ? "Les robots s’installent…" : `Robots dans <b data-deadline="${t.fillAt}"></b>`}</div>` : ""}`
       : `<h1 class="page-title">${e(t.name)}</h1><p class="lead">${vip ? "Invitez vos amis pour commencer la partie." : `${fmt(t.rules.target)} points · contre ${t.rules.flyingCounter ? "à la volée" : "à son tour"}`}</p>`;
   const code =
     vip && t.code && owner

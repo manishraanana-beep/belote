@@ -119,6 +119,9 @@ export function createApp({
   botDelay = 800,
   adminKey = process.env.BELOTE_ADMIN_KEY,
   fillSeconds = Number(process.env.BELOTE_FILL_SECONDS) || 8,
+  // Arrivée des robots dans le salon : un toutes les 0,7 s, puis départ 1,5 s après (plus court si l'attente l'est).
+  botStepMs = Math.min(700, fillSeconds * 500),
+  startDelayMs = Math.min(1500, fillSeconds * 1000),
   env = process.env,
   reactionCooldownMs = 4000,
   clock = () => Date.now(), // horloge des tournois (remplaçable dans les tests)
@@ -2058,6 +2061,17 @@ export function createApp({
         dirty = true;
         continue;
       }
+      // Départ annoncé : les joueurs ont été montrés à leur place un instant, la partie commence.
+      if (!t.game && t.startAt && now >= t.startAt) {
+        t.startAt = null;
+        if (t.seats.every(Boolean)) start(t);
+        else {
+          t.fillAt = now; // quelqu'un est parti entre-temps : on complète de nouveau
+          update(t);
+        }
+        dirty = true;
+        continue;
+      }
       if ((t.quick || t.lobby || (t.fillBots && !t.stake)) && (!t.game || t.game.phase === "finished") && t.fillAt && now >= t.fillAt) {
         if (t.lobby && t.stake) t.houseBots = true; // tables enregistrées avant les robots de la Maison
         if (t.lobby && !t.seats.some((x) => x && !x.bot)) {
@@ -2065,6 +2079,20 @@ export function createApp({
           continue;
         }
         if (!t.game && (t.quick || t.lobby)) gatherHumans(t); // joueurs réels d'abord, robots ensuite
+        if (!t.game && (t.quick || t.lobby)) {
+          // Avant la partie : les robots s'installent un par un dans les places libres, visibles par tous,
+          // puis la partie démarre après un court instant.
+          const i = t.seats.indexOf(null);
+          if (i >= 0) t.seats[i] = makeBot(i, null, t);
+          if (t.seats.includes(null)) t.fillAt = now + botStepMs;
+          else {
+            t.fillAt = null;
+            t.startAt = now + startDelayMs;
+          }
+          update(t);
+          dirty = true;
+          continue;
+        }
         for (let i = 0; i < 4; i++) if (!t.seats[i]) t.seats[i] = makeBot(i, null, t);
         t.fillAt = null;
         if (!t.game) start(t);
