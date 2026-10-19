@@ -553,6 +553,8 @@ export function createApp({
     // Pli qui vient d'être complété : on laisse aux joueurs le temps de voir les 4 cartes.
     const trickJustDone = t.game?.phase === "playing" && t.game.trick?.length === 0 && t.game.tricks?.length > 0;
     t.botAt = Date.now() + (trickJustDone && botDelay >= 200 ? Math.max(botDelay, 1600) : botDelay);
+    // Dernier tour : une carte toutes les 0,7 s (après l'affichage du pli précédent).
+    t.lastCardAt = Date.now() + (botDelay >= 200 ? (trickJustDone ? 1700 : 700) : botDelay);
   }
   function update(t) {
     t.revision++;
@@ -2156,12 +2158,15 @@ export function createApp({
           !connections.has(s.id) &&
           s.disconnectedAt &&
           now - s.disconnectedAt >= t.rules.reconnectSeconds * 1000;
+        // Dernière carte de la donne : jouée toute seule, chacun à son tour.
+        const lastCard = g.phase === "playing" && g.hands[g.turn]?.length === 1;
         if (
-          ((s?.bot || absent) && now >= t.botAt) ||
+          ((s?.bot || absent || lastCard) && now >= Math.max(t.botAt, lastCard ? t.lastCardAt ?? 0 : 0)) ||
           (t.deadline && now >= t.deadline)
         ) {
-          const a =
-            s?.bot || absent
+          const a = lastCard
+            ? { type: "play", card: g.hands[g.turn][0] }
+            : s?.bot || absent
               ? botAction(view(g, g.turn))
               : g.phase === "bidding"
                 ? { type: "pass" }
