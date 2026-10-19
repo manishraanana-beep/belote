@@ -1124,7 +1124,7 @@ function topBar(g, t, me) {
 }
 // Points ramassés dans la donne en cours, pli après pli (belote annoncée comprise).
 const dealPts = (g, team) =>
-  ["playing", "summary"].includes(g.phase) && g.points ? `<span class="deal-pts" title="Points de la donne en cours">donne ${fmt((g.points[team] ?? 0) + (g.belote?.[team] ?? 0))}</span>` : "";
+  ["playing", "summary"].includes(g.phase) && g.points ? `<span class="deal-pts" title="Points de la donne en cours">+${fmt((g.points[team] ?? 0) + (g.belote?.[team] ?? 0))}</span>` : "";
 // Enchères de la donne : dernière parole de chaque autre joueur, puis meilleure enchère.
 function auctionStrip(g, t, me) {
   const chips = [1, 2, 3]
