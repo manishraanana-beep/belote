@@ -1224,9 +1224,12 @@ test("tables des villes et classement des joueurs", async () => {
     assert.deepEqual(lobby, [[500, "Paris", "paris"], [1000, "Monaco", "monaco"], [2500, "Dubaï", "dubai"], [10000, "Las Vegas", "vegas"]]);
     // Classement : seuls les comptes ayant joué, avec leur ratio.
     f.app.db.players[a.state.player.id].stats = { games: 12, wins: 9 };
+    // Vainqueur d'un tournoi : une coupe.
+    f.app.db.tournaments ??= {};
+    f.app.db.tournaments.tx = { id: "tx", status: "finished", champion: "e1", teamsList: [{ id: "e1", pids: [a.state.player.id, "autre"] }] };
     const r = await (await fetch(f.base + "/api/classement", { headers: { Cookie: a.cookie } })).json();
     const me = r.players.find((x) => x.me);
-    assert.deepEqual([me.games, me.wins, me.ratio], [12, 9, 75]);
+    assert.deepEqual([me.games, me.wins, me.ratio, me.cups], [12, 9, 75, 1]);
     assert.ok(r.players.every((x) => x.games > 0));
   } finally {
     await f.close();

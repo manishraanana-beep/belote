@@ -1695,9 +1695,14 @@ export function createApp({
     // Classement des joueurs (comptes uniquement) : victoires, parties, ratio.
     if (url.pathname === "/api/classement") {
       const me = getPlayer(req);
+      // Tournois gagnés : les joueurs de l'équipe championne.
+      const cups = {};
+      for (const tour of Object.values(db.tournaments ?? {}))
+        if (tour.status === "finished" && tour.champion)
+          for (const pid of tour.teamsList?.find((x) => x.id === tour.champion)?.pids ?? []) cups[pid] = (cups[pid] ?? 0) + 1;
       const rows = Object.values(db.players)
         .filter((p) => p.accountId && !p.banned && p.stats?.games > 0)
-        .map((p) => ({ id: p.id, name: p.name, avatar: p.avatar, games: p.stats.games, wins: p.stats.wins, ratio: Math.round((p.stats.wins / p.stats.games) * 1000) / 10, me: p.id === me?.id }));
+        .map((p) => ({ id: p.id, name: p.name, avatar: p.avatar, games: p.stats.games, wins: p.stats.wins, ratio: Math.round((p.stats.wins / p.stats.games) * 1000) / 10, cups: cups[p.id] ?? 0, me: p.id === me?.id }));
       return json(res, 200, { players: rows, minGamesForRatio: 10 });
     }
     if (url.pathname === "/api/push/config") {
