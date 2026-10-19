@@ -1764,3 +1764,16 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .screen.game.tapis-ivoire .felt::after { opacity: 0.14; }
 .rk-cup { margin-right: 2px; } .rk-cup small { font-size: 10px; margin-left: 1px; }
 .target-note { margin: 6px auto 10px; width: fit-content; padding: 6px 14px; border-radius: 999px; background: #0006; border: 1px solid var(--gold, #e8c46a); color: #f6e7b8; font-size: 15px; text-align: center; }
+.prize-box { border: 2px solid #e8c46a; border-radius: 12px; padding: 10px 12px; background: #e8c46a14; } .prize-box legend { color: #f6d27a; font-weight: 700; padding: 0 6px; }
+/* Back-office sur téléphone : rien ne dépasse de l'écran. */
+#modal.admin-modal { overflow-x: hidden; box-sizing: border-box; }
+#modal.admin-modal * { min-width: 0; max-width: 100%; box-sizing: border-box; }
+#modal.admin-modal .admin-tabs { overflow-x: auto; max-width: 100%; }
+#modal.admin-modal .admin-tab { flex: none; }
+.form-grid > * { min-width: 0; }
+@media (max-width: 480px) { #modal.admin-modal .form-grid { grid-template-columns: 1fr; } }
+.prize-big { display: flex; gap: 10px; justify-content: center; margin: 4px 0 14px; }
+.prize-big .pb-item { flex: 1; max-width: 200px; display: grid; justify-items: center; gap: 2px; padding: 12px 8px; border-radius: 14px; border: 2px solid #e8c46a; background: linear-gradient(180deg, #e8c46a22, #0004); }
+.prize-big .pb-item span { font-weight: 700; color: #f6e7b8; }
+.prize-big .pb-item b { font-size: 30px; line-height: 1.1; color: #ffd36a; display: inline-flex; align-items: center; gap: 6px; }
+.prize-big .pb-item small { opacity: 0.8; }
