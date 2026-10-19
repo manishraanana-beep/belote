@@ -1759,3 +1759,6 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 @media (max-width: 380px) { .stake-card:is(.paris, .monaco, .dubai, .vegas) .sc-main b { font-size: 21px; } .sc-flag { width: 26px; height: 18px; } .stake-card:is(.paris, .monaco, .dubai, .vegas) .sc-chip { width: 66px; height: 66px; } }
 .plus-dot { display: inline-grid; place-items: center; width: 26px; height: 26px; margin-right: 10px; border-radius: 50%; background: #1d1205; color: var(--gold-1); font-style: normal; font-weight: 800; font-size: 20px; line-height: 1; vertical-align: -4px; }
 .screen.game.city .felt::after { content: none; }
+/* Logo ton sur ton : silhouette du logo, teinte plus foncée du tapis. */
+.screen.game.tapis .felt::after { content: ""; position: absolute; inset: 0; margin: auto; width: 46%; height: 46%; background: #000; opacity: 0.22; mix-blend-mode: multiply; -webkit-mask: url(/decor/logo.webp) center / contain no-repeat; mask: url(/decor/logo.webp) center / contain no-repeat; filter: none; pointer-events: none; z-index: 0; }
+.screen.game.tapis-ivoire .felt::after { opacity: 0.14; }
