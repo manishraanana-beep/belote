@@ -289,7 +289,9 @@ export function createApp({
     return t;
   }
   // Tables publiques permanentes : partie gratuite et mises de 200, 500 et 1 000 jetons.
-  const LOBBY = (env.BELOTE_LOBBY_STAKES ?? "200,500,1000").split(",").map(Number).filter((n) => Number.isInteger(n) && n >= 0);
+  // Tables permanentes : une ville et un tapis par montant.
+  const CITIES = { 500: ["paris", "Paris"], 1000: ["monaco", "Monaco"], 2500: ["dubai", "Dubaï"], 10000: ["vegas", "Las Vegas"] };
+  const LOBBY = (env.BELOTE_LOBBY_STAKES ?? "500,1000,2500,10000").split(",").map(Number).filter((n) => Number.isInteger(n) && n >= 0);
   // Une table permanente dont le montant n'est plus proposé est retirée (si personne n'y joue).
   for (const t of Object.values(db.tables))
     if (t.lobby && !LOBBY.includes(t.stake ?? 0) && !t.seats.some((x) => x && !x.bot)) delete db.tables[t.id];
@@ -298,13 +300,15 @@ export function createApp({
       t.lobby = true;
       t.name = "Le Salon • Partie gratuite";
     }
+  // Tables déjà enregistrées : elles prennent le nom de leur ville.
+  for (const t of Object.values(db.tables)) if (t.lobby && CITIES[t.stake]) t.name = CITIES[t.stake][1];
   function ensureLobby() {
     let changed = false;
     for (const stake of LOBBY) {
       const list = Object.values(db.tables).filter((t) => t.lobby && (t.stake ?? 0) === stake);
       const open = list.filter((t) => (!t.game || t.game.phase === "finished") && t.seats.some((x) => !x));
       if (!open.length) {
-        const t = table(stake ? `Table à ${stake.toLocaleString("fr-FR")} jetons` : "Le Salon • Partie gratuite", null, false, {}, stake);
+        const t = table(CITIES[stake]?.[1] ?? (stake ? `Table à ${stake.toLocaleString("fr-FR")} jetons` : "Le Salon • Partie gratuite"), null, false, {}, stake);
         t.lobby = true;
         t.houseBots = stake > 0;
         changed = true;
@@ -416,6 +420,7 @@ export function createApp({
       practice: !!t.practice,
       fillBots: !!t.fillBots,
       lobby: !!t.lobby,
+      city: t.lobby ? (CITIES[t.stake]?.[0] ?? null) : null,
       humans: t.seats.filter((s) => s && !s.bot).length,
     };
   }
@@ -1685,6 +1690,14 @@ export function createApp({
       } catch (e) {
         return json(res, e.status ?? 400, { error: e.message });
       }
+    }
+    // Classement des joueurs (comptes uniquement) : victoires, parties, ratio.
+    if (url.pathname === "/api/classement") {
+      const me = getPlayer(req);
+      const rows = Object.values(db.players)
+        .filter((p) => p.accountId && !p.banned && p.stats?.games > 0)
+        .map((p) => ({ id: p.id, name: p.name, avatar: p.avatar, games: p.stats.games, wins: p.stats.wins, ratio: Math.round((p.stats.wins / p.stats.games) * 1000) / 10, me: p.id === me?.id }));
+      return json(res, 200, { players: rows, minGamesForRatio: 10 });
     }
     if (url.pathname === "/api/push/config") {
       return json(res, 200, { vapidPublicKey: pushCfg.vapidPrivate ? pushCfg.vapidPublic : null, native: !!pushCfg.fcm });
