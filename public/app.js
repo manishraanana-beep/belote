@@ -22,6 +22,8 @@ const e = (v) =>
 const SUITS = { S: "♠", H: "♥", C: "♣", D: "♦" };
 const SUIT_NAMES = { S: "Pique", H: "Cœur", C: "Trèfle", D: "Carreau" };
 const HAND_ORDER = ["S", "H", "C", "D"];
+const TRUMP_STRENGTH = ["J", "9", "A", "10", "K", "Q", "8", "7"];
+const PLAIN_STRENGTH = ["A", "10", "K", "Q", "J", "9", "8", "7"];
 const RANKS = ["7", "8", "9", "10", "J", "Q", "K", "A"];
 const RANK_NAMES = { J: "Valet", Q: "Dame", K: "Roi", A: "As" };
 const AVATARS = ["jacques", "sophie", "camille", "emma", "malik", "henri", "leo", "chat", "chien"];
@@ -1327,7 +1329,14 @@ function floatingAction(g, me) {
 }
 function handView(g, me, t) {
   const pending = sentCard && g.version === sentCard.version && Date.now() < sentCard.until ? sentCard.card : null;
-  const hand = g.hand.filter((c) => c !== pending).sort((a, b) => HAND_ORDER.indexOf(a.slice(-1)) - HAND_ORDER.indexOf(b.slice(-1)) || RANKS.indexOf(a.slice(0, -1)) - RANKS.indexOf(b.slice(0, -1)));
+  // Couleurs toujours dans l'ordre ♠ ♥ ♣ ♦ ; une fois l'atout connu, chaque couleur va de la plus forte
+  // à la plus faible (atout : V 9 A 10 R D 8 7 ; autres : A 10 R D V 9 8 7).
+  const trump = g.contract?.suit;
+  const strength = (c) => {
+    const r = c.slice(0, -1);
+    return trump ? (c.slice(-1) === trump ? TRUMP_STRENGTH : PLAIN_STRENGTH).indexOf(r) : RANKS.indexOf(r);
+  };
+  const hand = g.hand.filter((c) => c !== pending).sort((a, b) => HAND_ORDER.indexOf(a.slice(-1)) - HAND_ORDER.indexOf(b.slice(-1)) || strength(a) - strength(b));
   if (selected && !hand.includes(selected)) selected = null;
   const myTurn = g.phase === "playing" && g.turn === me && !collection;
   const glow = g.phase === "bidding" && g.turn === me;
