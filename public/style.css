@@ -1696,3 +1696,9 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 }
 @keyframes faceOff { 0%, 18.9% { opacity: 1; } 19%, 100% { opacity: 0; } }
 @keyframes backOn { 0%, 18.9% { opacity: 0; } 19%, 100% { opacity: 1; } }
+/* Paysage : la main reste entre la colonne de gauche (avatar, tour) et les boutons de droite */
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen.game { --side: 150px; --step: min(calc(var(--cw) * 0.62), calc((100vw - 2 * var(--side) - var(--cw) * 1.1) / 7)); }
+  .screen.game .turn-pill, .screen.game .turn-pill.on { max-width: calc(var(--side) - 14px); padding: 4px 8px; font-size: 13px; }
+  .screen.game .status-row .me-mini .bubble, .screen.game .me-seat .bubble { max-width: calc(var(--side) - 14px); }
+}
