@@ -976,6 +976,9 @@ function tournamentPage() {
     <div class="stack">${actions}</div>
     ${lobby}
     ${t.rounds ? bracketView(t) : ""}
+    <h2 class="section orn-title">Récompenses</h2>
+    ${t.prizes?.winner || t.prizes?.finalist ? `<div class="prize-big">${t.prizes.winner ? `<div class="pb-item"><span>🏆 Vainqueurs</span><b>${coins(t.prizes.winner)}</b><small>par joueur</small></div>` : ""}${t.prizes.finalist ? `<div class="pb-item"><span>🥈 Finalistes</span><b>${coins(t.prizes.finalist)}</b><small>par joueur</small></div>` : ""}</div>` : ""}
+    <ul class="rule-list">${rewardsText(t).filter((l) => !l.startsWith("💰")).map((l) => `<li>${e(l)}</li>`).join("") || (t.prizes?.winner || t.prizes?.finalist ? "" : "<li>Le plaisir du jeu !</li>")}</ul>
     <h2 class="section orn-title">Règles des tables</h2>
     <ul class="rule-list">
       <li>Objectif : ${fmt(t.rules.target)} points · temps par tour ${t.rules.turnSeconds} s · contrée ${t.rules.flyingCounter ? "à la volée" : "à son tour"}</li>
@@ -985,8 +988,6 @@ function tournamentPage() {
       <li>Équipes insuffisantes (moins de ${t.minTeams}) : ${t.insufficient === "cancel" ? "tournoi annulé" : `report de ${t.postponeMinutes} min`}, inscrits prévenus.</li>
       <li>Aucune mise : les rencontres ne débitent aucun jeton.</li>
     </ul>
-    <h2 class="section orn-title">Récompenses</h2>
-    <ul class="rule-list">${rewardsText(t).map((l) => `<li>${e(l)}</li>`).join("") || "<li>Le plaisir du jeu !</li>"}</ul>
     <p class="hint mid">Heure de référence : ${new Date(t.start).toLocaleString("fr-FR", { timeZone: t.timeZone, hour: "2-digit", minute: "2-digit", timeZoneName: "short" })} (${e(t.timeZone)})</p>`,
     { vip: true, sub: "Tournoi", cls: "page-tour" },
   );
@@ -2540,6 +2541,7 @@ function tourForm(t) {
     <input type="hidden" name="tid" value="${t?.id ?? ""}">
     <label>Nom<input name="name" value="${e(v.name)}" minlength="3" maxlength="60" required></label>
     <label>Description<input name="description" value="${e(v.description ?? "")}" maxlength="400"></label>
+    <fieldset class="prize-box"><legend>💰 Jetons gagnés (par joueur de l’équipe, offerts par la Maison)</legend><div class="form-grid"><label>🏆 Vainqueurs<input type="number" name="prizeWinner" min="0" max="1000000" step="1" value="${v.prizes?.winner ?? 0}"></label><label>🥈 Finalistes<input type="number" name="prizeFinalist" min="0" max="1000000" step="1" value="${v.prizes?.finalist ?? 0}"></label></div></fieldset>
     <label>Fuseau de référence<input name="timeZone" value="${e(v.timeZone)}" list="tz-list" required></label>
     <datalist id="tz-list">${["Europe/Paris", "Europe/Brussels", "Europe/Zurich", "America/Montreal", "Indian/Reunion", "America/Martinique", "Pacific/Noumea", "UTC"].map((z) => `<option value="${z}">`).join("")}</datalist>
     <div class="form-grid">
@@ -2559,7 +2561,6 @@ function tourForm(t) {
       <label>Report de (min)<input type="number" name="postponeMinutes" min="5" max="10080" value="${v.postponeMinutes}"></label>
     </div>
     <label class="check-line"><input type="checkbox" name="flyingCounter" ${v.rules.flyingCounter ? "checked" : ""}>Contrée à la volée</label>
-    <fieldset><legend>💰 Jetons gagnés (par joueur de l’équipe, offerts par la Maison)</legend><div class="form-grid"><label>🏆 Vainqueurs<input type="number" name="prizeWinner" min="0" max="1000000" step="1" value="${v.prizes?.winner ?? 0}"></label><label>🥈 Finalistes<input type="number" name="prizeFinalist" min="0" max="1000000" step="1" value="${v.prizes?.finalist ?? 0}"></label></div></fieldset>
     ${rw("winner", "Récompenses des vainqueurs")}${rw("finalist", "Récompenses des finalistes")}${rw("participant", "Récompenses de participation")}
     <p class="muted small">Après le départ, seuls le nom et la description restent modifiables.</p>
     <div class="row"><button class="chip-btn" name="publish" value="">Enregistrer le brouillon</button><button class="pill small" name="publish" value="1">${t?.status === "published" ? "Enregistrer" : "Publier"}</button>${btn("Retour", "tourAdminBack", "chip-btn ghost")}</div>
