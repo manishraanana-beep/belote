@@ -1647,3 +1647,15 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 @media (orientation: landscape) and (max-height: 520px) {
   .screen.game .scoreboard .deal-pts { font-size: 14px; padding: 0 9px; }
 }
+/* Score divisé : partie en haut, donne en cours en bas */
+.scoreboard.split > div { display: flex; flex-direction: column; padding: 0; min-width: 0; }
+.scoreboard.split .sb-top { display: grid; justify-items: center; padding: 2px 16px 3px; }
+.scoreboard.split .sb-deal { display: grid; justify-items: center; padding: 1px 16px 3px; border-top: 1.5px solid var(--gold); background: #0000003a; }
+.scoreboard.split .sb-deal small { font-size: 10px; }
+.scoreboard.split .sb-deal em { font-style: normal; font-weight: 800; font-size: 18px; line-height: 1.05; color: #ffe48a; font-variant-numeric: tabular-nums; }
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen.game .scoreboard.split .sb-top { padding: 1px 12px 2px; }
+  .screen.game .scoreboard.split .sb-deal { padding: 0 12px 2px; }
+  .screen.game .scoreboard.split .sb-deal small { font-size: 9px; }
+  .screen.game .scoreboard.split .sb-deal em { font-size: 15px; }
+}
