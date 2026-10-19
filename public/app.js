@@ -28,7 +28,7 @@ const RANKS = ["7", "8", "9", "10", "J", "Q", "K", "A"];
 const RANK_NAMES = { J: "Valet", Q: "Dame", K: "Roi", A: "As" };
 const AVATARS = ["jacques", "sophie", "camille", "emma", "malik", "henri", "leo", "chat", "chien"];
 const BIDS = [80, 90, 100, 110, 120, 130, 140, 150, 160, 250];
-const STAKES = [100, 200, 500, 1000];
+const STAKES = [100, 200, 500, 1000, 2500, 10000];
 const REACTIONS = [
   { id: "bravo", text: "Bien joué !", emoji: "👏" },
   { id: "merci", text: "Merci partenaire !", emoji: "🤝" },
@@ -663,6 +663,7 @@ function homePage() {
       ${btn(`${icon("target")} Défis${p.progress.challenges.some((c) => !c.done) ? '<i class="dot"></i>' : ""}`, "challenges", "chip")}
       ${btn(`${icon("users")} Amis${pending ? `<i class="badge-n">${pending}</i>` : ""}`, "friends", "chip")}
       ${btn(`${icon("coin")} Boutique`, "go", "chip", 'data-page="boutique"')}
+      ${btn(`${icon("trophy")} Classement`, "go", "chip", 'data-page="classement"')}
     </div>
     <div class="stat-strip"><div>${icon("trophy")}<b>${p.stats.wins}</b><small>Victoires</small></div><div>${icon("chart")}<b>${p.stats.games}</b><small>Parties</small></div></div>`,
     { backBtn: false, tabs: true, cls: "page-home page-coinhead" },
@@ -683,7 +684,9 @@ function tablesPage() {
   );
 }
 // Tables permanentes avec mise : une carte par montant, « Jouer » regroupe les joueurs sans invitation.
-const STAKE_LOOK = { 200: ["emeraude", "Table Émeraude"], 500: ["saphir", "Table Saphir"], 1000: ["royale", "Table Royale"] };
+const STAKE_LOOK = { 500: ["paris", "Paris"], 1000: ["monaco", "Monaco"], 2500: ["dubai", "Dubaï"], 10000: ["vegas", "Las Vegas"] };
+// Tapis de chaque ville (vert, violet, bordeaux, ivoire).
+const CITY_FELT = { paris: "vert", monaco: "violet", dubai: "rouge", vegas: "ivoire" };
 function stakeTables() {
   const levels = [...new Set(state.tables.filter((t) => t.lobby && t.stake).map((t) => t.stake))].sort((a, b) => a - b);
   if (!levels.length) return "";
@@ -869,6 +872,44 @@ const REWARD_NAMES = {
   "felt-velours": "tapis Velours violet",
 };
 const minLine = (t) => (t.minBalance ? `Solde minimum requis : ${fmt(t.minBalance)} jetons. ` : "") + "Inscription gratuite, aucun jeton prélevé.";
+// ———————————————— classement des joueurs
+let ranking = null,
+  rankingAt = 0;
+function classementPage() {
+  if (!ranking || Date.now() - rankingAt > 30_000) {
+    rankingAt = Date.now();
+    fetch("/api/classement")
+      .then((r) => r.json())
+      .then((d) => {
+        ranking = d;
+        render();
+      })
+      .catch(() => {});
+  }
+  const tab = page.params.tab ?? "wins";
+  const min = ranking?.minGamesForRatio ?? 10;
+  const sorters = {
+    wins: (a, b) => b.wins - a.wins || b.ratio - a.ratio || b.games - a.games,
+    ratio: (a, b) => b.ratio - a.ratio || b.wins - a.wins,
+    games: (a, b) => b.games - a.games || b.wins - a.wins,
+  };
+  const list = (ranking?.players ?? []).filter((x) => tab !== "ratio" || x.games >= min).sort(sorters[tab]);
+  const mine = list.findIndex((x) => x.me);
+  const medal = (i) => (i < 3 ? `<span class="rk-medal m${i}">${i + 1}</span>` : `<span class="rk-pos">${i + 1}</span>`);
+  const row = (x, i) => `<li class="rk-row ${x.me ? "me" : ""}">${medal(i)}${avatar(x.avatar)}<b>${e(x.name)}</b>
+    <span class="rk-val ${tab === "wins" ? "on" : ""}"><b>${fmt(x.wins)}</b><small>victoires</small></span>
+    <span class="rk-val ${tab === "ratio" ? "on" : ""}"><b>${x.ratio.toLocaleString("fr-FR")} %</b><small>ratio</small></span>
+    <span class="rk-val ${tab === "games" ? "on" : ""}"><b>${fmt(x.games)}</b><small>parties</small></span></li>`;
+  const tabs = [["wins", "Victoires"], ["ratio", "Ratio"], ["games", "Parties"]];
+  return shell(
+    `<h1 class="page-title">Classement</h1>
+    <div class="seg tabs rk-tabs">${tabs.map(([k, l]) => btn(l, "go", k === tab ? "on" : "", `data-page="classement" data-tab="${k}"`)).join("")}</div>
+    ${tab === "ratio" ? `<p class="hint mid">Ratio = victoires ÷ parties jouées, à partir de ${min} parties.</p>` : ""}
+    ${!ranking ? '<p class="hint mid">Chargement…</p>' : list.length ? `<ol class="rk-list">${list.slice(0, 50).map(row).join("")}</ol>${mine >= 50 ? `<ol class="rk-list mine">${row(list[mine], mine)}</ol>` : ""}` : '<p class="hint mid">Personne n’est encore classé ici : jouez des parties avec un compte pour apparaître.</p>'}
+    ${state.player.account ? "" : '<p class="hint mid">Créez un compte pour figurer au classement.</p>'}`,
+    { tabs: true },
+  );
+}
 function tournamentsPage() {
   const list = state.tournaments ?? [];
   const unread = (state.player.inbox ?? []).filter((n) => !n.read).length;
@@ -1035,7 +1076,7 @@ function pageView() {
   // Visiteur non connecté : à chaque arrivée, choix « Se connecter » / « Créer un compte » / « Découvrir ».
   // Un joueur déjà connecté est reconnu (session d'un an) et arrive directement à l'accueil.
   if (!page.name) page = { name: guest && !sessionStorage.getItem("discover") ? "welcome" : "home", params: {} };
-  const views = { welcome: welcomePage, register: registerPage, login: loginPage, forgot: forgotPage, reset: resetPage, verify: verifyPage, home: homePage, tables: tablesPage, profile: profilePage, avatar: avatarPage, history: historyPage, rules: () => rulesPage(), settings: settingsPage, legal: legalPage, vip: vipPage, vipCreate: vipCreatePage, tournaments: tournamentsPage, tournament: tournamentPage, boutique: boutiquePage };
+  const views = { welcome: welcomePage, register: registerPage, login: loginPage, forgot: forgotPage, reset: resetPage, verify: verifyPage, home: homePage, tables: tablesPage, profile: profilePage, avatar: avatarPage, history: historyPage, rules: () => rulesPage(), settings: settingsPage, legal: legalPage, vip: vipPage, vipCreate: vipCreatePage, tournaments: tournamentsPage, tournament: tournamentPage, boutique: boutiquePage, classement: classementPage };
   return (views[page.name] ?? homePage)();
 }
 
@@ -1366,7 +1407,7 @@ function gameView() {
   const myBid = g.phase === "bidding" && g.turn === me;
   const eq = state.player.progress.equipped;
   const vip = t.vip && !t.practice;
-  return `<div class="screen game phase-${g.phase} ${vip ? "theme-vip" : "theme-club"} ${myBid ? "bidding-me" : ""} ${eq.back} ${eq.felt?.startsWith("tapis-") ? `${eq.felt} tapis` : vip ? "" : eq.felt}">
+  return `<div class="screen game phase-${g.phase} ${vip ? "theme-vip" : "theme-club"} ${myBid ? "bidding-me" : ""} ${eq.back} ${t.city ? `tapis tapis-${CITY_FELT[t.city]} city city-${t.city}` : eq.felt?.startsWith("tapis-") ? `${eq.felt} tapis` : vip ? "" : eq.felt}">
     <div class="ambient" aria-hidden="true"><i class="lamp l1"></i><i class="lamp l2"></i><i class="leaf f1"></i><i class="leaf f2"></i></div>
     ${topBar(g, t, me)}
     <main class="arena">

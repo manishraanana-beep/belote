@@ -5,7 +5,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 export const U = 2; // unités par crédit
-export const STAKES = [100, 200, 500, 1000];
+export const STAKES = [100, 200, 500, 1000, 2500, 10000];
 // Rubicon : la victoire écrasante rapporte le double de la mise.
 export const RUBICON = 2;
 export const toUnits = (credits) => Math.round(credits * U);

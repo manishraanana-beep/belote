@@ -1706,3 +1706,33 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 @media (orientation: landscape) and (max-height: 520px) {
   .screen.game { --side: 185px; }
 }
+/* ———————— Tables des villes : couleur du tapis et dessin en filigrane */
+.stake-card.paris { --sc-1: #1f8a63; --sc-2: #0c4a3a; --sc-edge: #6fe3b4; --chip: #2fbf86; --fil: url(/decor/fil-paris.svg); }
+.stake-card.monaco { --sc-1: #6e3a86; --sc-2: #2a1038; --sc-edge: #d6a8ff; --chip: #9a5cc0; --fil: url(/decor/fil-monaco.svg); }
+.stake-card.dubai { --sc-1: #9a1a2a; --sc-2: #42050d; --sc-edge: #ff9aa8; --chip: #c9283c; --fil: url(/decor/fil-dubai.svg); }
+.stake-card.vegas { --sc-1: #d9c39a; --sc-2: #8c7148; --sc-edge: #fff1c8; --chip: #b89458; --fil: url(/decor/fil-vegas.svg); }
+.stake-card.paris, .stake-card.monaco, .stake-card.dubai, .stake-card.vegas { isolation: isolate; }
+.stake-card.paris::before, .stake-card.monaco::before, .stake-card.dubai::before, .stake-card.vegas::before { content: ""; position: absolute; z-index: -1; right: 8px; top: 50%; translate: 0 -50%; width: 46%; height: 140%; background: var(--fil) right center / contain no-repeat; opacity: 0.22; pointer-events: none; }
+.stake-card.vegas { color: #2a1a00; } .stake-card.vegas small { color: #3a2a10; }
+/* En partie : filigrane au centre du tapis */
+.screen.game.city .felt::after { content: ""; position: absolute; inset: 12% 18%; background: center / contain no-repeat; opacity: 0.09; pointer-events: none; }
+.screen.game.city-paris .felt::after { background-image: url(/decor/fil-paris.svg); }
+.screen.game.city-monaco .felt::after { background-image: url(/decor/fil-monaco.svg); }
+.screen.game.city-dubai .felt::after { background-image: url(/decor/fil-dubai.svg); }
+.screen.game.city-vegas .felt::after { background-image: url(/decor/fil-vegas.svg); opacity: 0.16; filter: invert(1); }
+.screen.game.city .felt { overflow: hidden; }
+
+/* ———————— Classement */
+.rk-tabs { margin: 6px 0 10px; }
+.rk-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
+.rk-list.mine { border-top: 1px dashed #f6c85f66; padding-top: 8px; }
+.rk-row { display: grid; grid-template-columns: 30px 38px 1fr repeat(3, 62px); align-items: center; gap: 8px; padding: 8px 10px; border-radius: 14px; background: #00000033; border: 1px solid #ffffff14; }
+.rk-row.me { border-color: var(--gold); background: #f6c85f1f; }
+.rk-row .avatar { width: 38px; height: 38px; }
+.rk-row > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rk-pos { text-align: center; font-weight: 700; color: #d9efe6; }
+.rk-medal { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-weight: 800; color: #2a1a00; }
+.rk-medal.m0 { background: linear-gradient(180deg, #ffe48a, #e0a42a); } .rk-medal.m1 { background: linear-gradient(180deg, #f2f2f2, #a9b0b6); } .rk-medal.m2 { background: linear-gradient(180deg, #f0b98a, #a9673a); }
+.rk-val { display: grid; justify-items: center; opacity: 0.7; } .rk-val.on { opacity: 1; color: #ffe48a; }
+.rk-val b { font-size: 15px; font-variant-numeric: tabular-nums; } .rk-val small { font-size: 10px; }
+@media (max-width: 400px) { .rk-row { grid-template-columns: 26px 32px 1fr repeat(3, 48px); gap: 5px; } .rk-row .avatar { width: 32px; height: 32px; } }
