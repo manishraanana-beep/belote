@@ -112,7 +112,7 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   await expect(B.locator(".invite-card")).toContainText("200");
   await B.screenshot({ path: `${shots}invitation-recue.png` });
   await B.locator('.invite-card [data-action="inviteOpen"]').click();
-  await expect(B.locator(".stake-warning")).toContainText("En rubicon, vous risquez jusqu’à 400 crédits");
+  await expect(B.locator(".stake-warning")).toContainText("Vous ne pouvez perdre que votre mise");
   await B.screenshot({ path: `${shots}avertissement-mise.png` });
   await B.locator('#modal [data-action="inviteAccept"]').click();
   await expect(B.locator(".page-room .page-title")).toHaveText("Table des amis");
