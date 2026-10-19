@@ -1674,3 +1674,25 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 }
 .screen.game:has(.trick-winner) .last-trick-btn { visibility: hidden; }
 .collecting .tcard { animation: flipCollect 0.7s ease-in forwards; }
+/* Ramassage visible : retournement (0,4 s) puis glissement jusqu'à l'avatar du gagnant */
+.collecting .tcard { animation: flipCollect2 1.05s ease-in-out forwards; }
+@keyframes flipCollect2 {
+  0% { transform: rotateY(0deg); translate: 0 0; scale: 1; opacity: 1; }
+  38% { transform: rotateY(180deg); translate: 0 0; scale: 1.05; opacity: 1; }
+  92% { opacity: 1; }
+  100% { transform: rotateY(180deg); translate: var(--to); scale: 0.35; opacity: 0; }
+}
+/* Retournement en 2D (fiable sur tous les téléphones) : la carte s'aplatit, puis revient côté dos */
+.trick .tcard::after { transform: none; backface-visibility: visible; opacity: 0; }
+.collecting .tcard { animation: flatCollect 1.05s ease-in-out forwards; }
+.collecting .tcard img { animation: faceOff 1.05s linear forwards; }
+.collecting .tcard::after { animation: backOn 1.05s linear forwards; }
+@keyframes flatCollect {
+  0% { transform: scaleX(1); translate: 0 0; scale: 1; opacity: 1; }
+  19% { transform: scaleX(0.02); translate: 0 0; scale: 1.05; }
+  38% { transform: scaleX(1); translate: 0 0; scale: 1.05; opacity: 1; }
+  92% { opacity: 1; }
+  100% { transform: scaleX(1); translate: var(--to); scale: 0.35; opacity: 0; }
+}
+@keyframes faceOff { 0%, 18.9% { opacity: 1; } 19%, 100% { opacity: 0; } }
+@keyframes backOn { 0%, 18.9% { opacity: 0; } 19%, 100% { opacity: 1; } }
