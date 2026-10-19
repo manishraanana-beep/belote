@@ -1448,11 +1448,12 @@ function render() {
     collectionTimer = setTimeout(() => {
       if (!collection) return;
       collection.stage = "collect";
+      collection.collectAt = performance.now();
       render();
       collectionTimer = setTimeout(() => {
         collection = null;
         render();
-      }, 700);
+      }, 1100);
     }, 1200);
   }
   lastTrickKey = trickKey;
@@ -1486,7 +1487,17 @@ function render() {
   if (focusForm && focusName) document.querySelector(`#app #${focusForm} [name="${focusName}"]`)?.focus();
   const log = $(".chat-log");
   if (log) log.scrollTop = log.scrollHeight;
-  if (collection) $(".collecting")?.getAnimations({ subtree: true }).forEach((a) => (a.currentTime = performance.now() - collection.startedAt));
+  // Ramassage : chaque carte se retourne puis file jusqu'à l'avatar du gagnant (l'animation reprend où elle en était).
+  const pile = $(".collecting");
+  if (collection && pile) {
+    const rel = (collection.winner - (state.table.seats.findIndex((x) => x?.id === state.player.id) + 4)) % 4;
+    const target = $(rel === 0 ? ".me-seat .avatar, .me-mini .avatar" : `.seat.p${(rel + 4) % 4} .seat-avatar`)?.getBoundingClientRect();
+    if (target) for (const c of pile.querySelectorAll(".tcard")) {
+      const r = c.getBoundingClientRect();
+      c.style.setProperty("--to", `${Math.round(target.left + target.width / 2 - (r.left + r.width / 2))}px ${Math.round(target.top + target.height / 2 - (r.top + r.height / 2))}px`);
+    }
+    pile.getAnimations({ subtree: true }).forEach((a) => (a.currentTime = performance.now() - (collection.collectAt ?? performance.now())));
+  }
   clock();
   fitBidZone();
 }
