@@ -1616,3 +1616,18 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 @media (max-aspect-ratio: 4/5) and (max-width: 400px) {
   .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: auto; bottom: 2%; translate: none; }
 }
+/* Paysage : le haut de l'écran prend le moins de place possible pour laisser la table aux cartes jouées.
+   Score à gauche à côté du logo, joueur d'en face tout en haut au centre ; rien sous l'encoche de l'iPhone. */
+@media (orientation: landscape) and (max-height: 520px) {
+  body.in-game .screen.game { left: env(safe-area-inset-left, 0px); right: env(safe-area-inset-right, 0px); }
+  .screen.game .game-top { position: absolute; top: 0; left: 0; right: 0; padding: calc(4px + var(--safe-t)) 10px 0; pointer-events: none; }
+  .screen.game .game-top > * { pointer-events: auto; }
+  .screen.game .gt-logo .logo-img { width: 78px; }
+  .screen.game .scoreboard { top: calc(6px + var(--safe-t)); left: 98px; translate: none; z-index: 7; }
+  .screen.game .scoreboard > div { min-width: 56px; padding: 0 10px 2px; }
+  .screen.game .scoreboard b { font-size: 17px; } .screen.game .scoreboard small { font-size: 10px; }
+  .screen.game .seat.p2, .screen.game.bidding-me .seat.p2 { top: calc(12px + var(--safe-t)); }
+  .screen.game .center, .screen.game.phase-playing .center, .screen.game.phase-summary .center, .screen.game.phase-finished .center { top: calc(var(--av) + 40px); }
+  .screen.game .bid-zone { top: calc(var(--av) + 34px); }
+  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: calc(var(--av) * 0.9 + 26px); }
+}
