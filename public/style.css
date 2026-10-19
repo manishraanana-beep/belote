@@ -1631,3 +1631,14 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
   .screen.game .bid-zone { top: calc(var(--av) + 34px); }
   .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: calc(var(--av) * 0.9 + 26px); }
 }
+/* Points de la donne en cours sous le score de chaque équipe */
+.scoreboard .deal-pts { margin-top: 2px; padding: 0 8px; border-radius: 999px; background: #00000040; color: #ffe7a6; font-size: 11px; font-weight: 700; line-height: 1.5; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Paysage : cartes plus grandes (main et pli), joueurs de côté à mi-hauteur de la table */
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen.game { --cw: clamp(56px, 25vh, 108px); --tc: clamp(50px, 21vh, 92px); --step: min(calc(var(--cw) * 0.62), calc((100vw - var(--cw) * 1.6 - 270px) / 7)); }
+  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: calc(40px + var(--tc) * 1.05 + var(--av) * 0.4); }
+  .screen.game .scoreboard .deal-pts { font-size: 10px; margin-top: 1px; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen.game .seat.p1 .seat-timer, .screen.game .seat.p3 .seat-timer { display: none; }
+}

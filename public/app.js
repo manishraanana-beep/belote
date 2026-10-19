@@ -1119,9 +1119,12 @@ function topBar(g, t, me) {
     <div class="gt-chips"><span class="gt-chip wallet">${coins(state.player.wallet.available / 2)}</span><span class="gt-chip table" title="${tableLabel(t)}"><i class="poker-chip" aria-hidden="true"></i><span>${t.stake ? `${fmt(t.stake)} jetons` : tableLabel(t)}</span></span></div>
     ${btn(icon("menu"), "menu", "square-btn", 'aria-label="Menu de la partie"')}
   </header>
-  <div class="scoreboard" aria-label="Scores"><div class="us"><small>Nous</small><b>${fmt(g.scores[me % 2])}</b></div><i></i><div class="them"><small>Eux</small><b>${fmt(g.scores[1 - (me % 2)])}</b></div></div>
+  <div class="scoreboard" aria-label="Scores"><div class="us"><small>Nous</small><b>${fmt(g.scores[me % 2])}</b>${dealPts(g, me % 2)}</div><i></i><div class="them"><small>Eux</small><b>${fmt(g.scores[1 - (me % 2)])}</b>${dealPts(g, 1 - (me % 2))}</div></div>
 `;
 }
+// Points ramassés dans la donne en cours, pli après pli (belote annoncée comprise).
+const dealPts = (g, team) =>
+  ["playing", "summary"].includes(g.phase) && g.points ? `<span class="deal-pts" title="Points de la donne en cours">donne ${fmt((g.points[team] ?? 0) + (g.belote?.[team] ?? 0))}</span>` : "";
 // Enchères de la donne : dernière parole de chaque autre joueur, puis meilleure enchère.
 function auctionStrip(g, t, me) {
   const chips = [1, 2, 3]
