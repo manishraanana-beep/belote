@@ -240,6 +240,23 @@ test("robots : soutien du partenaire, pas de coupe sur le partenaire maître, pa
   assert.notEqual(a.card, "AC");
 });
 
+test("robots : rejouer atout pour le preneur, et plus d'atout quand les adversaires n'en ont plus", () => {
+  const lead = (o) => botAction({ phase: "playing", turn: 2, trick: [], auction: [], tricks: [], contract: { seat: 0, amount: 90, suit: "S" }, ...o }).card;
+  // Partenaire du preneur (siège 2), contrat à 90, il a la main à la 1re levée : il joue atout (le plus petit, sans être maître).
+  assert.equal(lead({ hand: ["7S", "QS", "AH", "10H"], legal: ["7S", "QS", "AH", "10H"] }), "7S");
+  // Avec le Valet (maître) : le Valet.
+  assert.equal(lead({ hand: ["JS", "7S", "AH"], legal: ["JS", "7S", "AH"] }), "JS");
+  // À la 2e levée aussi.
+  const t1 = { cards: [{ seat: 1, card: "7D" }, { seat: 2, card: "AD" }, { seat: 3, card: "8D" }, { seat: 0, card: "9D" }], winner: 2 };
+  assert.equal(lead({ tricks: [t1], hand: ["8S", "AH", "10H"], legal: ["8S", "AH", "10H"] }), "8S");
+  // Contrat à 80 : pas d'obligation.
+  assert.notEqual(lead({ contract: { seat: 0, amount: 80, suit: "S" }, hand: ["7S", "AH", "10H"], legal: ["7S", "AH", "10H"] }), "7S");
+  // Les deux adversaires n'ont pas fourni atout : ni le preneur ni son partenaire ne rejouent atout.
+  const trumpRound = { cards: [{ seat: 0, card: "AS" }, { seat: 1, card: "7H" }, { seat: 2, card: "8S" }, { seat: 3, card: "7C" }], winner: 0 };
+  assert.equal(lead({ tricks: [trumpRound], hand: ["JS", "AH", "8D"], legal: ["JS", "AH", "8D"] }) === "JS", false);
+  assert.notEqual(botAction({ phase: "playing", turn: 0, trick: [], auction: [], tricks: [trumpRound, t1], contract: { seat: 0, amount: 90, suit: "S" }, hand: ["JS", "9S", "KH", "8D"], legal: ["JS", "9S", "KH", "8D"] }).card.slice(-1), "S");
+});
+
 test("capot non annoncé : annonce + 250 points", () => {
   const g = newGame();
   g.contract = { seat: 0, amount: 90, suit: "S" };

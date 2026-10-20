@@ -1751,22 +1751,44 @@ const wheelReady = () => {
   return !!(state?.player?.account && lb && lb.amount > 0 && lb.next <= Date.now());
 };
 function wheelSvg(amounts) {
-  const R = 140,
-    c = 150,
-    cols = ["#0f5a43", "#7a0f1d", "#4a1d6e", "#1d4f8a"];
+  const R = 132,
+    c = 150;
+  // Couleurs casino : émeraude, rubis, saphir, améthyste ; la case ×10 en or.
+  const grads = [
+    ["#1fae7a", "#08402c"],
+    ["#e0334a", "#5a0714"],
+    ["#2f78d6", "#0b2752"],
+    ["#9b4de0", "#2e0b55"],
+  ];
   const pt = (a, r = R) => [c + r * Math.sin(a), c - r * Math.cos(a)].map((n) => n.toFixed(2)).join(",");
+  const defs =
+    grads.map(([a, b], i) => `<radialGradient id="wg${i}" cx="150" cy="150" r="140" gradientUnits="userSpaceOnUse"><stop offset="0.15" stop-color="${b}"/><stop offset="1" stop-color="${a}"/></radialGradient>`).join("") +
+    `<radialGradient id="wgold" cx="150" cy="150" r="140" gradientUnits="userSpaceOnUse"><stop offset="0.15" stop-color="#8a5a0e"/><stop offset="0.7" stop-color="#ffd36a"/><stop offset="1" stop-color="#fff1b8"/></radialGradient>
+    <linearGradient id="wrim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff1b8"/><stop offset="0.45" stop-color="#d9a12a"/><stop offset="1" stop-color="#7a4d0a"/></linearGradient>
+    <radialGradient id="whub" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#fff6c8"/><stop offset="0.5" stop-color="#e3b040"/><stop offset="1" stop-color="#7a4d0a"/></radialGradient>`;
   const seg = amounts
     .map((amt, i) => {
       const a0 = (i * Math.PI) / 4,
         a1 = ((i + 1) * Math.PI) / 4,
         mid = (a0 + a1) / 2;
       const jackpot = WHEEL_X[i] >= 10;
-      const [tx, ty] = pt(mid, R * 0.66).split(",");
-      return `<path d="M${c},${c} L${pt(a0)} A${R},${R} 0 0 1 ${pt(a1)} Z" fill="${jackpot ? "#d4a017" : cols[i % 4]}" stroke="#ffd36a" stroke-width="2"/>
-        <text x="${tx}" y="${ty}" transform="rotate(${(mid * 180) / Math.PI} ${tx} ${ty})" text-anchor="middle" dominant-baseline="middle" class="wh-txt ${jackpot ? "jp" : ""}">${fmt(amt)}</text>`;
+      const [tx, ty] = pt(mid, R * 0.7).split(",");
+      const [cx, cy] = pt(mid, R * 0.42).split(",");
+      const rot = (mid * 180) / Math.PI;
+      return `<path d="M${c},${c} L${pt(a0)} A${R},${R} 0 0 1 ${pt(a1)} Z" fill="url(#${jackpot ? "wgold" : "wg" + (i % 4)})"/>
+        <line x1="${c}" y1="${c}" x2="${pt(a0).split(",")[0]}" y2="${pt(a0).split(",")[1]}" stroke="#ffe08a" stroke-width="2.5"/>
+        <g transform="rotate(${rot} ${tx} ${ty})"><text x="${tx}" y="${ty}" text-anchor="middle" dominant-baseline="middle" class="wh-txt ${jackpot ? "jp" : ""}">${jackpot ? "JACKPOT" : fmt(amt)}</text>${jackpot ? `<text x="${tx}" y="${Number(ty) + 17}" text-anchor="middle" class="wh-sub">${fmt(amt)}</text>` : ""}</g>
+        <g transform="rotate(${rot} ${cx} ${cy})"><circle cx="${cx}" cy="${cy}" r="9" class="wh-coin"/><circle cx="${cx}" cy="${cy}" r="5.5" class="wh-coin-in"/></g>`;
     })
     .join("");
-  return `<svg viewBox="0 0 300 300" class="wheel-svg" aria-hidden="true"><circle cx="150" cy="150" r="148" fill="#2a1a05" stroke="#ffd36a" stroke-width="4"/>${seg}<circle cx="150" cy="150" r="22" fill="#ffd36a" stroke="#8a5a0e" stroke-width="3"/></svg>`;
+  const bulbs = Array.from({ length: 24 }, (_, i) => {
+    const [x, y] = pt((i * Math.PI) / 12, 141).split(",");
+    return `<circle cx="${x}" cy="${y}" r="4.2" class="wh-bulb ${i % 2 ? "b2" : "b1"}"/>`;
+  }).join("");
+  return `<svg viewBox="0 0 300 300" class="wheel-svg" aria-hidden="true"><defs>${defs}</defs>
+    <circle cx="150" cy="150" r="149" fill="url(#wrim)"/><circle cx="150" cy="150" r="134" fill="#1a0f03"/>${seg}
+    <circle cx="150" cy="150" r="${R}" fill="none" stroke="#ffe08a" stroke-width="3"/>${bulbs}
+    <circle cx="150" cy="150" r="30" fill="url(#whub)" stroke="#7a4d0a" stroke-width="3"/><text x="150" y="152" text-anchor="middle" dominant-baseline="middle" class="wh-hub">♠</text></svg>`;
 }
 function wheelModal() {
   const lb = state.player.wallet.loginBonus;
@@ -1778,7 +1800,7 @@ function wheelModal() {
   modal(
     `<div class="wheel-box"><h2>🎡 Roue du jour</h2>
     <p class="muted small">${ready ? `Jour ${lb.streak + 1 > 7 ? "7+" : day} de votre série : gains <b>×${String(mult).replace(".", ",")}</b>` : "Revenez demain pour un nouveau tour !"}</p>
-    <div class="wheel-wrap"><div class="wheel-pin" aria-hidden="true"></div><div class="wheel-rot">${wheelSvg(amounts)}</div></div>
+    <div class="wheel-wrap"><div class="wheel-pin" aria-hidden="true"><i></i></div><div class="wheel-rot">${wheelSvg(amounts)}</div></div>
     <ol class="streak-days" aria-label="Série de jours">${days}</ol>
     <p class="muted small">Jouez chaque jour : la série augmente vos gains jusqu’à ×4. Un jour manqué et elle repart à zéro.</p>
     <div id="wheel-out" role="status"></div>

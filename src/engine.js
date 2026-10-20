@@ -395,15 +395,28 @@ function botPlay(v, me) {
   const byCheap = [...legal].sort((a, b) => cheap(a) - cheap(b));
   const takers = team(v.contract.seat) === team(me);
   if (!trick.length) {
-    // Entame : faire tomber les atouts adverses quand on est preneur et maître à l'atout.
     const myTrumps = legal.filter((c) => suit(c) === t);
-    if (takers && trumpsOut > 0 && myTrumps.some(master)) return myTrumps.filter(master).sort((a, b) => strength(b, t) - strength(a, t))[0];
+    // Un adversaire qui n'a pas fourni sur une entame d'atout n'en a plus.
+    const voidTrump = new Set();
+    for (const tr of [...v.tricks, { cards: trick }])
+      if (tr.cards?.length && suit(tr.cards[0].card) === t) for (const p of tr.cards.slice(1)) if (suit(p.card) !== t) voidTrump.add(p.seat);
+    const opps = [(me + 1) % 4, (me + 3) % 4];
+    const oppsHaveTrump = trumpsOut > 0 && opps.some((s) => !voidTrump.has(s));
+    const takerSeat = v.contract.seat;
+    // Partenaire du preneur, contrat à 90 ou plus : il rejoue atout dès qu'il a la main
+    // sur la 1re ou la 2e levée (pour aider le preneur à faire tomber les atouts adverses).
+    if (takers && me !== takerSeat && v.contract.amount >= 90 && v.tricks.length <= 1 && myTrumps.length && oppsHaveTrump)
+      return myTrumps.some(master) ? myTrumps.filter(master).sort((a, b) => strength(b, t) - strength(a, t))[0] : [...myTrumps].sort((a, b) => strength(a, t) - strength(b, t))[0];
+    // Preneur maître à l'atout : faire tomber les atouts adverses, tant qu'il en reste chez eux.
+    if (takers && me === takerSeat && oppsHaveTrump && myTrumps.some(master)) return myTrumps.filter(master).sort((a, b) => strength(b, t) - strength(a, t))[0];
+    // Les adversaires n'ont plus d'atout : on ne rejoue pas atout (on garde ses atouts pour couper).
+    const pool = !oppsHaveTrump && legal.some((c) => suit(c) !== t) ? legal.filter((c) => suit(c) !== t) : legal;
     // Cartes maîtresses à côté de l'atout, tant que la couleur n'a pas trop circulé (risque de coupe).
-    const sideMasters = legal.filter((c) => suit(c) !== t && master(c) && value(c, t) >= 10 && [...played].filter((x) => suit(x) === suit(c)).length <= 3);
+    const sideMasters = pool.filter((c) => suit(c) !== t && master(c) && value(c, t) >= 10 && [...played].filter((x) => suit(x) === suit(c)).length <= 3);
     if (sideMasters.length) return sideMasters.sort((a, b) => value(b, t) - value(a, t))[0];
     // Sinon une petite carte d'une couleur longue, en gardant ses atouts.
     const side = byCheap.filter((c) => suit(c) !== t);
-    return (side[0] ?? byCheap[0]);
+    return side[0] ?? byCheap.filter((c) => pool.includes(c))[0] ?? byCheap[0];
   }
   const w = winner(trick, t),
     winCard = trick.find((p) => p.seat === w).card,
