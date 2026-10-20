@@ -1842,6 +1842,7 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .ref-link code { color: #fff3c0; font-size: 14px; }
 .ref-box .row { display: flex; gap: 10px; } .ref-box .row > * { flex: 1; }
 .share-win { margin: 6px auto 10px; }
+<<<<<<< HEAD
 /* Belote classique */
 .turnup { display: grid; justify-items: center; gap: 6px; }
 .turnup img { width: 78px; border-radius: 8px; box-shadow: 0 6px 16px #000a, 0 0 0 3px #ffd36a; transform: rotate(-4deg); }
@@ -1854,3 +1855,6 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 /* Surcontrer : sous le bandeau du contrat, jamais par-dessus */
 .float-action.center-act .danger-btn { white-space: nowrap; }
 @media (orientation: landscape) and (max-height: 500px) { .float-action.center-act { top: 50%; translate: -50% 52px; } .float-action.center-act .danger-btn { font-size: 18px; padding: 8px 22px; } }
+=======
+>>>>>>> origin/main
+.turnup.in-panel { margin: 6px 0 2px; } .turnup.in-panel img { width: 64px; }

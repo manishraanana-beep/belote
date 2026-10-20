@@ -1258,7 +1258,11 @@ function roomView() {
       ${me >= 0 ? btn(`${icon("users")} Inviter un ami`, "friends", "line-btn wide") : ""}
       ${owner ? btn(`<span class="play">▶</span> ${free && t.fillBots && !t.stake ? "Lancer avec les robots" : "Lancer la partie"}`, "start", "gold-btn wide", "", !!free && !(t.fillBots && !t.stake)) : '<p class="lead">L’hôte lancera la partie.</p>'}`;
   return shell(
+<<<<<<< HEAD
     `${top}${t.quick || t.lobby ? `<p class="target-note">🎯 Partie en <b>${t.quick && !t.rules?.variant ? "500" : "1 000"} points</b>${t.rules?.variant === "classique" ? " · belote classique" : t.quick ? " · partie rapide" : ""}</p>` : ""}${(t.quick || t.lobby) && free && t.humans > 0 && me >= 0 ? callBox(t) : ""}${code}${pending}
+=======
+    `${top}${t.quick || t.lobby ? `<p class="target-note">🎯 Partie en <b>${t.quick ? "500" : "1 000"} points</b>${t.quick ? " · partie rapide" : ""}</p>` : ""}${(t.quick || t.lobby) && free && t.humans > 0 && me >= 0 ? callBox(t) : ""}${code}${pending}
+>>>>>>> origin/main
     <h2 class="section">Joueurs (${players}/4)</h2>
     <div class="slots">${t.seats.map(slot).join("")}</div>
     ${!t.quick && t.fillBots && !t.stake && t.fillAt && free ? `<div class="fill-timer">${icon("robot")} Robots dans <b data-deadline="${t.fillAt}"></b> si personne ne rejoint</div>` : ""}
@@ -1476,7 +1480,7 @@ function bidPanel(g, me, t) {
       g.round === 1
         ? btn(`Je prends ${suitHtml(up)}`, "take", "gold-btn", `data-suit="${up}"`)
         : HAND_ORDER.filter((x) => x !== up).map((x) => btn(`${suitHtml(x)}`, "take", `suit-btn big ${isRed(x) ? "red" : ""}`, `data-suit="${x}"`)).join("");
-    return `<div class="bid-zone">${auctionStrip(g, t, me)}<div class="bid-panel classic-panel"><b class="bp-title"><i>⟡</i>${g.round === 1 ? "Prenez-vous ?" : "Une autre couleur ?"}<i>⟡</i></b>${g.turnUp ? `<div class="turnup in-panel"><img src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}"></div>` : ""}
+    return `<div class="bid-zone">${auctionStrip(g, t, me)}<div class="bid-panel classic-panel"><b class="bp-title"><i>⟡</i>${g.round === 1 ? "Prenez-vous ?" : "Une autre couleur ?"}<i>⟡</i></b>${g.turnUp ? `<div class="turnup in-panel"><img src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}"></div>` : ""}${g.turnUp ? `<div class="turnup in-panel"><img src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}"></div>` : ""}
       <div class="cp-choices ${g.round === 1 ? "" : "suits"}">${choices}</div>${btn("Je passe", "pass", "teal-btn wide")}</div></div>`;
   }
   const options = BIDS.filter((n) => !g.contract || n > g.contract.amount);
@@ -2323,9 +2327,12 @@ document.addEventListener("click", async (ev) => {
     case "shareWin":
       shareVictory();
       break;
+<<<<<<< HEAD
     case "quickClassic":
       cmd("quick", { variant: "classique" });
       break;
+=======
+>>>>>>> origin/main
     case "callYes":
     case "callNo":
       openCall = null;
