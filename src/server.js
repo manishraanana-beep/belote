@@ -595,6 +595,7 @@ export function createApp({
       const team = seat % 2;
       const capot = g.history.some((h) => h.contract.amount === 250 && h.made && h.contract.seat % 2 === team);
       const counterWin = g.history.some((h) => h.multiplier > 1 && !h.made && h.contract.seat % 2 !== team);
+      if (!t.practice) payReferral(p);
       const prog = progression.record(p, {
         practice: t.practice ?? false,
         won,
@@ -640,12 +641,42 @@ export function createApp({
       db.players[r.pid].lastResult = { table: t.name, ...t.results[r.pid] };
     }
   }
+  // ———— Parrainage : 1 000 jetons pour le parrain et le filleul, à la première partie terminée du filleul.
+  const REFERRAL_CREDITS = Number(env.BELOTE_REFERRAL_CREDITS ?? 1000);
+  const REFERRAL_MAX = 30; // filleuls récompensés au plus par parrain
+  function refCode(p) {
+    if (!p.refCode) {
+      db.refCodes ??= {};
+      let c;
+      do c = randomBytes(5).toString("base64url").replace(/[-_]/g, "x").slice(0, 6).toUpperCase();
+      while (db.refCodes[c]);
+      p.refCode = c;
+      db.refCodes[c] = p.id;
+    }
+    return p.refCode;
+  }
+  function payReferral(p) {
+    if (!p.referredBy || p.referralPaid || !p.accountId || !(REFERRAL_CREDITS > 0)) return;
+    const r = db.players[p.referredBy];
+    p.referralPaid = Date.now();
+    if (!r?.accountId) return;
+    const acc = db.accounts?.[p.accountId];
+    const key = `referral:${acc?.emailHash ?? p.accountId}`; // une seule fois par adresse e-mail
+    if (economy.post(p, key + ":filleul", "referral", toUnits(REFERRAL_CREDITS), { label: `Parrainage — bienvenue de la part de ${r.name}` })) {
+      r.referrals = (r.referrals ?? 0) + 1;
+      if (r.referrals <= REFERRAL_MAX) economy.post(r, key + ":parrain", "referral", toUnits(REFERRAL_CREDITS), { label: `Parrainage — ${p.name} a joué sa première partie` });
+      deliver(r.id, { kind: "parrainage", title: "🎁 Parrainage réussi !", body: `${p.name} a joué sa première partie : +${REFERRAL_CREDITS} jetons pour vous deux.` });
+      deliver(p.id, { kind: "parrainage", title: "🎁 Bonus de parrainage", body: `+${REFERRAL_CREDITS} jetons offerts grâce à ${r.name}.` });
+    }
+  }
+  const QUICK_TARGET = 500;
   function start(t) {
     endCalls(t);
     check(t.seats.every(Boolean), "Il faut quatre joueurs");
     // Tables publiques et « Jouer maintenant » : règles de la maison (1 000 points, donneur suivant si tous passent),
     // y compris pour les tables enregistrées avant ce changement.
-    if (t.quick || t.lobby) Object.assign(t.rules, { target: DEFAULT_RULES.target, allPass: "rotate" });
+    // « Jouer maintenant » : partie courte en 500 points ; tables des villes : 1 000 points.
+    if (t.quick || t.lobby) Object.assign(t.rules, { target: t.quick ? QUICK_TARGET : DEFAULT_RULES.target, allPass: "rotate" });
     const gameId = id();
     if (t.houseBots) {
       // Partie rapide : les robots jouent pour la Maison. La mise d'origine est reprise à chaque partie
@@ -1238,6 +1269,20 @@ export function createApp({
         }
         changed = target;
         break;
+      }
+      case "refInfo":
+        check(p.accountId, "Compte requis");
+        return { code: refCode(p), count: p.referrals ?? 0, credits: REFERRAL_CREDITS };
+      case "referral": {
+        // Code saisi par le lien d'invitation, juste après la création du compte.
+        const code = String(d.code ?? "").toUpperCase().slice(0, 12);
+        const owner = db.players[db.refCodes?.[code]];
+        check(p.accountId && !p.referredBy && !p.referralPaid, "Parrainage déjà enregistré");
+        check(owner && owner.id !== p.id && owner.accountId !== p.accountId, "Code de parrainage inconnu");
+        const acc = db.accounts?.[p.accountId];
+        check(acc && Date.now() - (acc.created ?? 0) < 7 * 86400_000, "Le parrainage s’applique aux nouveaux comptes");
+        p.referredBy = owner.id;
+        return { referrer: owner.name };
       }
       case "callAnswer": {
         const x = db.tables[String(d.tableId ?? "")];
@@ -2292,6 +2337,7 @@ export function createApp({
   return {
     server,
     db,
+    payReferral, // utilisé par les tests
     close: () =>
       new Promise((resolve) => {
         closing = true;
