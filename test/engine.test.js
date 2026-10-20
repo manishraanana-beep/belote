@@ -233,6 +233,11 @@ test("robots : soutien du partenaire, pas de coupe sur le partenaire maître, pa
   // Défausse sur le pli sûr du partenaire : l'As quand on garde le Dix de la couleur.
   a = botAction({ ...play, trick, hand: ["AC", "10C", "10D"], legal: ["AC", "10C", "10D"] });
   assert.equal(a.card, "AC");
+  // Sans le Dix, le robot ne jette pas son As : il donne le Dix d'une autre couleur.
+  a = botAction({ ...play, trick, hand: ["AC", "9C", "10D"], legal: ["AC", "9C", "10D"] });
+  assert.equal(a.card, "10D");
+  a = botAction({ ...play, trick, hand: ["AC", "8C", "7D"], legal: ["AC", "8C", "7D"] });
+  assert.notEqual(a.card, "AC");
 });
 
 test("capot non annoncé : annonce + 250 points", () => {
