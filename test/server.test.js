@@ -12,7 +12,7 @@ const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 async function fixture(opts = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), "belote-test-"));
   // Les tests utilisent aussi une table permanente gratuite (absente en production).
-  const app = createApp({ dataDir: dir, tickMs: 10, botDelay: 1, ...opts, env: { ...process.env, BELOTE_LOBBY_STAKES: "0,200,500,1000", ...(opts.env ?? {}) } });
+  const app = createApp({ dataDir: dir, tickMs: 10, botDelay: 1, matchWaitMs: 0, ...opts, env: { ...process.env, BELOTE_LOBBY_STAKES: "0,200,500,1000", ...(opts.env ?? {}) } });
   await new Promise((r) => app.server.listen(0, "127.0.0.1", r));
   const base = `http://127.0.0.1:${app.server.address().port}`;
   const clients = [];
@@ -1230,6 +1230,34 @@ test("tables des villes et classement des joueurs", async () => {
     const me = r.players.find((x) => x.me);
     assert.deepEqual([me.games, me.wins, me.ratio, me.cups], [12, 9, 75, 1]);
     assert.ok(r.players.every((x) => x.games > 0));
+  } finally {
+    await f.close();
+  }
+});
+
+test("appel des joueurs en ligne : invitation, refus, acceptation, robots à la demande", async () => {
+  const f = await fixture({ matchWaitMs: 30_000, fillSeconds: 0.05 });
+  try {
+    const [a, b, c] = await Promise.all([f.client(), f.client(), f.client()]);
+    await a.command("profile", { name: "Alice" });
+    await a.command("quick");
+    const table = a.state.table.id;
+    // Les deux autres joueurs en ligne reçoivent l'appel avec le nom de ceux qui attendent.
+    await b.wait((x) => x.queue.some((m) => m.type === "tableCall" && m.tableId === table));
+    await c.wait((x) => x.queue.some((m) => m.type === "tableCall" && m.tableId === table));
+    const call = b.queue.find((m) => m.type === "tableCall");
+    assert.deepEqual([call.players, call.stake], [["Alice"], 0]);
+    // On attend les joueurs appelés : pas de robot tout de suite.
+    await delay(200);
+    assert.equal(f.app.db.tables[table].seats.filter(Boolean).length, 1);
+    await b.command("callAnswer", { tableId: table, accept: false });
+    await c.command("callAnswer", { tableId: table, accept: true });
+    assert.equal(f.app.db.tables[table].seats.filter(Boolean).length, 2);
+    await a.wait((x) => x.state.table?.calls?.declined === 1);
+    // Personne d'autre : Alice demande les robots, la partie démarre.
+    await a.command("fillNow");
+    await a.wait((x) => x.state.table?.game);
+    assert.equal(f.app.db.tables[table].seats.filter((s) => s.bot).length, 2);
   } finally {
     await f.close();
   }

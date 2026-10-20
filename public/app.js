@@ -1256,7 +1256,7 @@ function roomView() {
       ${me >= 0 ? btn(`${icon("users")} Inviter un ami`, "friends", "line-btn wide") : ""}
       ${owner ? btn(`<span class="play">▶</span> ${free && t.fillBots && !t.stake ? "Lancer avec les robots" : "Lancer la partie"}`, "start", "gold-btn wide", "", !!free && !(t.fillBots && !t.stake)) : '<p class="lead">L’hôte lancera la partie.</p>'}`;
   return shell(
-    `${top}${t.quick || t.lobby ? `<p class="target-note">🎯 Partie en <b>1 000 points</b></p>` : ""}${code}${pending}
+    `${top}${t.quick || t.lobby ? `<p class="target-note">🎯 Partie en <b>1 000 points</b></p>` : ""}${(t.quick || t.lobby) && free && t.humans > 0 && me >= 0 ? callBox(t) : ""}${code}${pending}
     <h2 class="section">Joueurs (${players}/4)</h2>
     <div class="slots">${t.seats.map(slot).join("")}</div>
     ${!t.quick && t.fillBots && !t.stake && t.fillAt && free ? `<div class="fill-timer">${icon("robot")} Robots dans <b data-deadline="${t.fillAt}"></b> si personne ne rejoint</div>` : ""}
@@ -1740,6 +1740,38 @@ function showBonus(m) {
   setTimeout(() => el.remove(), 3600);
 }
 
+// ———————————————————————————————————————————————————————————— appel des joueurs en ligne
+// Salle d'attente : où en sont les invitations, et le choix de jouer tout de suite avec des robots.
+function callBox(t) {
+  const c = t.calls;
+  const line = !c
+    ? "Recherche de joueurs…"
+    : c.sent === 0
+      ? "Personne d’autre n’est disponible pour le moment."
+      : c.pending > 0
+        ? `${c.sent} joueur${c.sent > 1 ? "s" : ""} en ligne invité${c.sent > 1 ? "s" : ""} · en attente de réponse${c.declined ? ` (${c.declined} refus)` : ""}`
+        : c.joined
+          ? "Plus personne d’autre n’est disponible pour le moment."
+          : "Les joueurs en ligne ont décliné l’invitation.";
+  const alone = c && (c.sent === 0 || c.pending === 0);
+  return `<div class="call-box ${alone ? "alone" : ""}"><p>${icon("users")} ${line}</p>${btn(`${icon("robot")} ${alone ? "Jouer avec des robots" : "Ne plus attendre : compléter avec des robots"}`, "fillNow", alone ? "gold-btn wide" : "line-btn wide small")}</div>`;
+}
+let openCall = null;
+function showCall(m) {
+  if (state?.table?.game && state.table.game.phase !== "finished") return; // en pleine partie : pas de dérangement
+  if ($("#modal").open && !openCall) return;
+  openCall = m.tableId;
+  const names = m.players.length > 1 ? `${m.players.slice(0, -1).map(e).join(", ")} et ${e(m.players.at(-1))}` : e(m.players[0] ?? "un joueur");
+  modal(
+    `<div class="call-pop"><div class="cp-icon">🃏</div><h2>${m.stake ? `Partie à ${fmt(m.stake)} jetons` : "Partie gratuite"}${m.city ? ` · ${e(m.city)}` : ""}</h2>
+    <p>Voulez-vous jouer avec <b>${names}</b> ?</p>
+    <p class="muted small">Réponse attendue <b data-deadline="${m.until}"></b></p>
+    <div class="row">${btn("Non merci", "callNo", "line-btn", `data-id="${m.tableId}"`)}${btn(`${icon("cards")} Jouer`, "callYes", "gold-btn", `data-id="${m.tableId}"`)}</div></div>`,
+    "sheet-modal call-modal",
+  );
+  chime([660, 880], { gap: 0.1, vol: 0.05 });
+  buzz([40, 60, 40]);
+}
 // ———————————————————————————————————————————————————————————— roue du jour et série
 // Mêmes cases que le serveur (src/economy.js) : c'est le serveur qui tire, la roue ne fait que montrer.
 const WHEEL_X = [0.5, 1, 0.75, 2, 1, 3, 1.5, 10];
@@ -2162,6 +2194,15 @@ document.addEventListener("click", async (ev) => {
     case "lastTrick":
       sheet = sheet === a ? null : a;
       render();
+      break;
+    case "callYes":
+    case "callNo":
+      openCall = null;
+      closeModal();
+      cmd("callAnswer", { tableId: el.dataset.id, accept: a === "callYes" });
+      break;
+    case "fillNow":
+      cmd("fillNow");
       break;
     case "spin":
       spinWheel();
@@ -3107,6 +3148,12 @@ async function connect() {
         if (first && pendingInvite && !state.table) joinModal(pendingInvite);
       }
       if (msg.type === "bonus") showBonus(msg);
+      if (msg.type === "tableCall") showCall(msg);
+      if (msg.type === "callCancel" && openCall === msg.tableId) {
+        openCall = null;
+        closeModal();
+        toast("La partie a commencé sans vous");
+      }
       if (msg.type === "notice") {
         state.player.inbox = [msg.notice, ...(state.player.inbox ?? [])];
         toast(`🔔 ${msg.notice.title}`);
