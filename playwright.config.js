@@ -22,6 +22,8 @@ export default defineConfig({
       BELOTE_FILL_SECONDS: "4",
       BELOTE_TEST_SHOP: "on",
       BELOTE_SIGNUP_BONUS: "600",
+      // Roue du jour désactivée par défaut (montant 0) ; le test de la roue la règle lui-même.
+      BELOTE_LOGIN_BONUS: "0",
       BELOTE_ADMIN_KEY: "cle-e2e",
     },
     reuseExistingServer: false,

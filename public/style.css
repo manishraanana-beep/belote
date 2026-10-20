@@ -1796,3 +1796,20 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .capot-pop small { color: #fff3c0; font-size: 18px; letter-spacing: .2em; text-transform: uppercase; }
 @keyframes capotIn { 0% { opacity: 0; transform: scale(.4) rotate(-8deg); } 15% { opacity: 1; transform: scale(1.12) rotate(2deg); } 25% { transform: scale(1) rotate(0); } 80% { opacity: 1; } 100% { opacity: 0; transform: scale(1.05); } }
 @media (prefers-reduced-motion: reduce) { .coin-rain, .capot-pop { display: none; } }
+/* Roue du jour */
+.wheel-box { text-align: center; }
+.wheel-wrap { position: relative; width: min(300px, 78vw); aspect-ratio: 1; margin: 10px auto 14px; filter: drop-shadow(0 8px 18px #000a); }
+.wheel-rot { width: 100%; height: 100%; }
+.wheel-svg { width: 100%; height: 100%; display: block; }
+.wh-txt { fill: #fff; font: 800 17px var(--ui, sans-serif); paint-order: stroke; stroke: #0007; stroke-width: 3px; }
+.wh-txt.jp { fill: #2a1a05; stroke: #fff6; font-size: 19px; }
+.wheel-pin { position: absolute; z-index: 2; left: 50%; top: -6px; translate: -50% 0; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 26px solid #ffd36a; filter: drop-shadow(0 2px 2px #000a); }
+.streak-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; list-style: none; padding: 0; margin: 6px 0; }
+.streak-days li { display: grid; padding: 6px 0; border-radius: 10px; border: 1px solid #ffffff22; background: #0003; opacity: .7; }
+.streak-days li b { font-size: 13px; } .streak-days li small { font-size: 11px; color: #ffd36a; }
+.streak-days li.done { opacity: 1; background: #18a07233; border-color: #4ff0b0; }
+.streak-days li.today { opacity: 1; background: linear-gradient(180deg, #ffd36a, #e0a92e); color: #2a1a05; border-color: #fff3; transform: scale(1.06); }
+.streak-days li.today small { color: #2a1a05; }
+.wheel-win { margin: 8px 0 12px; padding: 12px; border-radius: 14px; border: 2px solid #e8c46a; background: #e8c46a1f; display: grid; gap: 4px; animation: capotIn 0s; }
+.wheel-win b { font-size: 26px; color: #ffd36a; }
+.wheel-next { color: #f6e7b8; }
