@@ -12,6 +12,7 @@ import {
   expireCounter,
   winner,
   value,
+  SUITS,
 } from "../src/engine.js";
 test("fournir, couper, surcouper, partenaire maître et monter", () => {
   assert.deepEqual(
@@ -294,4 +295,36 @@ test("tout le monde passe : nouvelle donne, donneur suivant, partie en 1 000 poi
   act(g, g.turn, { type: "bid", amount: 80, suit: "S" });
   for (let i = 0; i < 3; i++) act(g, g.turn, { type: "pass" });
   assert.equal(g.phase, "playing");
+});
+
+test("belote classique : 5 cartes + retourne, deux tours de prise, 8 cartes après la prise, 162 points", () => {
+  const g = newGame({ variant: "classique" });
+  assert.ok(g.hands.every((h) => h.length === 5) && g.turnUp && g.stock.length === 11);
+  assert.equal(view(g, 0).stock, undefined, "le talon reste secret");
+  const up = g.turnUp.slice(-1);
+  // Premier tour : tout le monde passe ; deuxième tour : la couleur retournée est interdite.
+  for (let i = 0; i < 4; i++) act(g, g.turn, { type: "pass" });
+  assert.equal(g.round, 2);
+  assert.throws(() => act(g, g.turn, { type: "take", suit: up }), /Couleur invalide/);
+  const other = SUITS.find((s) => s !== up);
+  const taker = g.turn;
+  act(g, taker, { type: "take", suit: other });
+  assert.equal(g.phase, "playing");
+  assert.deepEqual([g.contract.suit, g.contract.amount], [other, 0]);
+  assert.ok(g.hands.every((h) => h.length === 8));
+  // Contre impossible en belote classique.
+  const g2 = newGame({ variant: "classique" });
+  assert.throws(() => act(g2, (g2.turn + 1) % 4, { type: "counter" }));
+  // Partie jouée par les robots jusqu'au bout : 162 points (+ belote) par donne.
+  const g3 = newGame({ variant: "classique", target: 300 });
+  for (let n = 0; n < 4000 && g3.phase !== "finished"; n++) {
+    if (g3.phase === "summary") {
+      const h = g3.history.at(-1);
+      assert.equal(h.points[0] + h.points[1], 162);
+      nextDeal(g3);
+      continue;
+    }
+    act(g3, g3.turn, botAction(view(g3, g3.turn)));
+  }
+  assert.equal(g3.phase, "finished");
 });

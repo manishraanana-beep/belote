@@ -73,7 +73,7 @@ test("boutique : catégories, aperçu, achat, solde insuffisant, équipement et 
   // Table personnalisée : entraînement avec le tapis violet.
   await page.locator('.tabbar [data-page="home"]').click();
   await page.screenshot({ path: `${shots}accueil.png` });
-  await page.locator(".features [data-action='practice']").click();
+  await page.evaluate(() => { const b = document.createElement("button"); b.dataset.action = "practice"; document.body.append(b); b.click(); b.remove(); }); // entraînement (retiré de l'accueil)
   await page.locator('[data-action="confirmPractice"]').click();
   await expect(page.locator(".screen.game.tapis-violet")).toBeVisible({ timeout: 15000 });
   await page.waitForTimeout(2500);

@@ -86,8 +86,13 @@ export function deal(g) {
     const j = randomInt(i + 1);
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
+  const classic = g.rules?.variant === "classique";
   Object.assign(g, {
-    hands: [0, 1, 2, 3].map((i) => deck.slice(i * 8, i * 8 + 8)),
+    // Belote classique : 5 cartes chacun, une carte retournée, le reste distribué après la prise.
+    hands: [0, 1, 2, 3].map((i) => (classic ? deck.slice(i * 5, i * 5 + 5) : deck.slice(i * 8, i * 8 + 8))),
+    stock: classic ? deck.slice(21) : null,
+    turnUp: classic ? deck[20] : null,
+    round: 1,
     phase: "bidding",
     turn: (g.dealer + 1) % 4,
     leader: (g.dealer + 1) % 4,
@@ -105,6 +110,11 @@ export function deal(g) {
     allPassed: false,
     deal: g.deal + 1,
   });
+  if (classic) {
+    g.beloteOwner = -1;
+    g.version++;
+    return;
+  }
   g.beloteOwner = g.hands.findIndex((h) =>
     SUITS.some((s) => h.includes("K" + s) && h.includes("Q" + s)),
   );
@@ -119,7 +129,30 @@ function startPlay(g) {
   g.counterDeadline = null;
   g.lastEvent = "À vous de jouer";
 }
+// Belote classique : le preneur doit faire plus de points que la défense (belote comprise) ;
+// sinon il est « dedans » et la défense marque 162. Capot : 250. Chacun marque ses points.
+function scoreClassic(g) {
+  const taker = team(g.contract.seat),
+    def = 1 - taker;
+  const capotT = g.tricks.every((t) => team(t.winner) === taker),
+    capotD = g.tricks.every((t) => team(t.winner) === def);
+  const tot = (i) => g.points[i] + g.belote[i];
+  const made = tot(taker) > tot(def);
+  const score = [0, 0];
+  if (capotT) {
+    score[taker] = 250 + g.belote[taker];
+    score[def] = g.belote[def];
+  } else if (made) {
+    score[taker] = tot(taker);
+    score[def] = tot(def);
+  } else {
+    score[def] = (capotD ? 250 : 162) + g.belote[def];
+    score[taker] = g.rules.beloteRetained ? g.belote[taker] : 0;
+  }
+  return { made, capot: capotT, score, points: [...g.points], belote: [...g.belote], contract: { ...g.contract }, multiplier: 1, tricks: structuredClone(g.tricks), deal: g.deal };
+}
 export function scoreDeal(g) {
+  if (g.rules.variant === "classique") return scoreClassic(g);
   const taker = team(g.contract.seat),
     def = 1 - taker,
     capot = g.contract.amount === 250;
@@ -162,6 +195,7 @@ export function act(g, seat, a, now = Date.now()) {
   if (!Number.isInteger(seat) || seat < 0 || seat > 3) fail("Place invalide");
   if (a.type === "counter") {
     if (
+      g.rules.variant === "classique" ||
       g.phase !== "bidding" ||
       !g.contract ||
       team(seat) === team(g.contract.seat) ||
@@ -184,6 +218,40 @@ export function act(g, seat, a, now = Date.now()) {
     g.multiplier = 4;
     startPlay(g);
     g.lastEvent = "SURCONTRÉ !";
+  } else if (g.rules.variant === "classique" && (a.type === "take" || (a.type === "pass" && g.phase === "bidding"))) {
+    if (g.phase !== "bidding" || seat !== g.turn) fail("Ce n’est pas votre tour");
+    const up = suit(g.turnUp);
+    if (a.type === "take") {
+      const s = g.round === 1 ? up : a.suit;
+      if (!SUITS.includes(s) || (g.round === 2 && s === up)) fail("Couleur invalide");
+      g.auction.push({ seat, type: "bid", amount: 0, suit: s, at: now });
+      g.contract = { seat, amount: 0, suit: s };
+      // Le preneur reçoit la carte retournée et 2 cartes, les autres 3 cartes.
+      g.hands[seat].push(g.turnUp);
+      for (let k = 1; k <= 4; k++) {
+        const p = (g.dealer + k) % 4;
+        g.hands[p].push(...g.stock.splice(0, p === seat ? 2 : 3));
+      }
+      g.turnUp = null;
+      g.stock = null;
+      g.beloteOwner = g.hands.findIndex((h) => h.includes("K" + s) && h.includes("Q" + s));
+      g.lastEvent = `${g.round === 1 ? "Je prends" : "Je prends à " + s}`;
+      startPlay(g);
+    } else {
+      g.auction.push({ seat, type: "pass", at: now });
+      g.passes++;
+      g.turn = (g.turn + 1) % 4;
+      if (g.passes === 4 && g.round === 1) {
+        g.round = 2;
+        g.passes = 0;
+        g.lastEvent = "Deuxième tour : choisissez une autre couleur";
+      } else if (g.passes === 4) {
+        g.dealer = (g.dealer + 1) % 4;
+        deal(g);
+        g.allPassed = true;
+        g.lastEvent = "Tout le monde a passé · nouvelle donne";
+      }
+    }
   } else if (a.type === "pass" || a.type === "bid") {
     if (g.phase !== "bidding" || seat !== g.turn)
       fail("Ce n’est pas votre tour d’enchérir");
@@ -281,7 +349,7 @@ export function nextDeal(g) {
   deal(g);
 }
 export function view(g, seat) {
-  const { hands, beloteOwner, belotePlayed, ...publicState } = g;
+  const { hands, beloteOwner, belotePlayed, stock, ...publicState } = g;
   return {
     ...structuredClone(publicState),
     hand:
@@ -453,9 +521,27 @@ function botPlay(v, me) {
   // Pli perdu : ne pas donner de points aux adversaires.
   return byCheap[0];
 }
+// Belote classique : prendre avec une bonne main dans la couleur (5 cartes + la carte retournée).
+function classicStrength(hand, s, withUp) {
+  const h = withUp ? [...hand, withUp] : hand;
+  const tr = h.filter((c) => suit(c) === s);
+  const has = (r) => tr.includes(r + s);
+  let n = (has("J") ? 4 : 0) + (has("9") ? 3 : 0) + (has("A") ? 1.5 : 0) + (has("10") ? 1 : 0) + tr.length * 1.2;
+  n += h.filter((c) => suit(c) !== s && rank(c) === "A").length * 1.2;
+  return n;
+}
+function botClassic(v) {
+  const up = suit(v.turnUp);
+  if (v.round === 1) return classicStrength(v.hand, up, v.turnUp) >= 8.5 ? { type: "take" } : { type: "pass" };
+  const best = SUITS.filter((s) => s !== up)
+    .map((s) => ({ s, n: classicStrength(v.hand, s, null) + 1.5 })) // 3 cartes encore à recevoir
+    .sort((a, b) => b.n - a.n)[0];
+  return best.n >= 8.5 ? { type: "take", suit: best.s } : { type: "pass" };
+}
 export function botAction(v) {
   const me = v.turn;
   if (v.phase === "playing") return { type: "play", card: botPlay(v, me) };
+  if (v.phase === "bidding" && v.rules?.variant === "classique") return botClassic(v);
   if (v.phase === "bidding") return botBid(v, me);
   return null;
 }
