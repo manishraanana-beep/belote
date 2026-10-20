@@ -1258,11 +1258,7 @@ function roomView() {
       ${me >= 0 ? btn(`${icon("users")} Inviter un ami`, "friends", "line-btn wide") : ""}
       ${owner ? btn(`<span class="play">▶</span> ${free && t.fillBots && !t.stake ? "Lancer avec les robots" : "Lancer la partie"}`, "start", "gold-btn wide", "", !!free && !(t.fillBots && !t.stake)) : '<p class="lead">L’hôte lancera la partie.</p>'}`;
   return shell(
-<<<<<<< HEAD
     `${top}${t.quick || t.lobby ? `<p class="target-note">🎯 Partie en <b>${t.quick && !t.rules?.variant ? "500" : "1 000"} points</b>${t.rules?.variant === "classique" ? " · belote classique" : t.quick ? " · partie rapide" : ""}</p>` : ""}${(t.quick || t.lobby) && free && t.humans > 0 && me >= 0 ? callBox(t) : ""}${code}${pending}
-=======
-    `${top}${t.quick || t.lobby ? `<p class="target-note">🎯 Partie en <b>${t.quick ? "500" : "1 000"} points</b>${t.quick ? " · partie rapide" : ""}</p>` : ""}${(t.quick || t.lobby) && free && t.humans > 0 && me >= 0 ? callBox(t) : ""}${code}${pending}
->>>>>>> origin/main
     <h2 class="section">Joueurs (${players}/4)</h2>
     <div class="slots">${t.seats.map(slot).join("")}</div>
     ${!t.quick && t.fillBots && !t.stake && t.fillAt && free ? `<div class="fill-timer">${icon("robot")} Robots dans <b data-deadline="${t.fillAt}"></b> si personne ne rejoint</div>` : ""}
@@ -1395,7 +1391,7 @@ function centerView(g, t, me) {
   if (collection && sentCard && Date.now() < sentCard.until && !collection.cards.some((x) => x.card === sentCard.card)) collection = null;
   if (collection) return collection.stage === "hold" ? trickCards(collection.cards, me) : trickCards(collection.cards, me, `collecting to${(collection.winner - me + 4) % 4}`);
   // Belote classique : la carte retournée au centre pendant la prise.
-  if (g.phase === "bidding" && g.turnUp) return `<div class="turnup"><img src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}"><small>${g.round === 1 ? "Carte retournée" : "2e tour"}</small></div>`;
+  if (g.phase === "bidding" && g.turnUp && g.turn !== me) return `<div class="turnup"><img src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}"><small>${g.round === 1 ? "Carte retournée" : "2e tour"}</small></div>`;
   const c = contractInfo(g, t, me);
   if (g.phase === "counter") return contractBanner(c, g);
   if (g.phase === "playing") {
@@ -2327,12 +2323,9 @@ document.addEventListener("click", async (ev) => {
     case "shareWin":
       shareVictory();
       break;
-<<<<<<< HEAD
     case "quickClassic":
       cmd("quick", { variant: "classique" });
       break;
-=======
->>>>>>> origin/main
     case "callYes":
     case "callNo":
       openCall = null;
