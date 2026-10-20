@@ -1267,7 +1267,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .slots .slot-ring { width: min(76px, 19vw); height: min(76px, 19vw); }
 .slots .slot b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 /* Surcontre au centre de la table */
-.float-action.center-act { left: 50%; right: auto; top: 50%; bottom: auto; translate: -50% -50%; z-index: 20; }
+.float-action.center-act { left: 50%; right: auto; top: 63%; bottom: auto; translate: -50% 0; z-index: 20; }
 .float-action.center-act .danger-btn { font-size: 24px; padding: 14px 30px; box-shadow: 0 0 0 4px #fff4, 0 0 30px #ff5a5a99, 0 10px 24px #000a; }
 /* Annonces à côté de l'avatar de chaque joueur */
 .seat .bubble { z-index: 16; font-size: 14px; padding: 4px 10px; border: 1.5px solid var(--gold); }
@@ -1842,3 +1842,15 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .ref-link code { color: #fff3c0; font-size: 14px; }
 .ref-box .row { display: flex; gap: 10px; } .ref-box .row > * { flex: 1; }
 .share-win { margin: 6px auto 10px; }
+/* Belote classique */
+.turnup { display: grid; justify-items: center; gap: 6px; }
+.turnup img { width: 78px; border-radius: 8px; box-shadow: 0 6px 16px #000a, 0 0 0 3px #ffd36a; transform: rotate(-4deg); }
+.turnup small { color: #fff3c0; font-weight: 700; background: #0007; padding: 2px 10px; border-radius: 999px; }
+.classic-panel .cp-choices { display: flex; justify-content: center; margin: 8px 0 10px; }
+.classic-panel .cp-choices > * { min-width: 60%; }
+.classic-panel .cp-choices.suits { gap: 10px; }
+.classic-panel .cp-choices.suits > * { min-width: 0; flex: 1; font-size: 28px; padding: 10px 0; }
+.turnup.in-panel { margin: 6px 0 2px; } .turnup.in-panel img { width: 64px; }
+/* Surcontrer : sous le bandeau du contrat, jamais par-dessus */
+.float-action.center-act .danger-btn { white-space: nowrap; }
+@media (orientation: landscape) and (max-height: 500px) { .float-action.center-act { top: 50%; translate: -50% 52px; } .float-action.center-act .danger-btn { font-size: 18px; padding: 8px 22px; } }

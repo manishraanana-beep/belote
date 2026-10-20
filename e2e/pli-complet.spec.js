@@ -4,7 +4,7 @@ test("pli complet visible avant ramassage", async ({ browser }) => {
   const page = await (await browser.newContext({ viewport: { width: 414, height: 800 }, isMobile: true, hasTouch: true })).newPage();
   await page.addInitScript(() => sessionStorage.setItem("discover", "1"));
   await page.goto("/");
-  await page.locator(".features [data-action='practice']").click();
+  await page.evaluate(() => { const b = document.createElement("button"); b.dataset.action = "practice"; document.body.append(b); b.click(); b.remove(); }); // entraînement (retiré de l'accueil)
   await page.locator('[data-action="confirmPractice"]').click();
   await page.evaluate(() => {
     window.__four = false;
@@ -29,7 +29,7 @@ test("dernier pli : les 4 cartes restent visibles avant le résultat de la donne
   const page = await (await browser.newContext({ viewport: { width: 414, height: 800 }, isMobile: true, hasTouch: true })).newPage();
   await page.addInitScript(() => sessionStorage.setItem("discover", "1"));
   await page.goto("/");
-  await page.locator(".features [data-action='practice']").click();
+  await page.evaluate(() => { const b = document.createElement("button"); b.dataset.action = "practice"; document.body.append(b); b.click(); b.remove(); }); // entraînement (retiré de l'accueil)
   await page.locator('[data-action="confirmPractice"]').click();
   await page.evaluate(() => {
     window.__log = [];

@@ -57,7 +57,7 @@ async function playLegal(page) {
 async function startPractice(page) {
   await spy(page);
   await page.goto("/");
-  await page.locator('.feature[data-action="practice"]').click();
+  await page.evaluate(() => { const b = document.createElement("button"); b.dataset.action = "practice"; document.body.append(b); b.click(); b.remove(); }); // entraînement (retiré de l'accueil)
   await page.locator('[data-action="confirmPractice"]').click();
   await expect(page.locator(".hand .hcard")).toHaveCount(8);
 }

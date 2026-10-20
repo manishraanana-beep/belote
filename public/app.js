@@ -63,7 +63,7 @@ const DEFAULT_RULES = {
   beloteCountsContract: true,
 };
 const isRed = (s) => s === "H" || s === "D";
-const amountLabel = (n) => (n === 250 ? "Capot" : String(n));
+const amountLabel = (n) => (n === 250 ? "Capot" : n === 0 ? "Pris" : String(n));
 const cardName = (c) => {
   const r = c.slice(0, -1);
   return `${RANK_NAMES[r] ?? r} de ${SUIT_NAMES[c.slice(-1)].toLowerCase()}`;
@@ -782,7 +782,7 @@ function homePage() {
       ${featureCard("go", 'data-page="tables"', "f-public", "Tables publiques", "Jouez avec d’autres joueurs", '<img src="/decor/f-publiques.webp" alt="">')}
       ${featureCard("go", 'data-page="vip"', "f-vip", "Tables VIP", "Une expérience exclusive", '<img src="/decor/f-vip.webp" alt="">')}
       ${featureCard("go", 'data-page="tournaments"', "f-tour", "Tournois", nextTourLine(), '<img src="/decor/club-vip.webp" alt="">')}
-      ${featureCard("practice", "", "f-bots", "Entraînement", "Progressez à votre rythme", '<img src="/decor/f-robot.webp" alt="">')}
+      ${featureCard("quickClassic", "", "f-classic", "Belote classique", "Je prends ou je passe · 1 000 points", '<img src="/decor/f-robot.webp" alt="">')}
     </div>
     <div class="quick-row">
       ${state.player.account ? btn("🎁 Parrainer", "referral", "chip") : ""}
@@ -1258,7 +1258,7 @@ function roomView() {
       ${me >= 0 ? btn(`${icon("users")} Inviter un ami`, "friends", "line-btn wide") : ""}
       ${owner ? btn(`<span class="play">▶</span> ${free && t.fillBots && !t.stake ? "Lancer avec les robots" : "Lancer la partie"}`, "start", "gold-btn wide", "", !!free && !(t.fillBots && !t.stake)) : '<p class="lead">L’hôte lancera la partie.</p>'}`;
   return shell(
-    `${top}${t.quick || t.lobby ? `<p class="target-note">🎯 Partie en <b>${t.quick ? "500" : "1 000"} points</b>${t.quick ? " · partie rapide" : ""}</p>` : ""}${(t.quick || t.lobby) && free && t.humans > 0 && me >= 0 ? callBox(t) : ""}${code}${pending}
+    `${top}${t.quick || t.lobby ? `<p class="target-note">🎯 Partie en <b>${t.quick && !t.rules?.variant ? "500" : "1 000"} points</b>${t.rules?.variant === "classique" ? " · belote classique" : t.quick ? " · partie rapide" : ""}</p>` : ""}${(t.quick || t.lobby) && free && t.humans > 0 && me >= 0 ? callBox(t) : ""}${code}${pending}
     <h2 class="section">Joueurs (${players}/4)</h2>
     <div class="slots">${t.seats.map(slot).join("")}</div>
     ${!t.quick && t.fillBots && !t.stake && t.fillAt && free ? `<div class="fill-timer">${icon("robot")} Robots dans <b data-deadline="${t.fillAt}"></b> si personne ne rejoint</div>` : ""}
@@ -1390,6 +1390,8 @@ function centerView(g, t, me) {
   // apparaissent juste après, avec leur animation.
   if (collection && sentCard && Date.now() < sentCard.until && !collection.cards.some((x) => x.card === sentCard.card)) collection = null;
   if (collection) return collection.stage === "hold" ? trickCards(collection.cards, me) : trickCards(collection.cards, me, `collecting to${(collection.winner - me + 4) % 4}`);
+  // Belote classique : la carte retournée au centre pendant la prise.
+  if (g.phase === "bidding" && g.turnUp) return `<div class="turnup"><img src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}"><small>${g.round === 1 ? "Carte retournée" : "2e tour"}</small></div>`;
   const c = contractInfo(g, t, me);
   if (g.phase === "counter") return contractBanner(c, g);
   if (g.phase === "playing") {
@@ -1421,10 +1423,10 @@ function dealResult(g, t, me) {
   return `<div class="overlay-page"><div class="op-inner">
     <h2 class="op-title">Résultat de la donne</h2>
     <div class="taker-pill">${avatar(taker?.avatar, "lg")}<span>${e(taker?.name)} • ${ours ? "Nous" : "Eux"} • ${amountLabel(h.contract.amount)} ${suitHtml(h.contract.suit)}${h.multiplier > 1 ? ` • ${multLabel(h.multiplier)}` : ""}</span></div>
-    <div class="res-box ${h.made ? "ok" : "ko"}">${h.made ? icon("check", "res-ico") : '<span class="res-ico x">✕</span>'}<div><b>${h.made ? "Contrat réussi" : "Contrat chuté"}</b><small>${h.made ? `${ours ? "Bravo" : "Ils ont"} atteint ${amountLabel(h.contract.amount)} !` : `${ours ? "Dommage" : "Bien défendu"} : ${amountLabel(h.contract.amount)} non atteint.`}</small></div></div>
+    <div class="res-box ${h.made ? "ok" : "ko"}">${h.made ? icon("check", "res-ico") : '<span class="res-ico x">✕</span>'}<div><b>${h.contract.amount === 0 ? (h.made ? "Fait !" : "Dedans !") : h.made ? "Contrat réussi" : "Contrat chuté"}</b><small>${h.contract.amount === 0 ? (h.made ? `${ours ? "Bravo" : "Ils ont"} fait plus de points que la défense.` : `${ours ? "Dommage" : "Bien défendu"} : la défense marque 162.`) : h.made ? `${ours ? "Bravo" : "Ils ont"} atteint ${amountLabel(h.contract.amount)} !` : `${ours ? "Dommage" : "Bien défendu"} : ${amountLabel(h.contract.amount)} non atteint.`}</small></div></div>
     <div class="duo"><div class="${h.score[me % 2] >= h.score[1 - (me % 2)] ? "lead" : ""}">${h.score[me % 2] >= h.score[1 - (me % 2)] ? icon("crown") : ""}<small>Nous</small><b>${h.score[me % 2]}</b></div><div class="${h.score[1 - (me % 2)] > h.score[me % 2] ? "lead" : ""}"><small>Eux</small><b>${h.score[1 - (me % 2)]}</b></div></div>
     ${belote}
-    ${h.capot && h.contract.amount !== 250 ? `<div class="res-line">${icon("trophy", "big")}<div><b>Capot ! ${amountLabel(h.contract.amount)} + 250 points</b><small>Tous les plis, sans l’avoir annoncé</small></div></div>` : ""}
+    ${h.capot && h.contract.amount !== 250 && h.contract.amount !== 0 ? `<div class="res-line">${icon("trophy", "big")}<div><b>Capot ! ${amountLabel(h.contract.amount)} + 250 points</b><small>Tous les plis, sans l’avoir annoncé</small></div></div>` : ""}
     <p class="op-sub">Score total de la partie</p>
     <div class="total-pill"><div><small>Nous</small><b>${g.scores[me % 2]}</b></div><i></i><div class="them"><small>Eux</small><b>${g.scores[1 - (me % 2)]}</b></div></div>
     <p class="next-auto">Donne suivante dans <b data-deadline="${t.nextAt ?? 0}"></b></p>
@@ -1468,6 +1470,15 @@ function moneyLines(r) {
 // Maquette « Choisir votre contrat ».
 // Maquette « Votre annonce ».
 function bidPanel(g, me, t) {
+  if (g.rules.variant === "classique") {
+    const up = g.turnUp ? g.turnUp.slice(-1) : null;
+    const choices =
+      g.round === 1
+        ? btn(`Je prends ${suitHtml(up)}`, "take", "gold-btn", `data-suit="${up}"`)
+        : HAND_ORDER.filter((x) => x !== up).map((x) => btn(`${suitHtml(x)}`, "take", `suit-btn big ${isRed(x) ? "red" : ""}`, `data-suit="${x}"`)).join("");
+    return `<div class="bid-zone">${auctionStrip(g, t, me)}<div class="bid-panel classic-panel"><b class="bp-title"><i>⟡</i>${g.round === 1 ? "Prenez-vous ?" : "Une autre couleur ?"}<i>⟡</i></b>${g.turnUp ? `<div class="turnup in-panel"><img src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}"></div>` : ""}
+      <div class="cp-choices ${g.round === 1 ? "" : "suits"}">${choices}</div>${btn("Je passe", "pass", "teal-btn wide")}</div></div>`;
+  }
   const options = BIDS.filter((n) => !g.contract || n > g.contract.amount);
   // À chaque nouveau tour d'enchère : montant par défaut = le plus bas permis (80, ou juste au-dessus
   // de la dernière enchère d'un joueur).
@@ -1858,7 +1869,7 @@ function showCall(m) {
   openCall = m.tableId;
   const names = m.players.length > 1 ? `${m.players.slice(0, -1).map(e).join(", ")} et ${e(m.players.at(-1))}` : e(m.players[0] ?? "un joueur");
   modal(
-    `<div class="call-pop"><div class="cp-icon">🃏</div><h2>${m.stake ? `Partie à ${fmt(m.stake)} jetons` : "Partie gratuite"}${m.city ? ` · ${e(m.city)}` : ""}</h2>
+    `<div class="call-pop"><div class="cp-icon">🃏</div><h2>${m.variant === "classique" ? "Belote classique · " : ""}${m.stake ? `Partie à ${fmt(m.stake)} jetons` : "Partie gratuite"}${m.city ? ` · ${e(m.city)}` : ""}</h2>
     <p>Voulez-vous jouer avec <b>${names}</b> ?</p>
     <p class="muted small">Réponse attendue <b data-deadline="${m.until}"></b></p>
     <div class="row">${btn("Non merci", "callNo", "line-btn", `data-id="${m.tableId}"`)}${btn(`${icon("cards")} Jouer`, "callYes", "gold-btn", `data-id="${m.tableId}"`)}</div></div>`,
@@ -2311,6 +2322,9 @@ document.addEventListener("click", async (ev) => {
     }
     case "shareWin":
       shareVictory();
+      break;
+    case "quickClassic":
+      cmd("quick", { variant: "classique" });
       break;
     case "callYes":
     case "callNo":
@@ -2778,6 +2792,9 @@ document.addEventListener("click", async (ev) => {
       el.form.amount.value = bidAmount;
       el.form.querySelectorAll(".amount").forEach((b) => b.classList.toggle("on", b === el));
       announceLabel(el.form);
+      break;
+    case "take":
+      cmd("action", { version: g.version, action: { type: "take", suit: el.dataset.suit } });
       break;
     case "pass":
     case "counter":
