@@ -1781,3 +1781,18 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .seg.wrap { flex-wrap: wrap; border-radius: 18px; }
 .seg.wrap > label { flex: 1 0 22%; }
 .form-card, .form-card .lbl { min-width: 0; max-width: 100%; }
+/* Pluie de jetons (victoire) et « CAPOT ! » */
+.coin-rain { position: fixed; inset: 0; pointer-events: none; z-index: 60; overflow: hidden; }
+.coin-rain i { position: absolute; top: -40px; width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6c8 0 18%, #ffd36a 30%, #c8901e 75%, #8a5a0e 100%); box-shadow: 0 2px 4px #0006, inset 0 0 0 2px #ffe9a0; animation: coinfall 2.6s cubic-bezier(.3,.1,.6,1) forwards; }
+.coin-rain i::after { content: ""; position: absolute; inset: 6px; border-radius: 50%; border: 1.5px solid #a8741a88; }
+.coin-rain .c0 { left: 4%; animation-delay: 0s; } .coin-rain .c1 { left: 12%; animation-delay: .25s; } .coin-rain .c2 { left: 20%; animation-delay: .1s; }
+.coin-rain .c3 { left: 28%; animation-delay: .4s; } .coin-rain .c4 { left: 36%; animation-delay: .05s; } .coin-rain .c5 { left: 44%; animation-delay: .3s; }
+.coin-rain .c6 { left: 52%; animation-delay: .15s; } .coin-rain .c7 { left: 60%; animation-delay: .45s; } .coin-rain .c8 { left: 68%; animation-delay: .2s; }
+.coin-rain .c9 { left: 76%; animation-delay: .35s; } .coin-rain .c10 { left: 84%; animation-delay: .08s; } .coin-rain .c11 { left: 92%; animation-delay: .28s; } .coin-rain .c12 { left: 48%; animation-delay: .55s; }
+.coin-rain i:nth-child(n+14) { animation-delay: .7s; animation-duration: 2.3s; }
+@keyframes coinfall { 0% { transform: translateY(0) rotateY(0) rotate(0); opacity: 1; } 80% { opacity: 1; } 100% { transform: translateY(110vh) rotateY(720deg) rotate(40deg); opacity: 0; } }
+.capot-pop { position: fixed; inset: 0; z-index: 61; display: grid; place-content: center; justify-items: center; pointer-events: none; background: radial-gradient(circle, #0008, transparent 60%); animation: capotIn 2.6s ease forwards; }
+.capot-pop b { font-family: var(--display, serif); font-size: clamp(54px, 16vw, 110px); letter-spacing: .04em; color: #ffd36a; text-shadow: 0 0 24px #ffb84a, 0 4px 0 #8a5a0e, 0 8px 20px #000a; }
+.capot-pop small { color: #fff3c0; font-size: 18px; letter-spacing: .2em; text-transform: uppercase; }
+@keyframes capotIn { 0% { opacity: 0; transform: scale(.4) rotate(-8deg); } 15% { opacity: 1; transform: scale(1.12) rotate(2deg); } 25% { transform: scale(1) rotate(0); } 80% { opacity: 1; } 100% { opacity: 0; transform: scale(1.05); } }
+@media (prefers-reduced-motion: reduce) { .coin-rain, .capot-pop { display: none; } }

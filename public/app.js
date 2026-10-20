@@ -88,6 +88,13 @@ let state = null,
   retry = 0,
   authConfig = { google: null, apple: null, mail: false },
   sound = localStorage.getItem("beloteSound") !== "false",
+  vibra = (() => {
+    try {
+      return localStorage.getItem("beloteVibra") !== "false";
+    } catch {
+      return true;
+    }
+  })(),
   sheet = null, // menu | chat | auction | scores | lastTrick
   selected = null,
   bidAmount = null,
@@ -154,6 +161,122 @@ function cardSound(vol = 0.5) {
     src.connect(bp).connect(g).connect(ctx.destination);
     src.start();
   } catch {}
+}
+// Petits sons doux (cloche, sans fichier) et vibrations, pour les moments clés de la partie.
+function chime(notes, { gap = 0.11, vol = 0.07, type = "sine", decay = 0.9 } = {}) {
+  if (!sound) return;
+  try {
+    audioCtx ??= new AudioContext();
+    const ctx = audioCtx;
+    notes.forEach((f, i) => {
+      const o = ctx.createOscillator(),
+        o2 = ctx.createOscillator(),
+        g = ctx.createGain();
+      o.type = type;
+      o2.type = "sine";
+      o.frequency.value = f;
+      o2.frequency.value = f * 2; // harmonique légère : timbre de clochette
+      const g2 = ctx.createGain();
+      g2.gain.value = 0.25;
+      o.connect(g);
+      o2.connect(g2).connect(g);
+      g.connect(ctx.destination);
+      const t0 = ctx.currentTime + i * gap;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(vol, t0 + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + decay);
+      o.start(t0);
+      o2.start(t0);
+      o.stop(t0 + decay + 0.05);
+      o2.stop(t0 + decay + 0.05);
+    });
+  } catch {}
+}
+function buzz(pattern) {
+  if (!vibra) return;
+  try {
+    navigator.vibrate?.(pattern);
+  } catch {}
+}
+const SFX = {
+  myTurn: () => (chime([880], { vol: 0.035, decay: 0.35 }), buzz(25)),
+  trickUs: () => chime([660, 990], { gap: 0.08, vol: 0.04, decay: 0.5 }),
+  belote: () => (chime([784, 988, 1175], { gap: 0.09, vol: 0.05 }), buzz([20, 40, 20])),
+  counter: () => (chime([392, 330], { gap: 0.12, vol: 0.06, type: "triangle" }), buzz([40, 30, 40])),
+  win: () => (chime([523, 659, 784, 1046, 1318], { gap: 0.12, vol: 0.07, decay: 1.4 }), buzz([60, 50, 60, 50, 140])),
+  lose: () => chime([392, 330, 262], { gap: 0.18, vol: 0.04, decay: 1 }),
+  capot: () => (chime([523, 784, 1046, 1568], { gap: 0.1, vol: 0.08, decay: 1.6 }), buzz([80, 40, 80, 40, 200])),
+  coin: () => chime([1568, 2093], { gap: 0.05, vol: 0.03, decay: 0.3 }),
+};
+// Compare l'état précédent et le nouveau pour jouer le bon effet.
+function gameEffects(prevT, nextT) {
+  const a = prevT?.game,
+    b = nextT?.game;
+  if (!b || !nextT || prevT?.id !== nextT.id) return;
+  const me = nextT.seats.findIndex((x) => x?.id === state?.player?.id);
+  if (me < 0) return;
+  if (!a) return;
+  if ((b.phase === "playing" || b.phase === "bidding") && b.turn === me && (a.turn !== me || a.phase !== b.phase)) SFX.myTurn();
+  if ((b.tricks?.length ?? 0) > (a.tricks?.length ?? 0) && b.deal === a.deal) {
+    const w = b.tricks.at(-1)?.winner;
+    if (w !== undefined && w % 2 === me % 2) setTimeout(SFX.trickUs, 1200);
+  }
+  const bel = (x) => (x?.belote?.[0] ?? 0) + (x?.belote?.[1] ?? 0);
+  if (bel(b) > bel(a) && b.deal === a.deal) SFX.belote();
+  if ((b.multiplier ?? 1) > (a.multiplier ?? 1)) SFX.counter();
+  // Fin de donne : capot de notre équipe.
+  if ((b.history?.length ?? 0) > (a.history?.length ?? 0)) {
+    const h = b.history.at(-1);
+    if (h?.capot && h.contract && h.contract.seat % 2 === me % 2 && h.made !== false) {
+      SFX.capot();
+      capotBanner();
+    }
+  }
+  if (b.phase === "finished" && a.phase !== "finished") {
+    const won = b.scores[me % 2] > b.scores[1 - (me % 2)];
+    setTimeout(won ? SFX.win : SFX.lose, 300);
+    if (won) setTimeout(coinRain, 400);
+  }
+}
+// « CAPOT ! » en grand au milieu de l'écran.
+function capotBanner() {
+  if (!state?.player?.settings?.animations) return;
+  const el = document.createElement("div");
+  el.className = "capot-pop";
+  el.setAttribute("role", "status");
+  el.innerHTML = "<b>CAPOT !</b><small>Tous les plis</small>";
+  document.body.append(el);
+  setTimeout(() => el.remove(), 2600);
+}
+// Pluie de jetons sur l'écran de victoire.
+function coinRain() {
+  if (!state?.player?.settings?.animations) return;
+  const el = document.createElement("div");
+  el.className = "coin-rain";
+  el.setAttribute("aria-hidden", "true");
+  el.innerHTML = Array.from({ length: 26 }, (_, i) => `<i class="c${i % 13}"></i>`).join("");
+  document.body.append(el);
+  let n = 0;
+  const tick = setInterval(() => (SFX.coin(), ++n >= 6 && clearInterval(tick)), 160);
+  setTimeout(() => el.remove(), 3400);
+  countUp();
+}
+// Le gain affiché défile de 0 jusqu'au montant.
+function countUp() {
+  setTimeout(() => {
+    for (const el of document.querySelectorAll(".final.win .money-gain b, .final.win [data-countup]")) {
+      const end = Number(el.dataset.countup ?? el.textContent.replace(/[^0-9]/g, ""));
+      if (!end) continue;
+      const sign = el.textContent.trim().startsWith("+") ? "+" : "";
+      const t0 = performance.now();
+      const step = (t) => {
+        const k = Math.min(1, (t - t0) / 1200);
+        el.textContent = sign + fmt(Math.round(end * (1 - Math.pow(1 - k, 3))));
+        if (k < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
+  }, 150);
 }
 // Arrivée d'une carte au centre : elle part de la main (ou de l'avatar du joueur) et se pose en glissant.
 let lastPlayRect = null;
@@ -440,8 +563,9 @@ function sheetView(g, t, me) {
       ${btn("💬 Discussion", "chat", "menu-item")}
       ${btn("📜 Règles de la table", "rulesInfo", "menu-item")}
       ${btn(sound ? "🔊 Sons activés" : "🔇 Sons coupés", "sound", "menu-item")}
+      ${"vibrate" in navigator ? btn(vibra ? "📳 Vibrations activées" : "📴 Vibrations coupées", "vibra", "menu-item") : ""}
       ${btn(state.player.settings.animations ? "✨ Animations activées" : "✨ Animations réduites", "toggleAnim", "menu-item")}
-      ${t.money ? `<div class="menu-info">${coins(t.money.stake)} mise · ${fmt(t.money.seats.find((x) => x.seat === me)?.engaged ?? 0)} engagés · rubicon jusqu’à ${fmt(2 * t.money.stake)}</div>` : ""}
+      ${t.money ? `<div class="menu-info">${coins(t.money.stake)} mise · ${fmt(t.money.seats.find((x) => x.seat === me)?.engaged ?? 0)} engagés</div>` : ""}
       ${t.vip && t.owner === state.player.id ? btn("🔗 Copier le lien d’invitation", "copyInvite", "menu-item") : ""}
       ${btn("🚩 Signaler un problème", "report", "menu-item")}
       ${g.phase === "finished" ? "" : btn("🚪 Quitter la partie", "quitGame", "menu-item danger")}
@@ -1334,7 +1458,7 @@ function moneyLines(r) {
   if (!r || !r.stake) return "";
   const kind = r.rubicon ? "Rubicon" : "Victoire simple";
   if (r.delta > 0)
-    return `<div class="money win"><b>Bénéfice : ${signed(r.delta)} crédits</b><small>${fmt(r.stake + r.delta)} récupérés, dont ${fmt(r.stake)} de mise — bénéfice ${signed(r.delta)} · ${kind}</small>${r.adjusted ? '<small class="adjusted">Gain ajusté aux crédits engagés par les adversaires.</small>' : ""}<span>Nouveau solde ${coins(r.balance)}</span></div>`;
+    return `<div class="money win"><b>Bénéfice : <span data-countup="${r.delta}">${signed(r.delta)}</span> crédits</b><small>${fmt(r.stake + r.delta)} récupérés, dont ${fmt(r.stake)} de mise — bénéfice ${signed(r.delta)} · ${kind}</small>${r.adjusted ? '<small class="adjusted">Gain ajusté aux crédits engagés par les adversaires.</small>' : ""}<span>Nouveau solde ${coins(r.balance)}</span></div>`;
   return `<div class="money lose"><b>Perte : ${signed(r.delta)} crédits</b><small>${kind} · ${fmt(r.engaged)} étaient engagés</small><span>Nouveau solde ${coins(r.balance)}</span></div>`;
 }
 // Maquette « Choisir votre contrat ».
@@ -1942,6 +2066,14 @@ document.addEventListener("click", async (ev) => {
     case "scores":
     case "lastTrick":
       sheet = sheet === a ? null : a;
+      render();
+      break;
+    case "vibra":
+      vibra = !vibra;
+      try {
+        localStorage.setItem("beloteVibra", String(vibra));
+      } catch {}
+      buzz(30);
       render();
       break;
     case "sound":
@@ -2867,7 +2999,9 @@ async function connect() {
         if (m > lastMultiplier) tone([880, 660, 990], 0.1, 0.07);
         lastMultiplier = m;
         if (msg.table?.game?.trick.length > (state?.table?.game?.trick.length ?? 0)) tone([300], 0.05, 0.05);
+        const prevTable = state?.table;
         state = msg;
+        gameEffects(prevTable, msg.table);
         render();
         if (first && pendingInvite && !state.table) joinModal(pendingInvite);
       }
