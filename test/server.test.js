@@ -1280,3 +1280,28 @@ test("table des villes après une partie terminée : les joueurs en ligne sont q
     await f.close();
   }
 });
+
+test("parrainage : lien, code enregistré, 1 000 jetons chacun à la première partie, une seule fois", async () => {
+  const f = await fixture({ env: { BELOTE_LOGIN_BONUS: "0", BELOTE_SIGNUP_BONUS: "100" } });
+  try {
+    const parrain = await member(f, "parrain@exemple.fr");
+    const { code } = await parrain.command("refInfo");
+    assert.match(code, /^[A-Z0-9x]{6}$/i);
+    const filleul = await member(f, "filleul@exemple.fr");
+    await filleul.command("referral", { code: "INCONNU" }, "error");
+    const ok = await filleul.command("referral", { code });
+    assert.ok(ok.referrer);
+    await filleul.command("referral", { code }, "error"); // pas deux fois
+    await parrain.command("referral", { code }, "error"); // pas soi-même
+    const db = f.app.db,
+      P = db.players[parrain.state.player.id],
+      F = db.players[filleul.state.player.id];
+    const before = [P.wallet.balance, F.wallet.balance];
+    f.app.payReferral(F); // fin de la première partie
+    f.app.payReferral(F); // une seule fois
+    assert.deepEqual([P.wallet.balance - before[0], F.wallet.balance - before[1]], [2000, 2000]); // 1 000 jetons (demi-crédits)
+    assert.equal((await parrain.command("refInfo")).count, 1);
+  } finally {
+    await f.close();
+  }
+});

@@ -222,14 +222,15 @@ function gameEffects(prevT, nextT) {
     if (w !== undefined && w % 2 === me % 2) setTimeout(SFX.trickUs, 1200);
   }
   const bel = (x) => (x?.belote?.[0] ?? 0) + (x?.belote?.[1] ?? 0);
-  if (bel(b) > bel(a) && b.deal === a.deal) SFX.belote();
-  if ((b.multiplier ?? 1) > (a.multiplier ?? 1)) SFX.counter();
+  if (bel(b) > bel(a) && b.deal === a.deal) (SFX.belote(), say("Belote, rebelote !"));
+  if ((b.multiplier ?? 1) > (a.multiplier ?? 1)) (SFX.counter(), say((b.multiplier ?? 1) >= 4 ? "Surcontré !" : "Contré !"));
   // Fin de donne : capot de notre équipe.
   if ((b.history?.length ?? 0) > (a.history?.length ?? 0)) {
     const h = b.history.at(-1);
     if (h?.capot && h.contract && h.contract.seat % 2 === me % 2 && h.made !== false) {
       SFX.capot();
       capotBanner();
+      setTimeout(() => say("Capot !"), 300);
     }
   }
   if (b.phase === "finished" && a.phase !== "finished") {
@@ -771,10 +772,10 @@ function homePage() {
     <div class="me-row">
       <button type="button" class="me" data-action="go" data-page="profile">${avatar(p.avatar, "lg ring")}<span><b>${e(p.name)} ${icon("chevron", "tiny")}</b><small>${levelTitle()}</small></span></button>
     </div>
-    ${p.account && p.wallet.loginBonus ? (wheelReady() ? `<p class="bonus-line">${btn("🎡 La roue du jour vous attend ! Tourner", "wheel", "inline-link")}</p>` : `<p class="bonus-line">🎡 Prochaine roue du jour dans <b data-countdown="${p.wallet.loginBonus.next}"></b>${p.wallet.loginBonus.streak ? ` · série ${p.wallet.loginBonus.streak} j 🔥` : ""}</p>`) : ""}
+    ${p.account && p.wallet.loginBonus?.amount > 0 ? (wheelReady() ? `<p class="bonus-line">${btn("🎡 La roue du jour vous attend ! Tourner", "wheel", "inline-link")}</p>` : `<p class="bonus-line">🎡 Prochaine roue du jour dans <b data-countdown="${p.wallet.loginBonus.next}"></b>${p.wallet.loginBonus.streak ? ` · série ${p.wallet.loginBonus.streak} j 🔥` : ""}</p>`) : ""}
     ${needVerify() ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
     ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 crédits offerts ${icon("chevron", "tiny")}</button>`}
-    ${btn(`${icon("cards")} Jouer maintenant${p.account && p.wallet.available / 2 >= 200 ? '<small class="quick-stake">Partie à 200 jetons · gains contre les robots aussi</small>' : ""}`, "quick", "gold-btn wide big quick-btn")}
+    ${btn(`${icon("cards")} Jouer maintenant${p.account && p.wallet.available / 2 >= 200 ? '<small class="quick-stake">Partie rapide en 500 points · 200 jetons</small>' : '<small class="quick-stake">Partie rapide en 500 points</small>'}`, "quick", "gold-btn wide big quick-btn")}
     ${live ? `<p class="live-now"><i class="live-dot"></i>${live} partie${live > 1 ? "s" : ""} en cours en ce moment</p>` : ""}
     ${invitesBlock()}
     <div class="features">
@@ -784,6 +785,7 @@ function homePage() {
       ${featureCard("practice", "", "f-bots", "Entraînement", "Progressez à votre rythme", '<img src="/decor/f-robot.webp" alt="">')}
     </div>
     <div class="quick-row">
+      ${state.player.account ? btn("🎁 Parrainer", "referral", "chip") : ""}
       ${state.player.account ? btn(`🎡 Roue${wheelReady() ? '<i class="dot"></i>' : ""}`, "wheel", "chip") : ""}
       ${btn(`${icon("target")} Défis${p.progress.challenges.some((c) => !c.done) ? '<i class="dot"></i>' : ""}`, "challenges", "chip")}
       ${btn(`${icon("users")} Amis${pending ? `<i class="badge-n">${pending}</i>` : ""}`, "friends", "chip")}
@@ -1256,7 +1258,7 @@ function roomView() {
       ${me >= 0 ? btn(`${icon("users")} Inviter un ami`, "friends", "line-btn wide") : ""}
       ${owner ? btn(`<span class="play">▶</span> ${free && t.fillBots && !t.stake ? "Lancer avec les robots" : "Lancer la partie"}`, "start", "gold-btn wide", "", !!free && !(t.fillBots && !t.stake)) : '<p class="lead">L’hôte lancera la partie.</p>'}`;
   return shell(
-    `${top}${t.quick || t.lobby ? `<p class="target-note">🎯 Partie en <b>1 000 points</b></p>` : ""}${(t.quick || t.lobby) && free && t.humans > 0 && me >= 0 ? callBox(t) : ""}${code}${pending}
+    `${top}${t.quick || t.lobby ? `<p class="target-note">🎯 Partie en <b>${t.quick ? "500" : "1 000"} points</b>${t.quick ? " · partie rapide" : ""}</p>` : ""}${(t.quick || t.lobby) && free && t.humans > 0 && me >= 0 ? callBox(t) : ""}${code}${pending}
     <h2 class="section">Joueurs (${players}/4)</h2>
     <div class="slots">${t.seats.map(slot).join("")}</div>
     ${!t.quick && t.fillBots && !t.stake && t.fillAt && free ? `<div class="fill-timer">${icon("robot")} Robots dans <b data-deadline="${t.fillAt}"></b> si personne ne rejoint</div>` : ""}
@@ -1440,6 +1442,7 @@ function finalResult(g, t, me) {
     ${won ? '<div class="confetti" aria-hidden="true">' + "<i></i>".repeat(14) + "</div>" : ""}
     ${won ? '<img class="art final-art-img" src="/decor/victoire.webp" alt="" draggable="false">' : `<div class="final-art">${avatar(t.seats[me]?.avatar, "xl")}${avatar(t.seats[(me + 2) % 4]?.avatar, "xl")}</div>`}
     <div class="ribbon">${won ? "Victoire !" : "Défaite…"}</div>
+    ${won ? btn("📤 Partager ma victoire", "shareWin", "line-btn small share-win") : ""}
     <div class="final-scores"><div><small>Votre équipe</small><b>${won ? icon("crown") : ""}${fmt(g.scores[me % 2])}</b></div><i></i><div class="them"><small>Équipe adverse</small><b>${fmt(g.scores[1 - (me % 2)])}</b></div></div>
     ${r ? moneyLines(r) + `<div class="xp-line">✨ +${r.xp} XP${r.badges?.length ? ` · ${r.badges.map((b) => `${b.icon} ${e(b.name)}`).join(", ")}` : ""}${r.challenges?.length ? ` · 🎯 ${r.challenges.map(e).join(", ")}` : ""}</div>` : ""}
     ${
@@ -1740,6 +1743,98 @@ function showBonus(m) {
   setTimeout(() => el.remove(), 3600);
 }
 
+// ———————————————————————————————————————————————————————————— parrainage
+function referralModal(r) {
+  const link = `${location.origin}/?ref=${r.code}`;
+  modal(
+    `<div class="ref-box"><div class="cp-icon">🎁</div><h2>Parrainez vos amis</h2>
+    <p>Invitez un ami : dès qu’il a joué sa première partie, vous recevez <b>chacun ${fmt(r.credits)} jetons</b>.</p>
+    <div class="ref-link"><code>${e(link)}</code></div>
+    <div class="row">${btn(`${icon("link")} Copier`, "refCopy", "line-btn", `data-link="${e(link)}" data-credits="${r.credits}"`)}${btn("📤 Partager", "refShare", "gold-btn", `data-link="${e(link)}" data-credits="${r.credits}"`)}</div>
+    <p class="muted small">${r.count ? `${r.count} ami${r.count > 1 ? "s" : ""} parrainé${r.count > 1 ? "s" : ""} · ${fmt(r.count * r.credits)} jetons gagnés` : "Aucun ami parrainé pour l’instant."}</p></div>`,
+    "sheet-modal ref-modal",
+  );
+}
+// ———————————————————————————————————————————————————————————— voix et partage de victoire
+function say(text) {
+  if (!sound || !("speechSynthesis" in window)) return;
+  try {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "fr-FR";
+    u.rate = 1.05;
+    u.pitch = 1.05;
+    const v = speechSynthesis.getVoices().find((x) => x.lang?.startsWith("fr"));
+    if (v) u.voice = v;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  } catch {}
+}
+const loadImg = (src) => new Promise((ok) => {
+  const i = new Image();
+  i.onload = () => ok(i);
+  i.onerror = () => ok(null);
+  i.src = src;
+});
+// Image carrée « Victoire ! » à envoyer sur WhatsApp, Instagram… avec le lien de parrainage.
+async function shareVictory() {
+  const t = state.table,
+    g = t?.game;
+  if (!g) return;
+  const me = t.seats.findIndex((x) => x?.id === state.player.id);
+  const r = t.result;
+  let code = null;
+  if (state.player.account) code = await new Promise((ok) => (ask("refInfo", {}, (x) => ok(x.code)), setTimeout(() => ok(null), 2500)));
+  const link = `${location.origin}${code ? `/?ref=${code}` : ""}`;
+  const W = 1080,
+    cv = document.createElement("canvas");
+  cv.width = cv.height = W;
+  const c = cv.getContext("2d");
+  const bg = c.createRadialGradient(W / 2, W * 0.4, 50, W / 2, W / 2, W * 0.75);
+  bg.addColorStop(0, "#1c6b4f");
+  bg.addColorStop(1, "#04201a");
+  c.fillStyle = bg;
+  c.fillRect(0, 0, W, W);
+  c.strokeStyle = "#e8c46a";
+  c.lineWidth = 14;
+  c.strokeRect(30, 30, W - 60, W - 60);
+  const [logo, art] = await Promise.all([loadImg("/decor/logo.webp"), loadImg("/decor/victoire.webp")]);
+  if (logo) c.drawImage(logo, W / 2 - 230, 70, 460, (460 * logo.height) / logo.width);
+  if (art) c.drawImage(art, W / 2 - 210, 330, 420, (420 * art.height) / art.width);
+  c.textAlign = "center";
+  c.fillStyle = "#ffd36a";
+  c.font = "bold 110px Georgia, serif";
+  c.shadowColor = "#000a";
+  c.shadowBlur = 18;
+  c.fillText("Victoire !", W / 2, 720);
+  c.shadowBlur = 0;
+  c.fillStyle = "#fff";
+  c.font = "600 54px sans-serif";
+  c.fillText(`${fmt(g.scores[me % 2])} à ${fmt(g.scores[1 - (me % 2)])}${t.city ? ` · ${STAKE_LOOK[t.stake]?.[1] ?? t.name}` : ""}`, W / 2, 800);
+  const capot = g.history?.some((h) => h.capot && h.contract.seat % 2 === me % 2);
+  const gain = r?.delta > 0 ? `+${fmt(r.delta)} jetons gagnés` : capot ? "avec un capot !" : "";
+  if (gain) {
+    c.fillStyle = "#ffd36a";
+    c.font = "bold 58px sans-serif";
+    c.fillText(gain + (r?.delta > 0 && capot ? " · capot !" : ""), W / 2, 880);
+  }
+  c.fillStyle = "#f6e7b8";
+  c.font = "38px sans-serif";
+  c.fillText(code ? "Rejoins-moi : 1 000 jetons offerts !" : "Viens jouer avec moi !", W / 2, 960);
+  c.font = "32px monospace";
+  c.fillText(link.replace(/^https?:\/\//, ""), W / 2, 1010);
+  const blob = await new Promise((ok) => cv.toBlob(ok, "image/png"));
+  const file = new File([blob], "victoire-belote.png", { type: "image/png" });
+  const text = `J’ai gagné à la belote sur Belote Prestige ! ${link}`;
+  if (navigator.canShare?.({ files: [file] })) navigator.share({ files: [file], text }).catch(() => {});
+  else {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = file.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    toast("Image enregistrée : partagez-la où vous voulez !");
+  }
+}
 // ———————————————————————————————————————————————————————————— appel des joueurs en ligne
 // Salle d'attente : où en sont les invitations, et le choix de jouer tout de suite avec des robots.
 function callBox(t) {
@@ -2202,6 +2297,20 @@ document.addEventListener("click", async (ev) => {
     case "lastTrick":
       sheet = sheet === a ? null : a;
       render();
+      break;
+    case "referral":
+      ask("refInfo", {}, (r) => referralModal(r));
+      break;
+    case "refShare":
+    case "refCopy": {
+      const link = el.dataset.link;
+      const text = `Viens jouer à la belote avec moi sur Belote Prestige ! On reçoit chacun ${fmt(Number(el.dataset.credits))} jetons après ta première partie : ${link}`;
+      if (a === "refShare" && navigator.share) navigator.share({ title: "Belote Prestige", text, url: link }).catch(() => {});
+      else navigator.clipboard?.writeText(link).then(() => toast("Lien copié"), () => toast(link));
+      break;
+    }
+    case "shareWin":
+      shareVictory();
       break;
     case "callYes":
     case "callNo":
@@ -3110,6 +3219,12 @@ document.addEventListener("submit", async (ev) => {
 function handleDeepLink() {
   // Lien d'une notification : /?tournoi=<id> ouvre le tournoi (après connexion si nécessaire).
   const q = new URLSearchParams(location.search);
+  if (/^[A-Za-z0-9]{4,12}$/.test(q.get("ref") ?? "")) {
+    try {
+      localStorage.setItem("beloteRef", q.get("ref").toUpperCase());
+    } catch {}
+    history.replaceState(null, "", "/");
+  }
   if (q.get("tournoi")) {
     page = { name: "tournament", params: { id: q.get("tournoi") } };
     pageStack = [{ name: "tournaments", params: {} }];
@@ -3183,6 +3298,16 @@ async function connect() {
         }
         seenInvites = state.player.invites.length;
         if (state.player.lastResult && !$("#modal").open && !state.table) resultModal({ ...state.player.lastResult, table: state.player.lastResult.table });
+        let refPending = null;
+        try {
+          refPending = localStorage.getItem("beloteRef");
+        } catch {}
+        if (refPending && state.player.account) {
+          try {
+            localStorage.removeItem("beloteRef");
+          } catch {}
+          ask("referral", { code: refPending }, (r) => toast(`🎁 Parrainé par ${r.referrer} : 1 000 jetons chacun après votre première partie !`));
+        }
         if (!wheelShown && wheelReady() && !state.table && !$("#modal").open) {
           wheelShown = true;
           setTimeout(() => !$("#modal").open && !state.table && wheelModal(), 800);

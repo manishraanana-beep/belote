@@ -1834,3 +1834,11 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .call-pop .row > * { flex: 1; }
 @keyframes cpBounce { 0%, 100% { transform: none; } 40% { transform: translateY(-8px) rotate(-6deg); } 70% { transform: translateY(0) rotate(4deg); } }
 .wheel-wrap { width: min(310px, 80vw, 40vh); } .wheel-wrap[data-action] { cursor: pointer; }
+/* Parrainage et partage */
+.ref-box { text-align: center; }
+.ref-box .cp-icon { font-size: 44px; }
+.ref-box h2 { color: #ffd36a; margin: 4px 0 8px; }
+.ref-link { margin: 12px 0; padding: 10px; border-radius: 12px; border: 1px dashed #e8c46a; background: #0005; overflow-wrap: anywhere; }
+.ref-link code { color: #fff3c0; font-size: 14px; }
+.ref-box .row { display: flex; gap: 10px; } .ref-box .row > * { flex: 1; }
+.share-win { margin: 6px auto 10px; }
