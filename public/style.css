@@ -1777,3 +1777,7 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .prize-big .pb-item span { font-weight: 700; color: #f6e7b8; }
 .prize-big .pb-item b { font-size: 30px; line-height: 1.1; color: #ffd36a; display: inline-flex; align-items: center; gap: 6px; }
 .prize-big .pb-item small { opacity: 0.8; }
+/* Mises : sept choix, sur deux lignes sur téléphone. */
+.seg.wrap { flex-wrap: wrap; border-radius: 18px; }
+.seg.wrap > label { flex: 1 0 22%; }
+.form-card, .form-card .lbl { min-width: 0; max-width: 100%; }
