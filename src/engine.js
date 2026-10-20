@@ -416,11 +416,11 @@ function botPlay(v, me) {
     const pool = nonTrump.length ? nonTrump : legal;
     if (safe) {
       // Défausse sur le pli sûr du partenaire : l'As si l'on garde le Dix (qui devient maître),
-      // le Dix si l'on n'a pas l'As ; un As sec en dernier recours.
+      // le Dix si l'on n'a pas l'As. Jamais un As sans son Dix (sauf s'il ne reste rien d'autre).
       const lead = suit(trick[0].card);
       const load = (c) => {
         if (suit(c) === lead || suit(c) === t) return value(c, t);
-        if (rank(c) === "A") return v.hand.includes("10" + suit(c)) ? 30 : 9;
+        if (rank(c) === "A") return v.hand.includes("10" + suit(c)) ? 30 : -50; // As jeté = Dix gardé ; sinon on garde l'As
         if (rank(c) === "10") return v.hand.includes("A" + suit(c)) ? 5 : 20;
         return value(c, t);
       };
