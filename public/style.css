@@ -1855,3 +1855,13 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .float-action.center-act .danger-btn { white-space: nowrap; }
 @media (orientation: landscape) and (max-height: 500px) { .float-action.center-act { top: 50%; translate: -50% 52px; } .float-action.center-act .danger-btn { font-size: 18px; padding: 8px 22px; } }
 .turnup.in-panel { margin: 6px 0 2px; } .turnup.in-panel img { width: 64px; }
+/* Avatar à cadre (salle d'attente) : le nom passe sous l'ornement, jamais derrière */
+.slot-ring:has(> .avatar.framed) + b { margin-top: 10px; position: relative; z-index: 2; }
+/* Ma bulle d'annonce : à côté de mon avatar en paysage (et non au-dessus du bandeau du tour) */
+.me-bub { display: none; }
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen.game .me-seat { position: relative; }
+  .screen.game .me-bub { display: block; position: absolute; left: 70px; top: 50%; translate: 0 -50%; z-index: 16; }
+  .screen.game .me-bub .bubble { position: static; translate: none; }
+  .screen.game .my-bubble .bubble:not(.reaction-pop) { display: none; }
+}
