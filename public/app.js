@@ -1234,9 +1234,9 @@ function roomView() {
     </div>`;
   };
   const top = t.quick
-    ? `<h1 class="page-title">${free ? "On cherche des joueurs" : "C’est parti !"}</h1><p class="lead">${t.humans} joueur${t.humans > 1 ? "s" : ""} présent${t.humans > 1 ? "s" : ""}${free ? ` · ${free} place${free > 1 ? "s" : ""} en recherche` : ""}</p>${free ? `<div class="fill-timer">${icon("robot")} ${t.seats.some((x) => x?.bot) ? "Les robots s’installent…" : `Robots dans <b data-deadline="${t.fillAt ?? 0}"></b>`}</div>` : ""}`
+    ? `<h1 class="page-title">${free ? "On cherche des joueurs" : "C’est parti !"}</h1><p class="lead">${t.humans} joueur${t.humans > 1 ? "s" : ""} présent${t.humans > 1 ? "s" : ""}${free ? ` · ${free} place${free > 1 ? "s" : ""} en recherche` : ""}</p>${free && t.seats.some((x) => x?.bot) ? `<p class="muted small">${icon("robot")} Les robots s’installent…</p>` : ""}`
     : t.lobby
-      ? `<h1 class="page-title">${e(t.name)}</h1><p class="lead">${free ? `On attend ${free} joueur${free > 1 ? "s" : ""} · la partie démarre toute seule à quatre` : "C’est parti !"}</p>${free && t.fillAt ? `<div class="fill-timer">${icon("robot")} ${t.seats.some((x) => x?.bot) ? "Les robots s’installent…" : `Robots dans <b data-deadline="${t.fillAt}"></b>`}</div>` : ""}`
+      ? `<h1 class="page-title">${e(t.name)}</h1><p class="lead">${free ? `On attend ${free} joueur${free > 1 ? "s" : ""} · la partie démarre toute seule à quatre` : "C’est parti !"}</p>${free && t.seats.some((x) => x?.bot) ? `<p class="muted small">${icon("robot")} Les robots s’installent…</p>` : ""}`
       : `<h1 class="page-title">${e(t.name)}</h1><p class="lead">${vip ? "Invitez vos amis pour commencer la partie." : `${fmt(t.rules.target)} points · contre ${t.rules.flyingCounter ? "à la volée" : "à son tour"}`}</p>`;
   const code =
     vip && t.code && owner
@@ -1832,7 +1832,7 @@ function wheelModal() {
   modal(
     `<div class="wheel-box"><h2>🎡 Roue du jour</h2>
     <p class="muted small">${ready ? `Jour ${lb.streak + 1 > 7 ? "7+" : day} de votre série : gains <b>×${String(mult).replace(".", ",")}</b>` : "Revenez demain pour un nouveau tour !"}</p>
-    <div class="wheel-wrap"><div class="wheel-pin" aria-hidden="true"><i></i></div><div class="wheel-rot">${wheelSvg(amounts)}</div></div>
+    <div class="wheel-wrap" ${ready ? 'data-action="spin" role="button" aria-label="Tourner la roue"' : ""}><div class="wheel-pin" aria-hidden="true"><i></i></div><div class="wheel-rot">${wheelSvg(amounts)}</div></div>
     <ol class="streak-days" aria-label="Série de jours">${days}</ol>
     <p class="muted small">Jouez chaque jour : la série augmente vos gains jusqu’à ×4. Un jour manqué et elle repart à zéro.</p>
     <div id="wheel-out" role="status"></div>
@@ -1843,9 +1843,16 @@ function wheelModal() {
 function spinWheel() {
   if (wheelBusy) return;
   wheelBusy = true;
-  const b = document.querySelector('[data-action="spin"]');
+  const b = document.querySelector('button[data-action="spin"]');
   if (b) b.disabled = true;
+  // Sans réponse du serveur (réseau, roue déjà tournée…) : on débloque le bouton.
+  const unlock = setTimeout(() => {
+    wheelBusy = false;
+    const bb = document.querySelector('button[data-action="spin"]');
+    if (bb) bb.disabled = false;
+  }, 6000);
   ask("spin", {}, (r) => {
+    clearTimeout(unlock);
     const rot = document.querySelector(".wheel-rot");
     const end = 360 * 6 - (r.segment * 45 + 22.5) + (Math.random() * 24 - 12);
     const anim = state.player.settings.animations;
@@ -1858,7 +1865,8 @@ function spinWheel() {
         wheelBusy = false;
         const out = document.getElementById("wheel-out");
         if (out) out.innerHTML = `<div class="wheel-win"><b>+${fmt(r.amount)} crédits !</b><small>Série : ${r.streak} jour${r.streak > 1 ? "s" : ""} · ×${String(r.mult).replace(".", ",")} · nouveau solde ${fmt(r.balance)}</small></div>`;
-        document.querySelector('[data-action="spin"]')?.remove();
+        document.querySelector('button[data-action="spin"]')?.remove();
+        document.querySelector('.wheel-wrap')?.removeAttribute("data-action");
         SFX.win();
         coinRain();
       },

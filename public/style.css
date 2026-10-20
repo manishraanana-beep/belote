@@ -1833,3 +1833,4 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .call-pop .row { display: flex; gap: 10px; margin-top: 12px; }
 .call-pop .row > * { flex: 1; }
 @keyframes cpBounce { 0%, 100% { transform: none; } 40% { transform: translateY(-8px) rotate(-6deg); } 70% { transform: translateY(0) rotate(4deg); } }
+.wheel-wrap { width: min(310px, 80vw, 40vh); } .wheel-wrap[data-action] { cursor: pointer; }
