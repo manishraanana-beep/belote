@@ -676,7 +676,7 @@ export function createApp({
     // Tables publiques et « Jouer maintenant » : règles de la maison (1 000 points, donneur suivant si tous passent),
     // y compris pour les tables enregistrées avant ce changement.
     // « Jouer maintenant » : partie courte en 500 points ; tables des villes : 1 000 points.
-    if (t.quick || t.lobby) Object.assign(t.rules, { target: t.quick ? QUICK_TARGET : DEFAULT_RULES.target, allPass: "rotate" });
+    if (t.quick || t.lobby) Object.assign(t.rules, { target: t.quick && !t.rules.variant ? QUICK_TARGET : DEFAULT_RULES.target, allPass: "rotate" });
     const gameId = id();
     if (t.houseBots) {
       // Partie rapide : les robots jouent pour la Maison. La mise d'origine est reprise à chaque partie
@@ -886,7 +886,7 @@ export function createApp({
   }
   // Avant d'installer des robots : on rapatrie les joueurs qui attendent seuls à une autre table compatible.
   function gatherHumans(t) {
-    for (const x of waitingTables(stakeKey(t), t)) {
+    for (const x of waitingTables(stakeKey(t), t).filter((x) => (x.rules?.variant ?? "") === (t.rules?.variant ?? ""))) {
       for (let i = 0; i < 4 && t.seats.includes(null); i++) {
         const s = x.seats[i];
         if (!s || s.bot) continue;
@@ -927,7 +927,7 @@ export function createApp({
       if (x.calls.sent[p.id] || x.calls.declined[p.id] || !callable(x, p)) continue;
       x.calls.sent[p.id] = now;
       sent = true;
-      for (const ws of connections.get(p.id) ?? []) send(ws, { type: "tableCall", tableId: x.id, players: names, stake: stakeKey(x), city: x.lobby ? (CITIES[x.stake]?.[1] ?? null) : null, until: x.matchUntil });
+      for (const ws of connections.get(p.id) ?? []) send(ws, { type: "tableCall", tableId: x.id, players: names, stake: stakeKey(x), variant: x.rules?.variant ?? null, city: x.lobby ? (CITIES[x.stake]?.[1] ?? null) : null, until: x.matchUntil });
     }
     return sent;
   }
@@ -1244,9 +1244,12 @@ export function createApp({
         // Avec un compte et assez de crédits : partie à 200 (robots compris, adossés à la Maison).
         const quickStake = p.accountId && economy.available(p) >= toUnits(QUICK_STAKE) ? QUICK_STAKE : 0;
         // Un joueur attend déjà (partie rapide ou table publique de même mise) : on le rejoint.
+        // Variante : contrée (par défaut) ou belote classique, chacune avec ses propres tables.
+        const variant = d.variant === "classique" ? "classique" : "";
+        const sameVariant = (x) => (x.rules?.variant ?? "") === variant;
         let target =
-          waitingTables(quickStake)[0] ??
-          Object.values(db.tables).find((x) => x.quick && !x.game && x.seats.includes(null) && stakeKey(x) === quickStake);
+          waitingTables(quickStake).filter(sameVariant)[0] ??
+          Object.values(db.tables).find((x) => x.quick && !x.game && x.seats.includes(null) && stakeKey(x) === quickStake && sameVariant(x));
         if (target?.lobby) {
           seatPlayer(target, p);
           autoStart(target);
@@ -1255,7 +1258,8 @@ export function createApp({
           break;
         }
         if (!target) {
-          target = table(quickStake ? `Partie rapide · ${quickStake}` : "Partie rapide", pid, false, {}, quickStake);
+          target = table(variant ? (quickStake ? `Belote classique · ${quickStake}` : "Belote classique") : quickStake ? `Partie rapide · ${quickStake}` : "Partie rapide", pid, false, {}, quickStake);
+          if (variant) target.rules.variant = variant;
           target.quick = true;
           target.houseBots = !!quickStake;
         }

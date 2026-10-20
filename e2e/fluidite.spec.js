@@ -4,7 +4,7 @@ test("carte jouée : posée au centre aussitôt, sans trou dans la main ni nouve
   const page = await (await browser.newContext({ viewport: { width: 414, height: 800 }, isMobile: true, hasTouch: true })).newPage();
   await page.addInitScript(() => sessionStorage.setItem("discover", "1"));
   await page.goto("/");
-  await page.locator(".features [data-action='practice']").click();
+  await page.evaluate(() => { const b = document.createElement("button"); b.dataset.action = "practice"; document.body.append(b); b.click(); b.remove(); }); // entraînement (retiré de l'accueil)
   await page.locator('[data-action="confirmPractice"]').click();
   // Enchères : on passe jusqu'à la phase de jeu (les robots prennent).
   for (let i = 0; i < 60; i++) {
