@@ -1,29 +1,34 @@
 import { test, expect } from "@playwright/test";
 
 const shots = "test-results/screens/";
-test("bonus de connexion : animation, solde synchronisé sur deux appareils, un seul bonus", async ({ browser }) => {
+const setBonus = (page, amount) => page.evaluate((amount) => fetch("/api/admin", { method: "POST", headers: { Authorization: "Bearer cle-e2e", "Content-Type": "application/json" }, body: JSON.stringify({ type: "loginBonus", amount }) }), amount);
+test("roue du jour : ouverture automatique, tirage, solde synchronisé, un seul tour", async ({ browser }) => {
   const email = `bonus${Date.now()}@exemple.fr`;
   const phone = await (await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })).newPage();
   await phone.addInitScript(() => sessionStorage.setItem("discover", "1"));
   await phone.goto("/");
-  expect(await phone.evaluate(async (email) => (await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "motdepasse" }) })).ok, email)).toBe(true);
-  await expect(phone.locator(".bonus-pop")).toContainText("Bonus de connexion : +200 crédits !");
-  await expect(phone.locator(".bonus-pop")).toContainText("Nouveau solde : 800 crédits");
-  await phone.screenshot({ path: `${shots}bonus-connexion.png` });
-  await expect(phone.locator(".bonus-line b")).toHaveText(/23 h 5\d min/);
-  // Même compte sur ordinateur : même portefeuille, pas de second bonus.
-  const desk = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
-  await desk.addInitScript(() => sessionStorage.setItem("discover", "1"));
-  await desk.goto("/");
-  expect(await desk.evaluate(async (email) => (await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "motdepasse" }) })).ok, email)).toBe(true);
-  await desk.reload();
-  await expect(desk.locator(".shop-balance")).toContainText("800");
-  await desk.waitForTimeout(800);
-  await expect(desk.locator(".bonus-pop")).toHaveCount(0);
-  // Retour dans l'application (onglet de nouveau visible) : rien de plus avant 24 h.
-  await phone.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-  await phone.waitForTimeout(500);
-  await expect(phone.locator(".shop-balance")).toContainText("800");
+  await setBonus(phone, 200);
+  try {
+    expect(await phone.evaluate(async (email) => (await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "motdepasse" }) })).ok, email)).toBe(true);
+    await phone.reload();
+    await expect(phone.locator(".wheel-modal")).toBeVisible();
+    await phone.locator('[data-action="spin"]').click();
+    await expect(phone.locator(".wheel-win")).toContainText("crédits !", { timeout: 8000 });
+    await phone.screenshot({ path: `${shots}roue-du-jour.png` });
+    const won = Number((await phone.locator(".wheel-win b").textContent()).replace(/[^0-9]/g, ""));
+    expect(won).toBeGreaterThan(0);
+    // Même compte sur ordinateur : même solde, la roue ne s'ouvre pas une seconde fois.
+    const desk = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
+    await desk.addInitScript(() => sessionStorage.setItem("discover", "1"));
+    await desk.goto("/");
+    expect(await desk.evaluate(async (email) => (await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "motdepasse" }) })).ok, email)).toBe(true);
+    await desk.reload();
+    await expect.poll(async () => (await desk.locator(".shop-balance").first().textContent()).replace(/[^0-9]/g, "")).toContain(String(600 + won));
+    await desk.waitForTimeout(1200);
+    await expect(desk.locator(".wheel-modal")).toHaveCount(0);
+  } finally {
+    await setBonus(phone, 0);
+  }
 });
 
 test("administration : réglage du bonus, création d’un tournoi au calendrier", async ({ page }) => {
@@ -53,7 +58,7 @@ test("administration : réglage du bonus, création d’un tournoi au calendrier
   await page.locator('#admin-tours .admin-card:has-text("Saint-Nicolas (copie)") [data-action="tourDetails"]').click();
   await expect(page.locator("#admin-tours")).toContainText("duplication");
   // Remise du bonus par défaut pour les autres tests.
-  await page.evaluate(() => fetch("/api/admin", { method: "POST", headers: { Authorization: "Bearer cle-e2e", "Content-Type": "application/json" }, body: JSON.stringify({ type: "loginBonus", amount: 200 }) }));
+  await page.evaluate(() => fetch("/api/admin", { method: "POST", headers: { Authorization: "Bearer cle-e2e", "Content-Type": "application/json" }, body: JSON.stringify({ type: "loginBonus", amount: 0 }) }));
 });
 
 test("connexion avec une adresse inconnue : création du compte proposée", async ({ page }) => {

@@ -771,7 +771,7 @@ function homePage() {
     <div class="me-row">
       <button type="button" class="me" data-action="go" data-page="profile">${avatar(p.avatar, "lg ring")}<span><b>${e(p.name)} ${icon("chevron", "tiny")}</b><small>${levelTitle()}</small></span></button>
     </div>
-    ${p.account && p.wallet.loginBonus ? `<p class="bonus-line">🎁 Prochain bonus de connexion (+${fmt(p.wallet.loginBonus.amount)}) dans <b data-countdown="${p.wallet.loginBonus.next}"></b></p>` : ""}
+    ${p.account && p.wallet.loginBonus ? (wheelReady() ? `<p class="bonus-line">${btn("🎡 La roue du jour vous attend ! Tourner", "wheel", "inline-link")}</p>` : `<p class="bonus-line">🎡 Prochaine roue du jour dans <b data-countdown="${p.wallet.loginBonus.next}"></b>${p.wallet.loginBonus.streak ? ` · série ${p.wallet.loginBonus.streak} j 🔥` : ""}</p>`) : ""}
     ${needVerify() ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
     ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 crédits offerts ${icon("chevron", "tiny")}</button>`}
     ${btn(`${icon("cards")} Jouer maintenant${p.account && p.wallet.available / 2 >= 200 ? '<small class="quick-stake">Partie à 200 jetons · gains contre les robots aussi</small>' : ""}`, "quick", "gold-btn wide big quick-btn")}
@@ -784,6 +784,7 @@ function homePage() {
       ${featureCard("practice", "", "f-bots", "Entraînement", "Progressez à votre rythme", '<img src="/decor/f-robot.webp" alt="">')}
     </div>
     <div class="quick-row">
+      ${state.player.account ? btn(`🎡 Roue${wheelReady() ? '<i class="dot"></i>' : ""}`, "wheel", "chip") : ""}
       ${btn(`${icon("target")} Défis${p.progress.challenges.some((c) => !c.done) ? '<i class="dot"></i>' : ""}`, "challenges", "chip")}
       ${btn(`${icon("users")} Amis${pending ? `<i class="badge-n">${pending}</i>` : ""}`, "friends", "chip")}
       ${btn(`${icon("coin")} Boutique`, "go", "chip", 'data-page="boutique"')}
@@ -1739,6 +1740,78 @@ function showBonus(m) {
   setTimeout(() => el.remove(), 3600);
 }
 
+// ———————————————————————————————————————————————————————————— roue du jour et série
+// Mêmes cases que le serveur (src/economy.js) : c'est le serveur qui tire, la roue ne fait que montrer.
+const WHEEL_X = [0.5, 1, 0.75, 2, 1, 3, 1.5, 10];
+const STREAK_X = [1, 1.25, 1.5, 2, 2.5, 3, 4];
+let wheelShown = false,
+  wheelBusy = false;
+const wheelReady = () => {
+  const lb = state?.player?.wallet?.loginBonus;
+  return !!(state?.player?.account && lb && lb.amount > 0 && lb.next <= Date.now());
+};
+function wheelSvg(amounts) {
+  const R = 140,
+    c = 150,
+    cols = ["#0f5a43", "#7a0f1d", "#4a1d6e", "#1d4f8a"];
+  const pt = (a, r = R) => [c + r * Math.sin(a), c - r * Math.cos(a)].map((n) => n.toFixed(2)).join(",");
+  const seg = amounts
+    .map((amt, i) => {
+      const a0 = (i * Math.PI) / 4,
+        a1 = ((i + 1) * Math.PI) / 4,
+        mid = (a0 + a1) / 2;
+      const jackpot = WHEEL_X[i] >= 10;
+      const [tx, ty] = pt(mid, R * 0.66).split(",");
+      return `<path d="M${c},${c} L${pt(a0)} A${R},${R} 0 0 1 ${pt(a1)} Z" fill="${jackpot ? "#d4a017" : cols[i % 4]}" stroke="#ffd36a" stroke-width="2"/>
+        <text x="${tx}" y="${ty}" transform="rotate(${(mid * 180) / Math.PI} ${tx} ${ty})" text-anchor="middle" dominant-baseline="middle" class="wh-txt ${jackpot ? "jp" : ""}">${fmt(amt)}</text>`;
+    })
+    .join("");
+  return `<svg viewBox="0 0 300 300" class="wheel-svg" aria-hidden="true"><circle cx="150" cy="150" r="148" fill="#2a1a05" stroke="#ffd36a" stroke-width="4"/>${seg}<circle cx="150" cy="150" r="22" fill="#ffd36a" stroke="#8a5a0e" stroke-width="3"/></svg>`;
+}
+function wheelModal() {
+  const lb = state.player.wallet.loginBonus;
+  const mult = lb.nextMult ?? 1;
+  const day = Math.min((lb.streak ?? 0) + 1, 7);
+  const amounts = WHEEL_X.map((x) => Math.max(1, Math.round(lb.amount * x * mult)));
+  const days = STREAK_X.map((m, i) => `<li class="${i + 1 < day ? "done" : i + 1 === day ? "today" : ""}"><b>J${i + 1}</b><small>×${String(m).replace(".", ",")}</small></li>`).join("");
+  const ready = wheelReady();
+  modal(
+    `<div class="wheel-box"><h2>🎡 Roue du jour</h2>
+    <p class="muted small">${ready ? `Jour ${lb.streak + 1 > 7 ? "7+" : day} de votre série : gains <b>×${String(mult).replace(".", ",")}</b>` : "Revenez demain pour un nouveau tour !"}</p>
+    <div class="wheel-wrap"><div class="wheel-pin" aria-hidden="true"></div><div class="wheel-rot">${wheelSvg(amounts)}</div></div>
+    <ol class="streak-days" aria-label="Série de jours">${days}</ol>
+    <p class="muted small">Jouez chaque jour : la série augmente vos gains jusqu’à ×4. Un jour manqué et elle repart à zéro.</p>
+    <div id="wheel-out" role="status"></div>
+    ${ready ? btn("Tourner la roue", "spin", "gold-btn wide") : `<p class="wheel-next">Prochain tour dans <b data-countdown="${lb.next}"></b></p>`}</div>`,
+    "sheet-modal wheel-modal",
+  );
+}
+function spinWheel() {
+  if (wheelBusy) return;
+  wheelBusy = true;
+  const b = document.querySelector('[data-action="spin"]');
+  if (b) b.disabled = true;
+  ask("spin", {}, (r) => {
+    const rot = document.querySelector(".wheel-rot");
+    const end = 360 * 6 - (r.segment * 45 + 22.5) + (Math.random() * 24 - 12);
+    const anim = state.player.settings.animations;
+    let ticks = 0;
+    const tickT = anim ? setInterval(() => (chime([1400], { vol: 0.015, decay: 0.08 }), ++ticks > 22 && clearInterval(tickT)), 150) : null;
+    rot?.animate([{ transform: "rotate(0deg)" }, { transform: `rotate(${end}deg)` }], { duration: anim ? 4200 : 10, easing: "cubic-bezier(.12,.6,.15,1)", fill: "forwards" });
+    setTimeout(
+      () => {
+        clearInterval(tickT);
+        wheelBusy = false;
+        const out = document.getElementById("wheel-out");
+        if (out) out.innerHTML = `<div class="wheel-win"><b>+${fmt(r.amount)} crédits !</b><small>Série : ${r.streak} jour${r.streak > 1 ? "s" : ""} · ×${String(r.mult).replace(".", ",")} · nouveau solde ${fmt(r.balance)}</small></div>`;
+        document.querySelector('[data-action="spin"]')?.remove();
+        SFX.win();
+        coinRain();
+      },
+      anim ? 4300 : 50,
+    );
+  });
+}
 // ———————————————————————————————————————————————————————————— comptes et profil
 async function loadAuthConfig() {
   try {
@@ -1861,7 +1934,7 @@ function walletModal() {
     `<div class="wallet">
       <div class="wallet-hero"><span class="big-coin"></span><div><small>Solde</small><b>${fmt(w.balance / 2)}</b><span>crédits de jeu</span></div></div>
       <div class="wallet-split"><div><small>Disponible</small><b>${fmt(w.available / 2)}</b></div><div><small>Engagé en partie</small><b>${fmt(w.reserved / 2)}</b></div></div>
-      ${acc ? `<p class="daily-done">🎁 Bonus de connexion : +${fmt(w.loginBonus?.amount ?? 200)} crédits toutes les 24 h · prochain dans <b data-countdown="${w.loginBonus?.next ?? 0}"></b></p>` : `<div class="account-box guest"><b>Créez un compte</b><p class="muted small">Recevez vos crédits de bienvenue et le bonus quotidien, sur le site et dans l’application.</p>${btn("Créer un compte", "auth", "pill small", 'data-mode="register"')}</div>`}
+      ${acc ? `<p class="daily-done">🎡 Roue du jour : un tour toutes les 24 h, gains multipliés par votre série (jusqu’à ×4) · prochain tour dans <b data-countdown="${w.loginBonus?.next ?? 0}"></b></p>` : `<div class="account-box guest"><b>Créez un compte</b><p class="muted small">Recevez vos crédits de bienvenue et le bonus quotidien, sur le site et dans l’application.</p>${btn("Créer un compte", "auth", "pill small", 'data-mode="register"')}</div>`}
       <div class="row">${btn("🪙 Boutique", "shop", "pill small")}${btn("📜 Historique", "history", "chip-btn")}${btn("🤖 Entraînement gratuit", "practice", "chip-btn")}</div>
       <p class="muted small wallet-note">Les crédits servent uniquement à jouer : ils ne peuvent être ni retirés, ni transférés, ni convertis en argent.</p>
     </div>`,
@@ -2067,6 +2140,12 @@ document.addEventListener("click", async (ev) => {
     case "lastTrick":
       sheet = sheet === a ? null : a;
       render();
+      break;
+    case "spin":
+      spinWheel();
+      break;
+    case "wheel":
+      wheelModal();
       break;
     case "vibra":
       vibra = !vibra;
@@ -3027,6 +3106,10 @@ async function connect() {
         }
         seenInvites = state.player.invites.length;
         if (state.player.lastResult && !$("#modal").open && !state.table) resultModal({ ...state.player.lastResult, table: state.player.lastResult.table });
+        if (!wheelShown && wheelReady() && !state.table && !$("#modal").open) {
+          wheelShown = true;
+          setTimeout(() => !$("#modal").open && !state.table && wheelModal(), 800);
+        }
         const r = state.table?.reactions?.at(-1);
         if (r && r.id !== lastReactionSeen) {
           lastReactionSeen = r.id;

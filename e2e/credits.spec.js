@@ -28,8 +28,8 @@ async function register(page, email) {
   const ok = await page.evaluate(async (email) => (await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "motdepasse" }) })).ok, email);
   expect(ok).toBe(true);
   await page.reload();
-  // Cadeau de bienvenue (600 en test) + bonus de connexion immédiat (200).
-  await expect(page.locator(".shop-balance")).toContainText("800");
+  // Cadeau de bienvenue (600 en test) (la roue du jour est désactivée en test).
+  await expect(page.locator(".shop-balance")).toContainText("600");
 }
 async function noScroll(page) {
   expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1 && document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -56,8 +56,8 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
 
   // Portefeuille, bonus du jour, boutique (paiement de test), historique.
   await A.locator(".shop-balance").click();
-  await expect(A.locator(".wallet-hero")).toContainText("800");
-  await expect(A.locator("#modal .daily-done")).toContainText("Bonus de connexion");
+  await expect(A.locator(".wallet-hero")).toContainText("600");
+  await expect(A.locator("#modal .daily-done")).toContainText("Roue du jour");
   await A.screenshot({ path: `${shots}portefeuille.png` });
   await A.keyboard.press("Escape");
   await A.locator('.tabbar [data-page="boutique"]').click();
@@ -67,10 +67,10 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   await A.locator('.pack [data-pack="pack-1000"]').click();
   await A.keyboard.press("Escape");
   await A.locator('.tabbar [data-page="home"]').click();
-  await expect(A.locator(".shop-balance")).toContainText("1 800");
+  await expect(A.locator(".shop-balance")).toContainText("1 600");
   await A.locator(".shop-balance").click();
   await A.locator('#modal [data-action="history"]').click();
-  await expect(A.locator(".ledger li")).toHaveCount(3);
+  await expect(A.locator(".ledger li")).toHaveCount(2);
   await A.screenshot({ path: `${shots}historique-credits.png` });
   await A.keyboard.press("Escape");
 

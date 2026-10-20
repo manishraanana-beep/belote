@@ -71,28 +71,32 @@ test("annulation technique : réservations libérées sans gain ni perte", () =>
   assert.deepEqual(players.map((p) => [p.wallet.balance, p.wallet.reserved]), players.map(() => [toUnits(1000), 0]));
   assert.equal(eco.settle(db.players, m, [1000, 0], "g"), null);
 });
-test("bonus de connexion : immédiat, puis 24 h après la dernière attribution, sans cumul", () => {
+test("roue du jour : un tour par 24 h, case tirée par le serveur, série de jours", () => {
   const db = { players: {} };
   const eco = createEconomy(db, economyConfig({}));
   const p = { id: "p", accountId: "a" };
   const H = 3600_000,
-    t0 = Date.UTC(2026, 2, 28, 22); // veille du passage à l'heure d'été : l'heure du serveur (UTC) ne saute pas
-  assert.equal(eco.loginBonus(p, t0).amount, toUnits(200)); // première connexion
-  assert.equal(eco.loginBonus(p, t0), null); // connexion simultanée sur un autre appareil
-  assert.equal(eco.loginBonus(p, t0 + 23 * H + 59 * 60_000), null);
-  assert.ok(eco.loginBonus(p, t0 + 24 * H)); // exactement 24 h après
-  assert.equal(eco.loginBonus(p, t0 + 30 * H), null);
-  assert.ok(eco.loginBonus(p, t0 + 24 * H + 10 * 24 * H)); // absence de dix jours : un seul bonus
-  assert.equal(eco.loginBonus(p, t0 + 24 * H + 10 * 24 * H + 1), null);
-  assert.equal(p.wallet.balance, toUnits(600));
-  assert.equal(eco.history(p).filter((x) => x.type === "login").length, 3);
+    t0 = Date.UTC(2026, 2, 28, 22);
+  const first = (r) => () => r; // tirage imposé (0 = première case, ×0,5)
+  let e = eco.loginBonus(p, t0, first(0));
+  assert.deepEqual([e.segment, e.streak, e.amount], [0, 1, toUnits(100)]); // 200 × 0,5 × 1
+  assert.equal(eco.loginBonus(p, t0 + 23 * H, first(0)), null); // pas deux tours en 24 h
+  // Lendemain : série 2 (×1,25), case « ×1 » (deuxième case).
+  e = eco.loginBonus(p, t0 + 24 * H, () => 0.25);
+  assert.deepEqual([e.segment, e.streak, e.amount], [1, 2, toUnits(250)]);
+  // Jackpot (dernière case ×10) au 3e jour (×1,5).
+  e = eco.loginBonus(p, t0 + 48 * H, () => 0.999);
+  assert.deepEqual([e.segment, e.streak, e.amount], [7, 3, toUnits(3000)]);
+  // Absence de plus de 48 h : la série repart à 1.
+  e = eco.loginBonus(p, t0 + 48 * H + 72 * H, first(0));
+  assert.equal(e.streak, 1);
   assert.equal(eco.loginBonus({ id: "invite" }, t0), null); // compte requis
-  // Montant modifié depuis l'administration ; les crédits engagés ne bougent pas.
-  db.settings.loginBonus = 500;
-  p.wallet.reserved = toUnits(300);
-  eco.loginBonus(p, t0 + 100 * H + 10 * 24 * H);
-  assert.deepEqual([p.wallet.balance, p.wallet.reserved], [toUnits(1100), toUnits(300)]);
-  assert.equal(eco.view(p).loginBonus.amount, 500);
+  // Tirage réel : toujours une case valide.
+  const q = { id: "q", accountId: "b" };
+  for (let i = 0; i < 30; i++) {
+    const r = eco.loginBonus(q, t0 + i * 24 * H);
+    assert.ok(r.segment >= 0 && r.segment < 8 && r.amount > 0);
+  }
 });
 test("signature Stripe vérifiée", () => {
   const raw = '{"x":1}',

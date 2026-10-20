@@ -804,31 +804,30 @@ test("revanche : chaque joueur confirme, nouvelles réservations, refus = retour
     await f.close();
   }
 });
-test("bonus de connexion : un seul par compte et par 24 h, sur tous les appareils", async () => {
+test("roue du jour : rien d'automatique, un seul tour par 24 h sur tous les appareils, série", async () => {
   const f = await fixture({ adminKey: "k", env: { BELOTE_SIGNUP_BONUS: "1000" } });
   try {
     const phone = await member(f, "bonus@exemple.fr");
     const id = phone.state.player.id;
-    await phone.wait((c) => c.state.player.wallet.balance === 2400); // 1 000 offerts + 200 à la première connexion
-    assert.ok(phone.queue.some((m) => m.type === "bonus" && m.amount === 200 && m.balance === 1200));
-    // Ordinateur et tablette connectés en même temps : aucun second bonus.
+    // Plus de bonus versé à la connexion : la roue attend le joueur.
+    assert.equal(phone.state.player.wallet.balance, 2000);
+    assert.ok(phone.state.player.wallet.loginBonus.next <= Date.now());
     const s = await fetch(f.base + "/api/session", { method: "POST" });
     const login = await api(f, s.headers.get("set-cookie").split(";")[0], "/api/auth/login", { email: "bonus@exemple.fr", password: "motdepasse" });
-    const [desk, tablet] = await Promise.all([f.client(login.cookie), f.client(login.cookie)]);
-    assert.equal(desk.state.player.id, id);
-    await Promise.all([desk.command("checkin"), tablet.command("checkin"), phone.command("checkin")]);
-    assert.equal(f.app.db.players[id].wallet.balance, 2400);
-    // 24 h plus tard (heure du serveur), le joueur toujours connecté revient dans l'appli.
+    const desk = await f.client(login.cookie);
+    const r1 = await phone.command("spin");
+    assert.ok(r1.segment >= 0 && r1.segment < 8 && r1.amount > 0 && r1.streak === 1);
+    await desk.command("spin", {}, "error"); // autre appareil : déjà tournée
+    assert.equal(f.app.db.ledger.filter((x) => x.pid === id && x.type === "login").length, 1);
+    // Le lendemain : deuxième jour de série.
     f.app.db.players[id].loginBonusAt -= 24 * 3600_000;
-    await Promise.all([desk.command("checkin"), tablet.command("checkin"), phone.command("checkin")]);
-    assert.equal(f.app.db.players[id].wallet.balance, 2800);
+    const r2 = await desk.command("spin");
+    assert.equal(r2.streak, 2);
     assert.equal(f.app.db.ledger.filter((x) => x.pid === id && x.type === "login").length, 2);
-    // Montant réglé dans l'administration.
+    // Base réglée dans l'administration.
     const r = await fetch(f.base + "/api/admin", { method: "POST", headers: { Authorization: "Bearer k", "Content-Type": "application/json" }, body: JSON.stringify({ type: "loginBonus", amount: 350 }) });
     assert.equal(r.status, 200);
-    f.app.db.players[id].loginBonusAt -= 24 * 3600_000;
-    await desk.command("checkin");
-    assert.equal(f.app.db.players[id].wallet.balance, 3500);
+    assert.equal(f.app.db.settings.loginBonus, 350);
   } finally {
     await f.close();
   }

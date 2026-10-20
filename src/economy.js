@@ -52,6 +52,20 @@ export function nextReset(now = Date.now(), startUtc = 3) {
 }
 
 export const LOGIN_PERIOD = 24 * 3600_000;
+// Roue du jour : 8 cases (multiples du bonus de base) et leurs chances sur 100.
+export const WHEEL = [
+  { x: 0.5, w: 20 },
+  { x: 1, w: 20 },
+  { x: 0.75, w: 18 },
+  { x: 2, w: 10 },
+  { x: 1, w: 14 },
+  { x: 3, w: 6 },
+  { x: 1.5, w: 11 },
+  { x: 10, w: 1 },
+];
+// Série de jours : multiplicateur selon le nombre de jours d'affilée (plafonné au 7e jour).
+export const STREAK = [1, 1.25, 1.5, 2, 2.5, 3, 4];
+const STREAK_GRACE = 48 * 3600_000; // revenir dans les 48 h garde la série
 
 export function createEconomy(db, config = economyConfig()) {
   db.ledger ??= [];
@@ -98,7 +112,15 @@ export function createEconomy(db, config = economyConfig()) {
         balance: w.balance,
         reserved: w.reserved,
         available: w.balance - w.reserved,
-        loginBonus: p.accountId ? { amount: loginAmount(), next: p.loginBonusAt ? p.loginBonusAt + LOGIN_PERIOD : Date.now() } : null,
+        loginBonus: p.accountId
+          ? {
+              amount: loginAmount(),
+              next: p.loginBonusAt ? p.loginBonusAt + LOGIN_PERIOD : Date.now(),
+              // Série en cours (0 si elle est perdue) et multiplicateur du prochain tour.
+              streak: p.loginBonusAt && Date.now() - p.loginBonusAt < STREAK_GRACE ? (p.loginStreak ?? 1) : 0,
+              nextMult: STREAK[Math.min(p.loginBonusAt && Date.now() - p.loginBonusAt < STREAK_GRACE ? (p.loginStreak ?? 1) + 1 : 1, STREAK.length) - 1],
+            }
+          : null,
       };
     },
     signupBonus(p, account) {
@@ -110,15 +132,24 @@ export function createEconomy(db, config = economyConfig()) {
     // Bonus de connexion : un par compte et par période de 24 h (heure du serveur), sans cumul
     // des jours d'absence. Vérification et écriture sont synchrones : deux connexions simultanées
     // ne peuvent pas l'obtenir deux fois. Seul le solde augmente, jamais les crédits engagés.
-    loginBonus(p, now = Date.now()) {
+    // Roue du jour (remplace le bonus de connexion) : un tour par compte et par période de 24 h.
+    // Le serveur tire la case ; le gain = bonus de base × case × multiplicateur de série.
+    loginBonus(p, now = Date.now(), rnd = Math.random) {
       if (!p.accountId || !(loginAmount() > 0)) return null;
       if (p.loginBonusAt && now - p.loginBonusAt < LOGIN_PERIOD) return null;
+      const streak = p.loginBonusAt && now - p.loginBonusAt < STREAK_GRACE ? Math.min((p.loginStreak ?? 1) + 1, 99) : 1;
+      let r = rnd() * WHEEL.reduce((a, c) => a + c.w, 0),
+        segment = 0;
+      while (r >= WHEEL[segment].w && segment < WHEEL.length - 1) r -= WHEEL[segment++].w;
+      const mult = STREAK[Math.min(streak, STREAK.length) - 1];
+      const credits = Math.max(1, Math.round(loginAmount() * WHEEL[segment].x * mult));
       const seq = (p.loginBonusSeq ?? 0) + 1;
-      const e = post(p, `login:${p.accountId}:${seq}`, "login", toUnits(loginAmount()), { label: "Bonus de connexion" });
+      const e = post(p, `login:${p.accountId}:${seq}`, "login", toUnits(credits), { label: `Roue du jour · série ${streak} j` });
       if (!e) return null;
       p.loginBonusAt = now;
       p.loginBonusSeq = seq;
-      return e;
+      p.loginStreak = streak;
+      return { ...e, segment, streak, mult };
     },
     // Réservation au lancement : min(disponible, 3 × mise), figée pour toute la partie.
     // house : les places sans joueur (robots) sont tenues par la Maison, qui engage le maximum.

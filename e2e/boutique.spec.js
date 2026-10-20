@@ -18,7 +18,7 @@ test("boutique : catégories, aperçu, achat, solde insuffisant, équipement et 
   await expect(page.locator(".shop-card")).toHaveCount(6);
   await expect(page.locator(".shop-chip")).toHaveText(["Avatars", "Cartes", "Table", "Emojis", "Possédés"]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await expect(page.locator(".shop-balance")).toContainText("12 800 jetons");
+  await expect(page.locator(".shop-balance")).toContainText("12 600 jetons");
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${shots}boutique.png` });
   // Catégorie « Couleur de table » puis aperçu et achat.
@@ -29,7 +29,7 @@ test("boutique : catégories, aperçu, achat, solde insuffisant, équipement et 
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${shots}boutique-apercu.png` });
   await page.locator('[data-action="shopBuyAsk"]').click();
-  await expect(page.locator(".buy-lines")).toContainText("9 800 jetons");
+  await expect(page.locator(".buy-lines")).toContainText("9 600 jetons");
   // Double appui : un seul débit.
   await page.locator('[data-action="shopBuy"]').dblclick();
   await expect(page.locator(".shop-modal [data-action='shopUse']")).toBeVisible();
@@ -43,7 +43,7 @@ test("boutique : catégories, aperçu, achat, solde insuffisant, équipement et 
   await page.locator(".shop-modal [data-action='shopUse']").click();
   await expect(page.locator(".shop-modal")).toContainText("Équipé");
   await page.keyboard.press("Escape");
-  await expect(page.locator(".shop-balance")).toContainText("9 800 jetons");
+  await expect(page.locator(".shop-balance")).toContainText("9 600 jetons");
   // Avatars couronnés : un premier achat, puis solde insuffisant pour le second.
   await page.locator('[data-f="avatars"]').click();
   await page.screenshot({ path: `${shots}boutique-avatars.png`, fullPage: true });
@@ -55,7 +55,7 @@ test("boutique : catégories, aperçu, achat, solde insuffisant, équipement et 
   await page.keyboard.press("Escape");
   await page.locator('[data-action="shopItem"][data-id="av-roi-3"]').click();
   await page.locator('[data-action="shopBuyAsk"]').click();
-  await expect(page.locator(".confirm")).toContainText("Il vous manque 200 jetons");
+  await expect(page.locator(".confirm")).toContainText("Il vous manque 400 jetons");
   await expect(page.locator('.confirm [data-action="shop"]')).toBeVisible();
   await page.keyboard.press("Escape");
   await page.locator('[data-f="owned"]').click();

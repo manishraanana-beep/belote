@@ -396,10 +396,10 @@ export function createApp({
     }
     return out.sort((a, b) => a.busy - b.busy || b.friend - a.friend);
   }
+  // La roue se tourne à la demande du joueur (commande « spin ») : plus de versement automatique.
   function loginBonus(p) {
     const e = economy.loginBonus(p);
     if (!e) return null;
-    for (const ws of connections.get(p.id) ?? []) send(ws, { type: "bonus", amount: e.amount / 2, balance: e.balance / 2 });
     persist();
     return e;
   }
@@ -1280,9 +1280,13 @@ export function createApp({
         tournaments.confirm(String(d.id ?? ""), pid);
         break;
       case "checkin":
-        // Retour dans l'application (onglet ou appli réactivé) : éligibilité au bonus revérifiée.
-        loginBonus(p);
         break;
+      case "spin": {
+        check(p.accountId, "Compte requis");
+        const e = loginBonus(p);
+        check(e, "Roue déjà tournée : revenez demain");
+        return { segment: e.segment, amount: toCredits(e.amount), balance: toCredits(e.balance), streak: e.streak, mult: e.mult };
+      }
       case "wallet":
         return {
           wallet: economy.history(p).map((x) => ({
@@ -2015,7 +2019,6 @@ export function createApp({
     const t = db.tables[p.tableId];
     const seat = t?.seats.find((s) => s?.id === p.id);
     if (seat) delete seat.disconnectedAt;
-    loginBonus(p);
     broadcast();
     ws.alive = true;
     ws.on("pong", () => {
