@@ -195,16 +195,32 @@ test("temps écoulé : carte autorisée la plus forte", () => {
 });
 
 test("robots : soutien du partenaire, pas de coupe sur le partenaire maître, pas de points donnés", () => {
-  // Partenaire (siège 1) à 80 pique ; le robot (siège 3) a le Valet et deux As extérieurs : soutien.
+  const bid = (seat, amount, suit) => ({ seat, type: "bid", amount, suit });
   const base = { phase: "bidding", turn: 3, auction: [], tricks: [], trick: [], legal: [] };
-  let a = botAction({ ...base, contract: { seat: 1, amount: 80, suit: "S" }, hand: ["JS", "7S", "AH", "AD", "8C", "9C", "7H", "8D"] });
-  assert.deepEqual(a, { type: "bid", amount: 110, suit: "S" });
-  // Main faible sans contrat : le robot passe au lieu d'annoncer.
+  // Ouverture à 100 : Valet + 9 d'atout (maître à l'atout).
+  let a = botAction({ ...base, contract: null, hand: ["JH", "9H", "7H", "8H", "7C", "8C", "9D", "7D"] });
+  assert.deepEqual(a, { type: "bid", amount: 100, suit: "H" });
+  // Ouverture à 90 : le Valet sans le 9, cherche le 9.
+  a = botAction({ ...base, contract: null, hand: ["JH", "AH", "7H", "8H", "7C", "8C", "9D", "7D"] });
+  assert.deepEqual(a, { type: "bid", amount: 90, suit: "H" });
+  // Ouverture à 80 : deux As.
+  a = botAction({ ...base, contract: null, hand: ["AS", "AD", "7H", "8H", "7C", "8C", "9D", "QH"] });
+  assert.deepEqual(a, { type: "bid", amount: 80, suit: "H" });
+  // Main faible : passe.
   a = botAction({ ...base, contract: null, hand: ["7S", "8H", "9D", "7C", "8C", "QH", "KD", "7D"] });
   assert.equal(a.type, "pass");
-  // Valet + 9 d'atout avec 4 atouts : annonce.
-  a = botAction({ ...base, contract: null, hand: ["JH", "9H", "7H", "8H", "7C", "8C", "9D", "7D"] });
-  assert.deepEqual(a, { type: "bid", amount: 90, suit: "H" });
+  // Partenaire (siège 1) à 90 pique : le robot a le 9 recherché → +10.
+  a = botAction({ ...base, contract: { seat: 1, amount: 90, suit: "S" }, auction: [bid(1, 90, "S")], hand: ["9S", "7H", "AH", "8D", "8C", "9C", "QH", "7D"] });
+  assert.deepEqual(a, { type: "bid", amount: 100, suit: "S" });
+  // Sur 90, trois petits atouts ne suffisent pas (pas de confusion avec la pièce recherchée).
+  a = botAction({ ...base, contract: { seat: 1, amount: 90, suit: "S" }, auction: [bid(1, 90, "S")], hand: ["7S", "8S", "QS", "8D", "8C", "9C", "QH", "7D"] });
+  assert.equal(a.type, "pass");
+  // Sur 80, trois atouts → +10.
+  a = botAction({ ...base, contract: { seat: 1, amount: 80, suit: "S" }, auction: [bid(1, 80, "S")], hand: ["7S", "8S", "QS", "8D", "8C", "9C", "QH", "7D"] });
+  assert.deepEqual(a, { type: "bid", amount: 90, suit: "S" });
+  // Sur 100, +10 par As extérieur.
+  a = botAction({ ...base, contract: { seat: 1, amount: 100, suit: "S" }, auction: [bid(1, 100, "S")], hand: ["7S", "AH", "AD", "8D", "8C", "9C", "QH", "7D"] });
+  assert.deepEqual(a, { type: "bid", amount: 120, suit: "S" });
   // Jeu : le partenaire (siège 1) a joué l'As de cœur maître, le robot (siège 3, dernier) n'a plus de cœur.
   const play = { phase: "playing", turn: 3, contract: { seat: 0, amount: 80, suit: "S" }, tricks: [], auction: [] };
   const trick = [{ seat: 0, card: "7H" }, { seat: 1, card: "AH" }, { seat: 2, card: "8H" }];
@@ -214,6 +230,9 @@ test("robots : soutien du partenaire, pas de coupe sur le partenaire maître, pa
   const lost = [{ seat: 0, card: "AH" }, { seat: 1, card: "7H" }, { seat: 2, card: "8H" }];
   a = botAction({ ...play, contract: { seat: 1, amount: 80, suit: "S" }, trick: lost, hand: ["9H", "10H"], legal: ["9H", "10H"] });
   assert.equal(a.card, "9H");
+  // Défausse sur le pli sûr du partenaire : l'As quand on garde le Dix de la couleur.
+  a = botAction({ ...play, trick, hand: ["AC", "10C", "10D"], legal: ["AC", "10C", "10D"] });
+  assert.equal(a.card, "AC");
 });
 
 test("capot non annoncé : annonce + 250 points", () => {

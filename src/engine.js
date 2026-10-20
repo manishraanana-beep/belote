@@ -319,19 +319,49 @@ function ownBid(hand, s) {
   base += h.sideAces * 10 + h.sideTens * 5 + (h.belote ? 10 : 0);
   return Math.min(160, base);
 }
+// Système d'annonces de la maison (ouvertures) :
+// 100 = maître à l'atout (Valet + 9), demande les As extérieurs ;
+// 90 = cherche le Valet ou le 9 d'atout (il en a un des deux) ;
+// 80 = deux As.
+function opening(hand) {
+  const aces = hand.filter((c) => rank(c) === "A").length;
+  const pick = (test) => SUITS.map((s) => ({ s, h: handFor(hand, s) })).filter((x) => test(x.h)).sort((a, b) => b.h.n - a.h.n)[0];
+  const top = pick((h) => h.J && h.nine && (h.n >= 4 || (h.n >= 3 && h.A)));
+  if (top) return { amount: 100, suit: top.s };
+  const seek = pick((h) => h.J !== h.nine && h.n >= 3 && (h.n >= 4 || h.A));
+  if (seek) return { amount: 90, suit: seek.s };
+  if (aces >= 2) {
+    // Couleur la plus longue (puis la plus garnie) pour l'annonce des deux As.
+    const best = SUITS.map((s) => ({ s, h: handFor(hand, s) })).sort((a, b) => b.h.n - a.h.n || +b.h.J - +a.h.J || +b.h.nine - +a.h.nine)[0];
+    return { amount: 80, suit: best.s };
+  }
+  return null;
+}
+// Réponse au partenaire qui vient d'ouvrir, selon le système.
+function response(hand, open) {
+  const h = handFor(hand, open.suit);
+  if (open.amount === 90) return h.J || h.nine ? 10 : 0; // la pièce recherchée ; jamais trois petits atouts
+  if (open.amount === 100) return Math.min(3, h.sideAces) * 10; // +10 par As extérieur
+  if (open.amount === 80) return h.n >= 3 ? 10 : 0; // trois atouts
+  return 0;
+}
 function botBid(v, me) {
   const partner = (me + 2) % 4,
-    c = v.contract;
+    c = v.contract,
+    auction = v.auction ?? [];
   const mine = SUITS.map((s) => ({ s, amount: ownBid(v.hand, s) })).filter((x) => x.amount).sort((a, b) => b.amount - a.amount)[0];
-  if (!c) return mine && roundBid(mine.amount) ? { type: "bid", amount: roundBid(mine.amount), suit: mine.s } : { type: "pass" };
+  if (!c) {
+    const o = opening(v.hand);
+    return o ? { type: "bid", ...o } : { type: "pass" };
+  }
   if (c.seat === partner) {
-    // Soutien du partenaire selon la convention : indication de force, jamais automatique.
-    const h = handFor(v.hand, c.suit);
-    let support = 0;
-    if (h.J || h.n >= 3) support += 10;
-    if (c.amount >= 100 || support) support += Math.min(2, h.sideAces) * 10;
-    const target = roundBid(c.amount + support);
-    if (support >= 10 && target && target > c.amount && target <= 140) return { type: "bid", amount: target, suit: c.suit };
+    // Une seule réponse, à l'ouverture du partenaire (sa première annonce).
+    const partnerBids = auction.filter((x) => x.type === "bid" && x.seat === partner).length;
+    const iBid = auction.some((x) => x.type === "bid" && x.seat === me);
+    if (partnerBids > 1 || iBid) return { type: "pass" };
+    const plus = response(v.hand, c);
+    const target = c.amount + plus;
+    if (plus && target <= 160) return { type: "bid", amount: target, suit: c.suit };
     return { type: "pass" };
   }
   if (team(c.seat) === team(me)) return { type: "pass" }; // notre propre contrat
@@ -384,7 +414,18 @@ function botPlay(v, me) {
     const safe = last || (master(winCard) && (suit(winCard) === t || trumpsOut === 0 || suit(trick[0].card) === suit(winCard)));
     const nonTrump = legal.filter((c) => suit(c) !== t || suit(trick[0].card) === t);
     const pool = nonTrump.length ? nonTrump : legal;
-    if (safe) return [...pool].sort((a, b) => value(b, t) - value(a, t) || cheap(a) - cheap(b))[0];
+    if (safe) {
+      // Défausse sur le pli sûr du partenaire : l'As si l'on garde le Dix (qui devient maître),
+      // le Dix si l'on n'a pas l'As ; un As sec en dernier recours.
+      const lead = suit(trick[0].card);
+      const load = (c) => {
+        if (suit(c) === lead || suit(c) === t) return value(c, t);
+        if (rank(c) === "A") return v.hand.includes("10" + suit(c)) ? 30 : 9;
+        if (rank(c) === "10") return v.hand.includes("A" + suit(c)) ? 5 : 20;
+        return value(c, t);
+      };
+      return [...pool].sort((a, b) => load(b) - load(a) || cheap(a) - cheap(b))[0];
+    }
     return [...pool].sort((a, b) => cheap(a) - cheap(b))[0];
   }
   const winners = legal.filter(beats).sort((a, b) => cheap(a) - cheap(b));
