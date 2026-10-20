@@ -12,7 +12,7 @@ test("roue du jour : ouverture automatique, tirage, solde synchronisé, un seul 
     expect(await phone.evaluate(async (email) => (await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "motdepasse" }) })).ok, email)).toBe(true);
     await phone.reload();
     await expect(phone.locator(".wheel-modal")).toBeVisible();
-    await phone.locator('[data-action="spin"]').click();
+    await phone.locator('button[data-action="spin"]').click();
     await expect(phone.locator(".wheel-win")).toContainText("crédits !", { timeout: 8000 });
     await phone.screenshot({ path: `${shots}roue-du-jour.png` });
     const won = Number((await phone.locator(".wheel-win b").textContent()).replace(/[^0-9]/g, ""));

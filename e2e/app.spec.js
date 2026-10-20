@@ -207,7 +207,7 @@ test("jouer maintenant : recherche, robots ajoutés, départ remplacé par un ro
   await b.goto("/");
   await b.locator('.page-home [data-action="quick"]').click();
   await expect(a.locator(".slot:not(.empty)")).toHaveCount(2);
-  await expect(a.locator(".fill-timer")).toBeVisible();
+  await expect(a.locator(".call-box")).toBeVisible();
   await a.screenshot({ path: `${shots}recherche-joueurs.png` });
   await expect(a.locator(".hand .hcard")).toHaveCount(8, { timeout: 20000 });
   await expect(a.locator(".seat .robot-tag")).toHaveCount(2);

@@ -850,7 +850,7 @@ export function createApp({
   const stakeKey = (x) => x.quickStake ?? x.stake ?? 0;
   function waitingTables(stake, exclude) {
     return Object.values(db.tables)
-      .filter((x) => (x.quick || x.lobby) && x !== exclude && !x.game && stakeKey(x) === stake && humansAt(x) > 0 && x.seats.includes(null))
+      .filter((x) => (x.quick || x.lobby) && x !== exclude && (!x.game || (x.game.phase === "finished" && !x.rematch)) && stakeKey(x) === stake && humansAt(x) > 0 && x.seats.includes(null))
       .sort((a, b) => humansAt(b) - humansAt(a));
   }
   // Avant d'installer des robots : on rapatrie les joueurs qui attendent seuls à une autre table compatible.
@@ -871,7 +871,8 @@ export function createApp({
     }
   }
   // ———— Appel des joueurs en ligne : « Voulez-vous jouer avec … sur la partie à … jetons ? »
-  const waitingForPlayers = (x) => (x.quick || x.lobby) && !x.game && x.seats.includes(null) && x.seats.some((s) => s && !s.bot);
+  const notPlaying = (x) => !x.game || x.game.phase === "finished";
+  const waitingForPlayers = (x) => (x.quick || x.lobby) && notPlaying(x) && !x.rematch && x.seats.includes(null) && x.seats.some((s) => s && !s.bot);
   function callable(x, p) {
     if (!p || p.banned || !(connections.get(p.id)?.size > 0)) return false;
     if (x.seats.some((s) => s?.id === p.id)) return false;
@@ -1260,7 +1261,7 @@ export function createApp({
       }
       case "fillNow":
         // Le joueur ne veut plus attendre : les robots complètent la table tout de suite.
-        check(t && (t.quick || t.lobby) && !t.game, "Aucune table en attente");
+        check(t && (t.quick || t.lobby) && notPlaying(t), "Aucune table en attente");
         t.fillAt = Date.now();
         t.matchUntil = Date.now();
         changed = t;
@@ -2154,7 +2155,7 @@ export function createApp({
     for (const t of Object.values(db.tables)) {
       if (waitingForPlayers(t)) {
         if (callPlayers(t, now)) dirty = true;
-      } else if (t.calls && (t.game || !t.seats.includes(null) || !t.seats.some((s) => s && !s.bot))) endCalls(t);
+      } else if (t.calls) endCalls(t);
       if (t.idleSince && now - t.idleSince > 14 * 86400_000 && !t.seats.some(Boolean)) {
         delete db.tables[t.id];
         continue;
@@ -2164,7 +2165,7 @@ export function createApp({
         continue;
       }
       // Départ annoncé : les joueurs ont été montrés à leur place un instant, la partie commence.
-      if (!t.game && t.startAt && now >= t.startAt) {
+      if (notPlaying(t) && t.startAt && now >= t.startAt) {
         t.startAt = null;
         if (t.seats.every(Boolean)) start(t);
         else {
@@ -2180,8 +2181,9 @@ export function createApp({
           t.fillAt = null; // plus personne : on n'installe pas de robots dans le vide
           continue;
         }
-        if (!t.game && (t.quick || t.lobby)) gatherHumans(t); // joueurs réels d'abord, robots ensuite
-        if (!t.game && (t.quick || t.lobby)) {
+        const before = (t.quick || t.lobby) && (!t.game || !t.rematch); // avant une nouvelle partie (pas pendant la revanche)
+        if (before) gatherHumans(t); // joueurs réels d'abord, robots ensuite
+        if (before) {
           // Avant la partie : les robots s'installent un par un dans les places libres, visibles par tous,
           // puis la partie démarre après un court instant.
           const i = t.seats.indexOf(null);

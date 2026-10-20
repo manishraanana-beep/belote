@@ -1,4 +1,5 @@
 import test from "node:test";
+import { newGame } from "../src/engine.js";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -1258,6 +1259,23 @@ test("appel des joueurs en ligne : invitation, refus, acceptation, robots à la 
     await a.command("fillNow");
     await a.wait((x) => x.state.table?.game);
     assert.equal(f.app.db.tables[table].seats.filter((s) => s.bot).length, 2);
+  } finally {
+    await f.close();
+  }
+});
+
+test("table des villes après une partie terminée : les joueurs en ligne sont quand même appelés", async () => {
+  const f = await fixture({ matchWaitMs: 30_000, fillSeconds: 0.05 });
+  try {
+    const [a, b] = await Promise.all([f.client(), f.client()]);
+    const lobby = Object.values(f.app.db.tables).find((x) => x.lobby && !x.stake);
+    lobby.game = { ...newGame(), phase: "finished", scores: [1000, 500] }; // partie précédente gardée en mémoire
+    await a.command("join", { tableId: lobby.id });
+    await b.wait((x) => x.queue.some((m) => m.type === "tableCall" && m.tableId === lobby.id));
+    await delay(150);
+    assert.ok(!lobby.seats.some((s) => s?.bot), "pas de robot pendant l'appel");
+    await a.command("fillNow");
+    await a.wait((x) => x.state.table?.game && x.state.table.game.phase !== "finished");
   } finally {
     await f.close();
   }
