@@ -1492,8 +1492,8 @@ function bidPanel(g, me, t) {
   <form id="bid-form" class="bid-panel" aria-label="Votre annonce">
     <b class="bp-title"><i>⟡</i>Votre annonce<i>⟡</i></b>
     <input type="hidden" name="amount" value="${bidAmount ?? ""}"><input type="hidden" name="suit" value="${bidSuit ?? ""}">
-    <div class="bid-suits">${HAND_ORDER.map((s) => `<button type="button" class="suit-btn ${isRed(s) ? "red" : ""} ${s === bidSuit ? "on" : ""}" data-action="pickSuit" data-suit="${s}" aria-label="Atout ${SUIT_NAMES[s]}" aria-pressed="${s === bidSuit}">${SUITS[s]}</button>`).join("")}</div>
     <div class="bid-amounts">${options.map((n) => `<button type="button" class="amount ${n === bidAmount ? "on" : ""}" data-action="pickAmount" data-amount="${n}">${amountLabel(n)}</button>`).join("")}</div>
+    <div class="bid-suits">${HAND_ORDER.map((s) => `<button type="button" class="suit-btn ${isRed(s) ? "red" : ""} ${s === bidSuit ? "on" : ""}" data-action="pickSuit" data-suit="${s}" aria-label="Atout ${SUIT_NAMES[s]}" aria-pressed="${s === bidSuit}">${SUITS[s]}</button>`).join("")}</div>
     <span class="bp-sep" aria-hidden="true">◆</span>
     <div class="bid-actions">${btn("Passer", "pass", "teal-btn")}<button class="gold-btn announce" name="go" value="1" ${options.length && bidSuit ? "" : "disabled"}><span>Annoncer</span><b>${bidAmount ? amountLabel(bidAmount) : ""} ${bidSuit ? suitHtml(bidSuit) : ""}</b></button>${btn(g.rules.flyingCounter ? "Contrer<br>à la volée" : "Contrer", "counter", "red-btn", "", !canCounter)}</div>
   </form></div>`;
@@ -1536,7 +1536,7 @@ function handView(g, me, t) {
     ${hand.map((c, i) => `<button type="button" class="hcard c${i} ${c === selected ? "selected" : ""}" data-action="pick" data-card="${c}" aria-label="${cardName(c)}" aria-pressed="${c === selected}"><img src="${cardImage(c)}" alt="" draggable="false"></button>`).join("")}
   </div>
   <div class="status-row">
-    <span class="me-mini"><span class="me-seat">${avatar(state.player.avatar)}<b>${e(state.player.name)}</b>${takerBadge(g, me)}</span>${t.money ? `<small>${fmt(mine?.engaged ?? 0)} engagés</small>` : ""}</span>
+    <span class="me-mini"><span class="me-seat">${avatar(state.player.avatar)}<b>${e(state.player.name)}</b>${takerBadge(g, me)}${seatBubble(g, me) ? `<span class="me-bub">${seatBubble(g, me)}</span>` : ""}</span>${t.money ? `<small>${fmt(mine?.engaged ?? 0)} engagés</small>` : ""}</span>
     ${status}
     <span class="status-btns">${btn("😊", "react", "round-btn", 'aria-label="Réactions"')}${btn(`${icon("chat")}${t.chat.length > seenChat && sheet !== "chat" ? '<i class="dot"></i>' : ""}`, "chat", "round-btn gold-round", 'aria-label="Discussion"')}</span>
   </div>`;
