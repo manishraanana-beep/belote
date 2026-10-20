@@ -24,6 +24,8 @@ export default defineConfig({
       BELOTE_SIGNUP_BONUS: "600",
       // Roue du jour désactivée par défaut (montant 0) ; le test de la roue la règle lui-même.
       BELOTE_LOGIN_BONUS: "0",
+      // Pas d'appel des joueurs en ligne dans les tests (plusieurs navigateurs ouverts en même temps).
+      BELOTE_MATCH_WAIT_SECONDS: "0",
       BELOTE_ADMIN_KEY: "cle-e2e",
     },
     reuseExistingServer: false,

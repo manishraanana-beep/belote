@@ -128,6 +128,9 @@ export function createApp({
   QUICK_REMATCH_WAIT = 15_000, // partie rapide : délai laissé aux autres pour accepter la revanche
   summaryMs = (Number(process.env.BELOTE_SUMMARY_SECONDS) || 5) * 1000, // résultat de la donne affiché avant la suivante
   inviteWaitMs = (Number(process.env.BELOTE_INVITE_WAIT_SECONDS) || 60) * 1000, // délai laissé aux invités avant les robots
+  // Parties rapides et tables des villes : les joueurs en ligne sont appelés, et on les attend ce temps-là
+  // avant les robots (le joueur peut demander les robots plus tôt). 0 : pas d'appel (ancien fonctionnement).
+  matchWaitMs = (process.env.BELOTE_MATCH_WAIT_SECONDS !== undefined ? Number(process.env.BELOTE_MATCH_WAIT_SECONDS) : 45) * 1000,
 } = {}) {
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   const file = path.join(dataDir, "state.json");
@@ -422,6 +425,7 @@ export function createApp({
       lobby: !!t.lobby,
       city: t.lobby ? (CITIES[t.stake]?.[0] ?? null) : null,
       humans: t.seats.filter((s) => s && !s.bot).length,
+      calls: callInfo(t),
     };
   }
   function publicSeat(s) {
@@ -637,6 +641,7 @@ export function createApp({
     }
   }
   function start(t) {
+    endCalls(t);
     check(t.seats.every(Boolean), "Il faut quatre joueurs");
     // Tables publiques et « Jouer maintenant » : règles de la maison (1 000 points, donneur suivant si tous passent),
     // y compris pour les tables enregistrées avant ce changement.
@@ -865,6 +870,49 @@ export function createApp({
       update(x);
     }
   }
+  // ———— Appel des joueurs en ligne : « Voulez-vous jouer avec … sur la partie à … jetons ? »
+  const waitingForPlayers = (x) => (x.quick || x.lobby) && !x.game && x.seats.includes(null) && x.seats.some((s) => s && !s.bot);
+  function callable(x, p) {
+    if (!p || p.banned || !(connections.get(p.id)?.size > 0)) return false;
+    if (x.seats.some((s) => s?.id === p.id)) return false;
+    const cur = p.tableId && db.tables[p.tableId];
+    if (cur && (cur.game ? cur.game.phase !== "finished" : cur.seats.some((s) => s && !s.bot && s.id !== p.id) || cur.tournament)) return false;
+    if (x.seats.some((s) => s && !s.bot && blockedEither(p, db.players[s.id] ?? {}))) return false;
+    const stake = stakeKey(x);
+    if (stake && (!p.accountId || economy.available(p) < toUnits(stake))) return false;
+    return true;
+  }
+  function callPlayers(x, now) {
+    if (!matchWaitMs || !waitingForPlayers(x)) return false;
+    x.calls ??= { sent: {}, declined: {} };
+    if (!x.matchUntil) {
+      x.matchUntil = now + matchWaitMs;
+      x.fillAt = Math.max(x.fillAt ?? 0, x.matchUntil);
+    }
+    let sent = false;
+    const names = x.seats.filter((s) => s && !s.bot).map((s) => s.name);
+    for (const p of Object.values(db.players)) {
+      if (x.calls.sent[p.id] || x.calls.declined[p.id] || !callable(x, p)) continue;
+      x.calls.sent[p.id] = now;
+      sent = true;
+      for (const ws of connections.get(p.id) ?? []) send(ws, { type: "tableCall", tableId: x.id, players: names, stake: stakeKey(x), city: x.lobby ? (CITIES[x.stake]?.[1] ?? null) : null, until: x.matchUntil });
+    }
+    return sent;
+  }
+  // Table remplie ou lancée : les appels encore affichés disparaissent.
+  function endCalls(x) {
+    if (!x.calls) return;
+    for (const pid of Object.keys(x.calls.sent)) for (const ws of connections.get(pid) ?? []) send(ws, { type: "callCancel", tableId: x.id });
+    x.calls = null;
+    x.matchUntil = null;
+  }
+  const callInfo = (x) => {
+    if (!x.calls) return null;
+    const sent = Object.keys(x.calls.sent);
+    const declined = sent.filter((id) => x.calls.declined[id]).length;
+    const joined = sent.filter((id) => x.seats.some((s) => s?.id === id)).length;
+    return { sent: sent.length, declined, joined, pending: sent.length - declined - joined, until: x.matchUntil };
+  };
   function seatPlayer(target, p, seat = target.seats.indexOf(null)) {
     check(seat >= 0 && !target.seats[seat], "Table complète");
     target.seats[seat] = { id: p.id, name: p.name, avatar: p.avatar };
@@ -1190,6 +1238,33 @@ export function createApp({
         changed = target;
         break;
       }
+      case "callAnswer": {
+        const x = db.tables[String(d.tableId ?? "")];
+        if (!d.accept) {
+          if (x?.calls) x.calls.declined[pid] = Date.now();
+          if (x) changed = x;
+          break;
+        }
+        check(x && waitingForPlayers(x), "Cette partie a déjà commencé");
+        check(callable(x, p), "Vous ne pouvez pas rejoindre cette partie");
+        if (t && t !== x) leave(p);
+        seatPlayer(x, p);
+        if (x.seats.every(Boolean)) {
+          endCalls(x);
+          x.fillAt = null;
+          if (x.lobby) autoStart(x);
+          else start(x);
+        }
+        changed = x;
+        break;
+      }
+      case "fillNow":
+        // Le joueur ne veut plus attendre : les robots complètent la table tout de suite.
+        check(t && (t.quick || t.lobby) && !t.game, "Aucune table en attente");
+        t.fillAt = Date.now();
+        t.matchUntil = Date.now();
+        changed = t;
+        break;
       case "action":
         check(t?.game, "Partie introuvable");
         check(d.version === t.game.version, "Action périmée : état actualisé");
@@ -2077,6 +2152,9 @@ export function createApp({
       lastTourSig = sig;
     }
     for (const t of Object.values(db.tables)) {
+      if (waitingForPlayers(t)) {
+        if (callPlayers(t, now)) dirty = true;
+      } else if (t.calls && (t.game || !t.seats.includes(null) || !t.seats.some((s) => s && !s.bot))) endCalls(t);
       if (t.idleSince && now - t.idleSince > 14 * 86400_000 && !t.seats.some(Boolean)) {
         delete db.tables[t.id];
         continue;

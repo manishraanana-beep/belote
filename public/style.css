@@ -1822,3 +1822,14 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .wheel-win { margin: 8px 0 12px; padding: 12px; border-radius: 14px; border: 2px solid #e8c46a; background: #e8c46a1f; display: grid; gap: 4px; animation: capotIn 0s; }
 .wheel-win b { font-size: 26px; color: #ffd36a; }
 .wheel-next { color: #f6e7b8; }
+/* Appel des joueurs en ligne */
+.call-box { margin: 4px auto 12px; max-width: 420px; padding: 10px 12px; border-radius: 14px; border: 1px solid #ffffff22; background: #0004; text-align: center; display: grid; gap: 8px; }
+.call-box p { margin: 0; color: #f6e7b8; font-size: 14px; display: inline-flex; gap: 6px; align-items: center; justify-content: center; }
+.call-box.alone { border-color: #e8c46a; background: #e8c46a14; }
+.call-pop { text-align: center; }
+.call-pop .cp-icon { font-size: 42px; line-height: 1; margin-bottom: 4px; animation: cpBounce 1s ease 2; }
+.call-pop h2 { margin: 4px 0; color: #ffd36a; }
+.call-pop p { margin: 6px 0; }
+.call-pop .row { display: flex; gap: 10px; margin-top: 12px; }
+.call-pop .row > * { flex: 1; }
+@keyframes cpBounce { 0%, 100% { transform: none; } 40% { transform: translateY(-8px) rotate(-6deg); } 70% { transform: translateY(0) rotate(4deg); } }
