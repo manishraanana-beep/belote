@@ -670,13 +670,14 @@ export function createApp({
     }
   }
   const QUICK_TARGET = 500;
+  const CLASSIC_TARGET = 750; // belote classique
   function start(t) {
     endCalls(t);
     check(t.seats.every(Boolean), "Il faut quatre joueurs");
     // Tables publiques et « Jouer maintenant » : règles de la maison (1 000 points, donneur suivant si tous passent),
     // y compris pour les tables enregistrées avant ce changement.
     // « Jouer maintenant » : partie courte en 500 points ; tables des villes : 1 000 points.
-    if (t.quick || t.lobby) Object.assign(t.rules, { target: t.quick && !t.rules.variant ? QUICK_TARGET : DEFAULT_RULES.target, allPass: "rotate" });
+    if (t.quick || t.lobby) Object.assign(t.rules, { target: t.rules.variant === "classique" ? CLASSIC_TARGET : t.quick ? QUICK_TARGET : DEFAULT_RULES.target, allPass: "rotate" });
     const gameId = id();
     if (t.houseBots) {
       // Partie rapide : les robots jouent pour la Maison. La mise d'origine est reprise à chaque partie
