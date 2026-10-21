@@ -221,8 +221,16 @@ function gameEffects(prevT, nextT) {
     const w = b.tricks.at(-1)?.winner;
     if (w !== undefined && w % 2 === me % 2) setTimeout(SFX.trickUs, 1200);
   }
-  const bel = (x) => (x?.belote?.[0] ?? 0) + (x?.belote?.[1] ?? 0);
-  if (bel(b) > bel(a) && b.deal === a.deal) (SFX.belote(), say("Belote, rebelote !"));
+  // Annonce « Belote ! » (1re carte roi/dame d'atout) puis « Rebelote ! » (la 2e).
+  const calls = b.beloteCalls ?? [];
+  const before = b.deal === a.deal ? (a.beloteCalls?.length ?? 0) : 0;
+  if (calls.length > before) {
+    const c = calls.at(-1);
+    const word = calls.filter((x) => x.seat === c.seat).length >= 2 ? "Rebelote" : "Belote";
+    SFX.belote();
+    say(`${word} !`);
+    beloteBanner(word, nextT.seats[c.seat]?.name);
+  }
   if ((b.multiplier ?? 1) > (a.multiplier ?? 1)) (SFX.counter(), say((b.multiplier ?? 1) >= 4 ? "Surcontré !" : "Contré !"));
   // Fin de donne : capot de notre équipe.
   if ((b.history?.length ?? 0) > (a.history?.length ?? 0)) {
@@ -245,6 +253,17 @@ function gameEffects(prevT, nextT) {
     setTimeout(won ? SFX.win : SFX.lose, 300);
     if (won) setTimeout(coinRain, 400);
   }
+}
+// « BELOTE ! » / « REBELOTE ! » au milieu de l'écran, avec le nom du joueur.
+function beloteBanner(word, name) {
+  const label = `${word} !${name ? ` · ${name}` : ""}`;
+  if (!state?.player?.settings?.animations) return toast(label);
+  const el = document.createElement("div");
+  el.className = "capot-pop belote-pop";
+  el.setAttribute("role", "status");
+  el.innerHTML = `<b>${e(word.toUpperCase())} !</b>${name ? `<small>${e(name)}</small>` : ""}`;
+  document.body.append(el);
+  setTimeout(() => el.remove(), 1800);
 }
 // « CAPOT ! » en grand au milieu de l'écran.
 function capotBanner() {
