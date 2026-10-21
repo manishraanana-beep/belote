@@ -669,14 +669,14 @@ export function createApp({
       deliver(p.id, { kind: "parrainage", title: "🎁 Bonus de parrainage", body: `+${REFERRAL_CREDITS} jetons offerts grâce à ${r.name}.` });
     }
   }
-  const QUICK_TARGET = 500;
+  const QUICK_TARGET = 750;
   const CLASSIC_TARGET = 750; // belote classique
   function start(t) {
     endCalls(t);
     check(t.seats.every(Boolean), "Il faut quatre joueurs");
     // Tables publiques et « Jouer maintenant » : règles de la maison (1 000 points, donneur suivant si tous passent),
     // y compris pour les tables enregistrées avant ce changement.
-    // « Jouer maintenant » : partie courte en 500 points ; tables des villes : 1 000 points.
+    // « Jouer maintenant » : partie courte en 750 points ; tables des villes : 1 000 points.
     if (t.quick || t.lobby) Object.assign(t.rules, { target: t.rules.variant === "classique" ? CLASSIC_TARGET : t.quick ? QUICK_TARGET : DEFAULT_RULES.target, allPass: "rotate" });
     const gameId = id();
     if (t.houseBots) {

@@ -818,7 +818,7 @@ function homePage() {
     ${p.account && p.wallet.loginBonus?.amount > 0 ? (wheelReady() ? `<p class="bonus-line">${btn("🎡 La roue du jour vous attend ! Tourner", "wheel", "inline-link")}</p>` : `<p class="bonus-line">🎡 Prochaine roue du jour dans <b data-countdown="${p.wallet.loginBonus.next}"></b>${p.wallet.loginBonus.streak ? ` · série ${p.wallet.loginBonus.streak} j 🔥` : ""}</p>`) : ""}
     ${needVerify() ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
     ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 crédits offerts ${icon("chevron", "tiny")}</button>`}
-    ${btn(`${icon("cards")} Jouer maintenant${p.account && p.wallet.available / 2 >= 200 ? '<small class="quick-stake">Partie rapide en 500 points · 200 jetons</small>' : '<small class="quick-stake">Partie rapide en 500 points</small>'}`, "quick", "gold-btn wide big quick-btn")}
+    ${btn(`${icon("cards")} Jouer maintenant${p.account && p.wallet.available / 2 >= 200 ? '<small class="quick-stake">Partie rapide en 750 points · 200 jetons</small>' : '<small class="quick-stake">Partie rapide en 750 points</small>'}`, "quick", "gold-btn wide big quick-btn")}
     ${live ? `<p class="live-now"><i class="live-dot"></i>${live} partie${live > 1 ? "s" : ""} en cours en ce moment</p>` : ""}
     ${invitesBlock()}
     <div class="features">
@@ -1299,7 +1299,7 @@ function roomView() {
       ${me >= 0 ? btn(`${icon("users")} Inviter un ami`, "friends", "line-btn wide") : ""}
       ${owner ? btn(`<span class="play">▶</span> ${free && t.fillBots && !t.stake ? "Lancer avec les robots" : "Lancer la partie"}`, "start", "gold-btn wide", "", !!free && !(t.fillBots && !t.stake)) : '<p class="lead">L’hôte lancera la partie.</p>'}`;
   return shell(
-    `${top}${t.quick || t.lobby ? `<p class="target-note">🎯 Partie en <b>${t.rules?.variant === "classique" ? "750" : t.quick ? "500" : "1 000"} points</b>${t.rules?.variant === "classique" ? " · belote classique" : t.quick ? " · partie rapide" : ""}</p>` : ""}${(t.quick || t.lobby) && free && t.humans > 0 && me >= 0 ? callBox(t) : ""}${code}${pending}
+    `${top}${t.quick || t.lobby ? `<p class="target-note">🎯 Partie en <b>${t.rules?.variant === "classique" ? "750" : t.quick ? "750" : "1 000"} points</b>${t.rules?.variant === "classique" ? " · belote classique" : t.quick ? " · partie rapide" : ""}</p>` : ""}${(t.quick || t.lobby) && free && t.humans > 0 && me >= 0 ? callBox(t) : ""}${code}${pending}
     <h2 class="section">Joueurs (${players}/4)</h2>
     <div class="slots">${t.seats.map(slot).join("")}</div>
     ${!t.quick && t.fillBots && !t.stake && t.fillAt && free ? `<div class="fill-timer">${icon("robot")} Robots dans <b data-deadline="${t.fillAt}"></b> si personne ne rejoint</div>` : ""}
