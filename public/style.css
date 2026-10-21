@@ -1794,6 +1794,8 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .capot-pop { position: fixed; inset: 0; z-index: 61; display: grid; place-content: center; justify-items: center; pointer-events: none; background: radial-gradient(circle, #0008, transparent 60%); animation: capotIn 2.6s ease forwards; }
 .capot-pop b { font-family: var(--display, serif); font-size: clamp(54px, 16vw, 110px); letter-spacing: .04em; color: #ffd36a; text-shadow: 0 0 24px #ffb84a, 0 4px 0 #8a5a0e, 0 8px 20px #000a; }
 .capot-pop small { color: #fff3c0; font-size: 18px; letter-spacing: .2em; text-transform: uppercase; }
+.belote-pop { animation-duration: 1.8s; background: radial-gradient(circle, #0006, transparent 50%); }
+.belote-pop b { font-size: clamp(40px, 11vw, 76px); }
 @keyframes capotIn { 0% { opacity: 0; transform: scale(.4) rotate(-8deg); } 15% { opacity: 1; transform: scale(1.12) rotate(2deg); } 25% { transform: scale(1) rotate(0); } 80% { opacity: 1; } 100% { opacity: 0; transform: scale(1.05); } }
 @media (prefers-reduced-motion: reduce) { .coin-rain, .capot-pop { display: none; } }
 /* Roue du jour */

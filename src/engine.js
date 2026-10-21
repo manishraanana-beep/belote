@@ -352,6 +352,8 @@ export function view(g, seat) {
   const { hands, beloteOwner, belotePlayed, stock, ...publicState } = g;
   return {
     ...structuredClone(publicState),
+    // Belote / rebelote déjà jouées (cartes visibles de tous) : sert aux annonces.
+    beloteCalls: belotePlayed.map((p) => ({ ...p })),
     hand:
       Number.isInteger(seat) && seat >= 0 && seat < 4 ? [...hands[seat]] : [],
     handCounts: hands.map((h) => h.length),
