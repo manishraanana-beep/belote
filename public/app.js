@@ -227,9 +227,16 @@ function gameEffects(prevT, nextT) {
   // Fin de donne : capot de notre équipe.
   if ((b.history?.length ?? 0) > (a.history?.length ?? 0)) {
     const h = b.history.at(-1);
-    if (h?.capot && h.contract && h.contract.seat % 2 === me % 2 && h.made !== false) {
-      SFX.capot();
-      capotBanner();
+    // Capot : tous les plis pour la même équipe (preneur ou défense). La voix pour tout le monde,
+    // la fête seulement quand c'est notre équipe.
+    const w = h?.tricks?.map((x) => x.winner % 2) ?? [];
+    const allOne = w.length === 8 && w.every((x) => x === w[0]);
+    if (h?.capot || allOne) {
+      const ours = (allOne ? w[0] : h.contract.seat % 2) === me % 2;
+      if (ours) {
+        SFX.capot();
+        capotBanner();
+      }
       setTimeout(() => say("Capot !"), 300);
     }
   }
@@ -1767,6 +1774,25 @@ function referralModal(r) {
   );
 }
 // ———————————————————————————————————————————————————————————— voix et partage de victoire
+// Voix (synthèse du téléphone). Sur iPhone, Safari n'autorise la voix qu'après une première
+// prise de parole déclenchée par un appui : on la « débloque » au premier toucher, en silence.
+let voiceReady = false;
+function unlockVoice() {
+  if (voiceReady || !("speechSynthesis" in window)) return;
+  voiceReady = true;
+  try {
+    const u = new SpeechSynthesisUtterance(" ");
+    u.volume = 0;
+    speechSynthesis.speak(u);
+    speechSynthesis.getVoices();
+  } catch {}
+  try {
+    audioCtx ??= new AudioContext();
+    audioCtx.resume?.();
+  } catch {}
+}
+addEventListener("pointerdown", unlockVoice, { passive: true });
+addEventListener("keydown", unlockVoice);
 function say(text) {
   if (!sound || !("speechSynthesis" in window)) return;
   try {
@@ -1774,10 +1800,15 @@ function say(text) {
     u.lang = "fr-FR";
     u.rate = 1.05;
     u.pitch = 1.05;
+    u.volume = 1;
     const v = speechSynthesis.getVoices().find((x) => x.lang?.startsWith("fr"));
     if (v) u.voice = v;
-    speechSynthesis.cancel();
-    speechSynthesis.speak(u);
+    // Couper une phrase en cours puis parler juste après (sinon la nouvelle phrase peut être perdue).
+    if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+    setTimeout(() => {
+      speechSynthesis.resume?.();
+      speechSynthesis.speak(u);
+    }, 60);
   } catch {}
 }
 const loadImg = (src) => new Promise((ok) => {
