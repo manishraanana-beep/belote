@@ -1476,8 +1476,8 @@ function bidPanel(g, me, t) {
       g.round === 1
         ? btn(`Je prends ${suitHtml(up)}`, "take", "gold-btn", `data-suit="${up}"`)
         : HAND_ORDER.filter((x) => x !== up).map((x) => btn(`${suitHtml(x)}`, "take", `suit-btn big ${isRed(x) ? "red" : ""}`, `data-suit="${x}"`)).join("");
-    return `<div class="bid-zone">${auctionStrip(g, t, me)}<div class="bid-panel classic-panel"><b class="bp-title"><i>⟡</i>${g.round === 1 ? "Prenez-vous ?" : "Une autre couleur ?"}<i>⟡</i></b>${g.turnUp ? `<div class="turnup in-panel"><img src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}"></div>` : ""}${g.turnUp ? `<div class="turnup in-panel"><img src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}"></div>` : ""}
-      <div class="cp-choices ${g.round === 1 ? "" : "suits"}">${choices}</div>${btn("Je passe", "pass", "teal-btn wide")}</div></div>`;
+    return `<div class="bid-zone">${auctionStrip(g, t, me)}<div class="bid-panel classic-panel"><b class="bp-title"><i>⟡</i>${g.round === 1 ? "Prenez-vous ?" : "Une autre couleur ?"}<i>⟡</i></b><div class="cp-body">${g.turnUp ? `<div class="turnup in-panel"><img src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}"></div>` : ""}
+      <div class="cp-side"><div class="cp-choices ${g.round === 1 ? "" : "suits"}">${choices}</div>${btn("Je passe", "pass", "teal-btn wide")}</div></div></div></div>`;
   }
   const options = BIDS.filter((n) => !g.contract || n > g.contract.amount);
   // À chaque nouveau tour d'enchère : montant par défaut = le plus bas permis (80, ou juste au-dessus

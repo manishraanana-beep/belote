@@ -1866,3 +1866,15 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
   .screen.game .my-bubble .bubble:not(.reaction-pop) { display: none; }
 }
 .f-classic .f-art img { object-position: center 30%; }
+/* Belote classique : carte retournée bien visible ; en paysage, carte à gauche et boutons à droite */
+.classic-panel .turnup.in-panel img { width: 104px; transform: rotate(-3deg); }
+.classic-panel .cp-body { display: grid; gap: 4px; }
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen.game .classic-panel { padding: 10px 14px; }
+  .screen.game .classic-panel .bp-title { margin-bottom: 2px; }
+  .screen.game .classic-panel .cp-body { grid-template-columns: auto 1fr; align-items: center; gap: 16px; }
+  .screen.game .classic-panel .turnup.in-panel { margin: 0; }
+  .screen.game .classic-panel .turnup.in-panel img { width: 74px; }
+  .screen.game .classic-panel .cp-choices { margin: 0 0 8px; }
+  .screen.game .classic-panel .cp-choices > * { min-width: 100%; }
+}
