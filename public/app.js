@@ -782,7 +782,7 @@ function homePage() {
       ${featureCard("go", 'data-page="tables"', "f-public", "Tables publiques", "Jouez avec d’autres joueurs", '<img src="/decor/f-publiques.webp" alt="">')}
       ${featureCard("go", 'data-page="vip"', "f-vip", "Tables VIP", "Une expérience exclusive", '<img src="/decor/f-vip.webp" alt="">')}
       ${featureCard("go", 'data-page="tournaments"', "f-tour", "Tournois", nextTourLine(), '<img src="/decor/club-vip.webp" alt="">')}
-      ${featureCard("quickClassic", "", "f-classic", "Belote classique", "Je prends ou je passe · 1 000 points", '<img src="/decor/f-robot.webp" alt="">')}
+      ${featureCard("quickClassic", "", "f-classic", "Belote classique", "Je prends ou je passe · 1 000 points", '<img src="/decor/f-classique.webp" alt="">')}
     </div>
     <div class="quick-row">
       ${state.player.account ? btn("🎁 Parrainer", "referral", "chip") : ""}
