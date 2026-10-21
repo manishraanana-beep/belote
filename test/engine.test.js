@@ -230,6 +230,12 @@ test("robots : soutien du partenaire, pas de coupe sur le partenaire maître, pa
   // Sur 80, trois atouts → +10.
   a = botAction({ ...base, contract: { seat: 1, amount: 80, suit: "S" }, auction: [bid(1, 80, "S")], hand: ["7S", "8S", "QS", "8D", "8C", "9C", "QH", "7D"] });
   assert.deepEqual(a, { type: "bid", amount: 90, suit: "S" });
+  // Contrat adverse à 80 cœur (siège 0 = adversaire du robot, siège 3) : Valet + 9 de pique → 100 (sens du système).
+  a = botAction({ ...base, contract: { seat: 0, amount: 80, suit: "H" }, auction: [bid(0, 80, "H")], hand: ["JS", "9S", "7S", "8S", "8C", "9C", "QH", "7D"] });
+  assert.deepEqual(a, { type: "bid", amount: 100, suit: "S" });
+  // Contrat adverse à 80 : Valet de pique sans le 9 → 90 (cherche le 9).
+  a = botAction({ ...base, contract: { seat: 0, amount: 80, suit: "H" }, auction: [bid(0, 80, "H")], hand: ["JS", "AS", "7S", "8S", "8C", "9C", "QH", "7D"] });
+  assert.deepEqual(a, { type: "bid", amount: 90, suit: "S" });
   // Sur 100, +10 par As extérieur.
   a = botAction({ ...base, contract: { seat: 1, amount: 100, suit: "S" }, auction: [bid(1, 100, "S")], hand: ["7S", "AH", "AD", "8D", "8C", "9C", "QH", "7D"] });
   assert.deepEqual(a, { type: "bid", amount: 120, suit: "S" });
