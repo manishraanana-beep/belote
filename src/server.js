@@ -243,6 +243,25 @@ export function createApp({
     }
     delete db.players[p.id];
   }
+  // Visiteurs sans compte (« Joueur xxxx », 0 jeton) absents depuis 7 jours, qui n'ont jamais
+  // joué ni rien gardé : on les retire pour ne pas encombrer la liste des clients.
+  const GUEST_TTL = 7 * 86400_000;
+  let lastGuestSweep = 0;
+  function sweepGuests(now = Date.now()) {
+    let n = 0;
+    const inTournament = JSON.stringify(db.tournaments ?? {});
+    for (const p of Object.values(db.players)) {
+      const w = p.wallet ?? { balance: 0, reserved: 0 };
+      if (p.accountId || p.banned || connections.has(p.id) || p.tableId) continue;
+      if ((p.stats?.games ?? 0) > 0 || w.balance || w.reserved) continue;
+      if (now - (p.lastSeen ?? p.created ?? 0) < GUEST_TTL) continue;
+      if (Object.keys(p.friends ?? {}).length || inTournament.includes(p.id)) continue;
+      retirePlayer(p);
+      n++;
+    }
+    if (n) console.log(`Visiteurs sans compte retirés : ${n}`);
+    return n;
+  }
   const baseUrl = (req) =>
     process.env.BELOTE_PUBLIC_URL?.replace(/\/$/, "") ||
     `${req.socket.encrypted || process.env.BELOTE_SECURE_COOKIE === "true" ? "https" : "http"}://${req.headers.host}`;
@@ -2143,6 +2162,7 @@ export function createApp({
       connections.set(p.id, set);
     }
     set.add(ws);
+    p.lastSeen = Date.now();
     const t = db.tables[p.tableId];
     const seat = t?.seats.find((s) => s?.id === p.id);
     if (seat) delete seat.disconnectedAt;
@@ -2164,6 +2184,7 @@ export function createApp({
     });
     ws.on("close", () => {
       set.delete(ws);
+      p.lastSeen = Date.now();
       if (!set.size) {
         connections.delete(p.id);
         const t = db.tables[p.tableId],
@@ -2189,6 +2210,10 @@ export function createApp({
   const timer = setInterval(() => {
     let dirty = false;
     const now = Date.now();
+    if (now - lastGuestSweep >= 3600_000) {
+      lastGuestSweep = now;
+      if (sweepGuests(now)) dirty = true;
+    }
     if (now - lastTourTick >= 1000) {
       // Programmation des tournois : ouverture, rappels, présence, départ… sans administrateur.
       lastTourTick = now;
@@ -2344,6 +2369,7 @@ export function createApp({
     server,
     db,
     payReferral, // utilisé par les tests
+    sweepGuests, // utilisé par les tests
     close: () =>
       new Promise((resolve) => {
         closing = true;
