@@ -2775,7 +2775,9 @@ document.addEventListener("click", async (ev) => {
     case "inviteOpen": {
       const inv = state.player.invites.find((i) => i.id === el.dataset.id);
       if (!inv || needFunds(inv.stake)) break;
-      joinConfirm({ rules: inv.rules, stake: inv.stake }, "inviteAccept", `data-id="${inv.id}"`);
+      // Invitation acceptée : on rejoint directement la table, sans récapitulatif des règles.
+      cmd("inviteAccept", { id: inv.id });
+      closeModal();
       break;
     }
     case "inviteAccept":
