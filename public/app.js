@@ -683,6 +683,15 @@ const ICONS = {
   shop: '<path d="M4 9h16l-1.5-4h-13zM5 9v10h14V9M9 19v-5h6v5M4 9c0 1.7 1.3 3 3 3s2.7-1.3 2.7-3c0 1.7 1.2 3 2.3 3s2.3-1.3 2.3-3c0 1.7 1 3 2.7 3s3-1.3 3-3"/>',
   smile: '<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c1.8 2 5.2 2 7 0M9 9.5h.01M15 9.5h.01"/>',
 };
+// Raccourcis de l'accueil : médaillon doré avec une icône dessinée, libellé dessous.
+const QICONS = {
+  gift: '<rect x="9" y="22" width="30" height="20" rx="3" fill="#c0392b"/><rect x="7" y="15" width="34" height="9" rx="2.5" fill="#e74c3c"/><rect x="21" y="15" width="6" height="27" fill="#ffd36a"/><path d="M24 15c-3-7-11-8-11-3s7 3 11 3zm0 0c3-7 11-8 11-3s-7 3-11 3z" fill="none" stroke="#ffd36a" stroke-width="3" stroke-linejoin="round"/>',
+  wheel: '<circle cx="24" cy="24" r="17" fill="#1e7f6e"/><path d="M24 24V7a17 17 0 0 1 14.7 8.5zM24 24l14.7 8.5A17 17 0 0 1 24 41zM24 24 9.3 32.5A17 17 0 0 1 9.3 15.5z" fill="#e74c3c"/><circle cx="24" cy="24" r="17" fill="none" stroke="#ffd36a" stroke-width="3"/><circle cx="24" cy="24" r="4" fill="#ffd36a"/><path d="M24 2l-4 7h8z" fill="#fff3c0"/>',
+  friends: '<circle cx="17" cy="17" r="6.5" fill="#ffd36a"/><path d="M5 38c1-8 6-12 12-12s11 4 12 12z" fill="#ffd36a"/><circle cx="32" cy="19" r="5.5" fill="#7fd1c0"/><path d="M27 27.5c1.5-.9 3.2-1.5 5-1.5 5.5 0 9.5 4 10.5 11H31c-.5-4-1.8-7.2-4-9.5z" fill="#7fd1c0"/>',
+  rank: '<path d="M14 8h20v9a10 10 0 0 1-20 0z" fill="#ffd36a"/><path d="M14 11H8c0 6 3 9 7 9M34 11h6c0 6-3 9-7 9" fill="none" stroke="#ffd36a" stroke-width="3"/><rect x="21" y="26" width="6" height="7" fill="#e0a92e"/><rect x="15" y="33" width="18" height="6" rx="2" fill="#ffd36a"/><path d="M24 11l1.6 3.3 3.6.5-2.6 2.5.6 3.6-3.2-1.7-3.2 1.7.6-3.6-2.6-2.5 3.6-.5z" fill="#fff3c0"/>',
+};
+const qtile = (name, label, action, attrs = "", extra = "") =>
+  `<button type="button" class="qtile" data-action="${action}" ${attrs}><span class="qmed"><svg viewBox="0 0 48 48" aria-hidden="true">${QICONS[name]}</svg>${extra}</span><b>${label}</b></button>`;
 const icon = (name, cls = "") => `<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] ?? ""}</svg>`;
 const logo = (sub = "") => `<div class="logo"><img class="logo-img" src="/decor/logo.webp" alt="Belote Prestige" draggable="false">${sub ? `<em>${sub}</em>` : ""}</div>`;
 let page = { name: null, params: {} },
@@ -818,13 +827,11 @@ function homePage() {
       ${featureCard("go", 'data-page="tournaments"', "f-tour", "Tournois", nextTourLine(), '<img src="/decor/club-vip.webp" alt="">')}
       ${featureCard("quickClassic", "", "f-classic", "Belote classique", "Je prends ou je passe · 750 points", '<img src="/decor/f-classique.webp" alt="">')}
     </div>
-    <div class="quick-row">
-      ${state.player.account ? btn("🎁 Parrainer", "referral", "chip") : ""}
-      ${state.player.account ? btn(`🎡 Roue${wheelReady() ? '<i class="dot"></i>' : ""}`, "wheel", "chip") : ""}
-      ${btn(`${icon("target")} Défis${p.progress.challenges.some((c) => !c.done) ? '<i class="dot"></i>' : ""}`, "challenges", "chip")}
-      ${btn(`${icon("users")} Amis${pending ? `<i class="badge-n">${pending}</i>` : ""}`, "friends", "chip")}
-      ${btn(`${icon("coin")} Boutique`, "go", "chip", 'data-page="boutique"')}
-      ${btn(`${icon("trophy")} Classement`, "go", "chip", 'data-page="classement"')}
+    <div class="quick-tiles">
+      ${state.player.account ? qtile("gift", "Parrainer", "referral") : ""}
+      ${state.player.account ? qtile("wheel", "Roue", "wheel", "", wheelReady() ? '<i class="dot"></i>' : "") : ""}
+      ${qtile("friends", "Amis", "friends", "", pending ? `<i class="badge-n">${pending}</i>` : "")}
+      ${qtile("rank", "Classement", "go", 'data-page="classement"')}
     </div>
     <div class="stat-strip"><div>${icon("trophy")}<b>${p.stats.wins}</b><small>Victoires</small></div><div>${icon("chart")}<b>${p.stats.games}</b><small>Parties</small></div></div>`,
     { backBtn: false, tabs: true, cls: "page-home page-coinhead" },

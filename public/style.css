@@ -1884,3 +1884,12 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .invite-pop h2 { font-size: 26px; }
 .invite-pop p { font-size: 17px; }
 .invite-pop .row > * { flex: 1; min-height: 52px; font-size: 18px; }
+/* Raccourcis de l'accueil : 4 médaillons dorés. */
+.quick-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 10px; margin: 6px 0 4px; }
+.qtile { display: grid; justify-items: center; gap: 6px; background: none; border: 0; color: #fff3c0; font: inherit; cursor: pointer; padding: 4px 0; }
+.qmed { position: relative; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 35% 30%, #1f5a52, #0b2a27 70%); border: 2px solid #ffd36a; box-shadow: 0 0 0 3px #0b2a27, 0 0 0 4px #ffd36a55, 0 6px 14px #0008; transition: transform .15s; }
+.qmed svg { width: 40px; height: 40px; }
+.qtile:active .qmed { transform: scale(.94); }
+.qtile b { font-size: 14px; font-weight: 700; letter-spacing: .01em; }
+.qmed .dot { position: absolute; top: 2px; right: 2px; }
+.qmed .badge-n { position: absolute; top: -4px; right: -4px; }

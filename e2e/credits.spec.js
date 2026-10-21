@@ -76,15 +76,15 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
 
   // Amis : recherche par identifiant, demande, acceptation.
   const bTag = (await st(B)).player.tag;
-  await A.locator(".quick-row [data-action='friends']").click();
+  await A.locator(".quick-tiles [data-action='friends']").click();
   await A.locator('#modal [data-tab="search"]').click();
   await A.locator('#search-form [name="q"]').fill(bTag);
   await A.locator("#search-form .pill").click();
   await A.locator('#search-results [data-action="friendRequest"]').click();
   await A.waitForTimeout(400);
   await A.keyboard.press("Escape");
-  await expect(B.locator(".quick-row .badge-n").first()).toHaveText("1");
-  await B.locator(".quick-row [data-action='friends']").click();
+  await expect(B.locator(".quick-tiles .badge-n").first()).toHaveText("1");
+  await B.locator(".quick-tiles [data-action='friends']").click();
   await B.locator('#modal [data-tab="requests"]').click();
   await B.screenshot({ path: `${shots}amis-demandes.png` });
   await B.locator('#modal [data-action="friendAccept"]').click();
@@ -111,7 +111,7 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   await expect(B.locator(".invite-card")).toContainText("Table des amis");
   await expect(B.locator(".invite-card")).toContainText("200");
   await B.screenshot({ path: `${shots}invitation-recue.png` });
-  await B.locator('.invite-card [data-action="inviteOpen"]').click();
+  await B.locator('#modal .invite-pop [data-action="inviteOpen"]').click();
   await expect(B.locator(".stake-warning")).toContainText("Vous ne pouvez perdre que votre mise");
   await B.screenshot({ path: `${shots}avertissement-mise.png` });
   await B.locator('#modal [data-action="inviteAccept"]').click();
@@ -210,7 +210,8 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   await expect(A.locator("#modal")).toContainText("Un robot prendra votre place");
   await A.locator('[data-action="confirmLeave"]').click();
   await A.locator('.tabbar [data-page="home"]').click();
-  await A.locator(".quick-row [data-action='challenges']").click();
+  await A.locator(".me-row .me").click();
+  await A.locator(".menu-card [data-action='challenges']").click();
   await expect(A.locator(".challenges li")).toHaveCount(3);
   await A.screenshot({ path: `${shots}defis.png` });
   await A.keyboard.press("Escape");
