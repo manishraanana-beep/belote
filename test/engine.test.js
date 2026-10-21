@@ -210,11 +210,20 @@ test("robots : soutien du partenaire, pas de coupe sur le partenaire maître, pa
   // Main faible : passe.
   a = botAction({ ...base, contract: null, hand: ["7S", "8H", "9D", "7C", "8C", "QH", "KD", "7D"] });
   assert.equal(a.type, "pass");
-  // Partenaire (siège 1) à 90 pique : le robot a le 9 recherché → +10.
-  a = botAction({ ...base, contract: { seat: 1, amount: 90, suit: "S" }, auction: [bid(1, 90, "S")], hand: ["9S", "7H", "AH", "8D", "8C", "9C", "QH", "7D"] });
+  // Partenaire (siège 1) à 90 pique : le 9 recherché → +10.
+  a = botAction({ ...base, contract: { seat: 1, amount: 90, suit: "S" }, auction: [bid(1, 90, "S")], hand: ["9S", "7H", "KH", "8D", "8C", "9C", "QH", "7D"] });
   assert.deepEqual(a, { type: "bid", amount: 100, suit: "S" });
-  // Sur 90, trois petits atouts ne suffisent pas (pas de confusion avec la pièce recherchée).
+  // Le 9 et un As → +20.
+  a = botAction({ ...base, contract: { seat: 1, amount: 90, suit: "S" }, auction: [bid(1, 90, "S")], hand: ["9S", "7H", "AH", "8D", "8C", "9C", "QH", "7D"] });
+  assert.deepEqual(a, { type: "bid", amount: 110, suit: "S" });
+  // Sur 90, trois atouts → +10.
   a = botAction({ ...base, contract: { seat: 1, amount: 90, suit: "S" }, auction: [bid(1, 90, "S")], hand: ["7S", "8S", "QS", "8D", "8C", "9C", "QH", "7D"] });
+  assert.deepEqual(a, { type: "bid", amount: 100, suit: "S" });
+  // Le Valet, trois atouts et un As → +30.
+  a = botAction({ ...base, contract: { seat: 1, amount: 90, suit: "S" }, auction: [bid(1, 90, "S")], hand: ["JS", "8S", "QS", "AD", "8C", "9C", "QH", "7D"] });
+  assert.deepEqual(a, { type: "bid", amount: 120, suit: "S" });
+  // Aucune pièce, moins de 3 atouts : passe, même avec un As.
+  a = botAction({ ...base, contract: { seat: 1, amount: 90, suit: "S" }, auction: [bid(1, 90, "S")], hand: ["7S", "8S", "AD", "8D", "8C", "9C", "QH", "7D"] });
   assert.equal(a.type, "pass");
   // Sur 80, trois atouts → +10.
   a = botAction({ ...base, contract: { seat: 1, amount: 80, suit: "S" }, auction: [bid(1, 80, "S")], hand: ["7S", "8S", "QS", "8D", "8C", "9C", "QH", "7D"] });

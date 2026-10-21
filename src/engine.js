@@ -410,7 +410,12 @@ function opening(hand) {
 // Réponse au partenaire qui vient d'ouvrir, selon le système.
 function response(hand, open) {
   const h = handFor(hand, open.suit);
-  if (open.amount === 90) return h.J || h.nine ? 10 : 0; // la pièce recherchée ; jamais trois petits atouts
+  if (open.amount === 90) {
+    // +10 avec la pièce recherchée (Valet ou 9), +10 avec 3 atouts, +10 de plus avec un As.
+    let plus = (h.J || h.nine ? 10 : 0) + (h.n >= 3 ? 10 : 0);
+    if (plus && hand.some((c) => rank(c) === "A")) plus += 10;
+    return plus;
+  }
   if (open.amount === 100) return Math.min(3, h.sideAces) * 10; // +10 par As extérieur
   if (open.amount === 80) return h.n >= 3 ? 10 : 0; // trois atouts
   return 0;
