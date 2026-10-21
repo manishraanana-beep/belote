@@ -440,8 +440,11 @@ function botBid(v, me) {
     return { type: "pass" };
   }
   if (team(c.seat) === team(me)) return { type: "pass" }; // notre propre contrat
-  // Contrat adverse : surenchérir seulement avec une vraie main, sinon envisager le contre.
-  if (mine && mine.amount >= c.amount + 10) {
+  // Contrat adverse : 80, 90 et 100 gardent le sens du système (le partenaire répond selon le système).
+  const o = opening(v.hand);
+  if (o && o.amount > c.amount && o.suit !== c.suit) return { type: "bid", ...o };
+  // Au-delà de 100 : surenchérir seulement avec une vraie main, sinon envisager le contre.
+  if (c.amount >= 100 && mine && mine.amount >= c.amount + 10) {
     const amount = roundBid(Math.min(mine.amount, c.amount + 20));
     if (amount && amount > c.amount) return { type: "bid", amount, suit: mine.s };
   }
