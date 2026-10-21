@@ -219,9 +219,11 @@ test("robots : soutien du partenaire, pas de coupe sur le partenaire maître, pa
   // Sur 90, trois atouts → +10.
   a = botAction({ ...base, contract: { seat: 1, amount: 90, suit: "S" }, auction: [bid(1, 90, "S")], hand: ["7S", "8S", "QS", "8D", "8C", "9C", "QH", "7D"] });
   assert.deepEqual(a, { type: "bid", amount: 100, suit: "S" });
-  // Le Valet, trois atouts et un As → +30.
+  // Le Valet et trois atouts ne se cumulent pas : +10 ; avec un As → +20.
+  a = botAction({ ...base, contract: { seat: 1, amount: 90, suit: "S" }, auction: [bid(1, 90, "S")], hand: ["JS", "8S", "QS", "7D", "8C", "9C", "QH", "8D"] });
+  assert.deepEqual(a, { type: "bid", amount: 100, suit: "S" });
   a = botAction({ ...base, contract: { seat: 1, amount: 90, suit: "S" }, auction: [bid(1, 90, "S")], hand: ["JS", "8S", "QS", "AD", "8C", "9C", "QH", "7D"] });
-  assert.deepEqual(a, { type: "bid", amount: 120, suit: "S" });
+  assert.deepEqual(a, { type: "bid", amount: 110, suit: "S" });
   // Aucune pièce, moins de 3 atouts : passe, même avec un As.
   a = botAction({ ...base, contract: { seat: 1, amount: 90, suit: "S" }, auction: [bid(1, 90, "S")], hand: ["7S", "8S", "AD", "8D", "8C", "9C", "QH", "7D"] });
   assert.equal(a.type, "pass");

@@ -411,8 +411,8 @@ function opening(hand) {
 function response(hand, open) {
   const h = handFor(hand, open.suit);
   if (open.amount === 90) {
-    // +10 avec la pièce recherchée (Valet ou 9), +10 avec 3 atouts, +10 de plus avec un As.
-    let plus = (h.J || h.nine ? 10 : 0) + (h.n >= 3 ? 10 : 0);
+    // +10 avec la pièce recherchée (Valet ou 9) ou avec 3 atouts (pas les deux), +10 de plus avec un As.
+    let plus = h.J || h.nine || h.n >= 3 ? 10 : 0;
     if (plus && hand.some((c) => rank(c) === "A")) plus += 10;
     return plus;
   }
