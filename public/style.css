@@ -1880,3 +1880,7 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
   .screen.game .classic-panel .cp-choices { margin: 0 0 8px; }
   .screen.game .classic-panel .cp-choices > * { min-width: 100%; }
 }
+.invite-pop .avatar { width: 96px; height: 96px; border-radius: 50%; margin: 0 auto 6px; display: block; border: 3px solid #ffd36a; animation: cpBounce 1s ease 2; }
+.invite-pop h2 { font-size: 26px; }
+.invite-pop p { font-size: 17px; }
+.invite-pop .row > * { flex: 1; min-height: 52px; font-size: 18px; }

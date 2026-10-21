@@ -526,7 +526,7 @@ export function createApp({
         .filter((i) => db.tables[i.tableId] && Date.now() - i.at < 30 * 60_000)
         .map((i) => {
           const t = db.tables[i.tableId];
-          return { id: i.id, from: i.fromName, tableId: t.id, table: t.name, vip: t.vip, stake: t.stake ?? 0, rules: t.rules, free: t.seats.filter((s) => !s).length, started: !!t.game && t.game.phase !== "finished" };
+          return { id: i.id, from: i.fromName, fromAvatar: db.players[i.from]?.avatar, tableId: t.id, table: t.name, vip: t.vip, stake: t.stake ?? 0, rules: t.rules, free: t.seats.filter((s) => !s).length, started: !!t.game && t.game.phase !== "finished" };
         }),
     };
   }
@@ -1488,7 +1488,8 @@ export function createApp({
         check(policy !== "none" && (policy === "all" || o.friends[pid]), "Ce joueur n’accepte pas les invitations");
         check(t.seats.some((s) => !s) || (t.game && t.game.phase !== "finished"), "Table complète");
         o.invites = o.invites.filter((i) => i.tableId !== t.id).slice(-19);
-        o.invites.push({ id: id(), tableId: t.id, from: pid, fromName: p.name, fromOwner: t.owner === pid, at: Date.now() });
+        const seat = Number.isInteger(d.seat) && d.seat >= 0 && d.seat < 4 && !t.seats[d.seat] ? d.seat : undefined;
+        o.invites.push({ id: id(), tableId: t.id, seat, from: pid, fromName: p.name, fromOwner: t.owner === pid, at: Date.now() });
         // Table avec robots : si l'invité ne vient pas à temps, un robot prend la place et la partie démarre.
         if (t.fillBots && !t.stake && !t.game) t.fillAt = Math.max(t.fillAt ?? 0, Date.now() + inviteWaitMs);
         break;
@@ -1506,7 +1507,7 @@ export function createApp({
         canStake(p, target.stake);
         if (target.vip && !inv.fromOwner) {
           if (!target.pending.includes(pid)) target.pending.push(pid);
-        } else seatPlayer(target, p);
+        } else seatPlayer(target, p, Number.isInteger(inv.seat) && !target.seats[inv.seat] ? inv.seat : undefined);
         changed = target;
         break;
       }

@@ -388,6 +388,14 @@ function rulesModal(r = DEFAULT_RULES, action = "") {
 }
 
 // ———————————————————————————————————————————————————————————— lobby
+let inviteSeat = null;
+// Invitation reçue : grande fenêtre au milieu de l'écran (sauf si une autre fenêtre est ouverte).
+function invitePopup(i) {
+  if ($("#modal").open) return toast(`📨 ${i.from} vous invite à « ${i.table} »`);
+  modal(`<div class="call-pop invite-pop">${avatar(i.fromAvatar)}<h2>${e(i.from)} vous invite !</h2>
+    <p>${e(i.table)} · ${i.stake ? `mise ${fmt(i.stake)} jetons` : "partie gratuite"} · ${i.rules.target} points</p>
+    <div class="row">${btn("Refuser", "inviteDecline", "line-btn", `data-id="${i.id}"`)}${btn("Rejoindre", "inviteOpen", "gold-btn", `data-id="${i.id}"`)}</div></div>`, "sheet-modal");
+}
 function invitesBlock() {
   const inv = state.player.invites;
   if (!inv.length) return "";
@@ -2722,6 +2730,8 @@ document.addEventListener("click", async (ev) => {
       fundsModal(state.table?.stake ?? 100);
       break;
     case "friends":
+      // Place libre touchée : l'ami invité s'assiéra sur cette place-là.
+      inviteSeat = el.dataset.seat !== undefined ? Number(el.dataset.seat) : null;
       friendsModal(el.dataset.tab ?? "friends");
       break;
     case "challenges":
@@ -2750,7 +2760,9 @@ document.addEventListener("click", async (ev) => {
       setTimeout(() => friendsModal("friends"), 250);
       break;
     case "inviteFriend":
-      cmd("invite", { id: el.dataset.id });
+      cmd("invite", inviteSeat === null ? { id: el.dataset.id } : { id: el.dataset.id, seat: inviteSeat });
+      inviteSeat = null;
+      closeModal();
       toast("Invitation envoyée");
       break;
     case "inviteOpen": {
@@ -3360,7 +3372,7 @@ async function connect() {
           pendingName = null;
         }
         if (state.player.invites.length > seenInvites) {
-          toast(`📨 ${state.player.invites.at(-1).from} vous invite à « ${state.player.invites.at(-1).table} »`);
+          invitePopup(state.player.invites.at(-1));
           tone([660, 990], 0.08, 0.05);
         }
         seenInvites = state.player.invites.length;
