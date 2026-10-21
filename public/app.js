@@ -779,10 +779,10 @@ function homePage() {
     ${live ? `<p class="live-now"><i class="live-dot"></i>${live} partie${live > 1 ? "s" : ""} en cours en ce moment</p>` : ""}
     ${invitesBlock()}
     <div class="features">
-      ${featureCard("go", 'data-page="tables"', "f-public", "Tables publiques", "Jouez avec d’autres joueurs", '<img src="/decor/f-publiques.webp" alt="">')}
+      ${featureCard("go", 'data-page="tables"', "f-public", "Table contrée", "Jouez avec d’autres joueurs", '<img src="/decor/f-publiques.webp" alt="">')}
       ${featureCard("go", 'data-page="vip"', "f-vip", "Tables VIP", "Une expérience exclusive", '<img src="/decor/f-vip.webp" alt="">')}
       ${featureCard("go", 'data-page="tournaments"', "f-tour", "Tournois", nextTourLine(), '<img src="/decor/club-vip.webp" alt="">')}
-      ${featureCard("quickClassic", "", "f-classic", "Belote classique", "Je prends ou je passe · 1 000 points", '<img src="/decor/f-robot.webp" alt="">')}
+      ${featureCard("quickClassic", "", "f-classic", "Belote classique", "Je prends ou je passe · 750 points", '<img src="/decor/f-classique.webp" alt="">')}
     </div>
     <div class="quick-row">
       ${state.player.account ? btn("🎁 Parrainer", "referral", "chip") : ""}
@@ -1258,7 +1258,7 @@ function roomView() {
       ${me >= 0 ? btn(`${icon("users")} Inviter un ami`, "friends", "line-btn wide") : ""}
       ${owner ? btn(`<span class="play">▶</span> ${free && t.fillBots && !t.stake ? "Lancer avec les robots" : "Lancer la partie"}`, "start", "gold-btn wide", "", !!free && !(t.fillBots && !t.stake)) : '<p class="lead">L’hôte lancera la partie.</p>'}`;
   return shell(
-    `${top}${t.quick || t.lobby ? `<p class="target-note">🎯 Partie en <b>${t.quick && !t.rules?.variant ? "500" : "1 000"} points</b>${t.rules?.variant === "classique" ? " · belote classique" : t.quick ? " · partie rapide" : ""}</p>` : ""}${(t.quick || t.lobby) && free && t.humans > 0 && me >= 0 ? callBox(t) : ""}${code}${pending}
+    `${top}${t.quick || t.lobby ? `<p class="target-note">🎯 Partie en <b>${t.rules?.variant === "classique" ? "750" : t.quick ? "500" : "1 000"} points</b>${t.rules?.variant === "classique" ? " · belote classique" : t.quick ? " · partie rapide" : ""}</p>` : ""}${(t.quick || t.lobby) && free && t.humans > 0 && me >= 0 ? callBox(t) : ""}${code}${pending}
     <h2 class="section">Joueurs (${players}/4)</h2>
     <div class="slots">${t.seats.map(slot).join("")}</div>
     ${!t.quick && t.fillBots && !t.stake && t.fillAt && free ? `<div class="fill-timer">${icon("robot")} Robots dans <b data-deadline="${t.fillAt}"></b> si personne ne rejoint</div>` : ""}

@@ -1865,3 +1865,4 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
   .screen.game .me-bub .bubble { position: static; translate: none; }
   .screen.game .my-bubble .bubble:not(.reaction-pop) { display: none; }
 }
+.f-classic .f-art img { object-position: center 30%; }
