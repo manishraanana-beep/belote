@@ -11,6 +11,7 @@ import {
 } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createAccounts, createMailer, normalizeEmail } from "./accounts.js";
+import { createBackup } from "./backup.js";
 import { createEconomy, economyConfig, STAKES, toCredits, toUnits } from "./economy.js";
 import { createProgression, TOURNAMENT_REWARDS } from "./progression.js";
 import { createTournaments, validTimeZone } from "./tournaments.js";
@@ -268,6 +269,24 @@ export function createApp({
   let closing = false;
   const connections = new Map(),
     rate = new Map();
+  // Sauvegarde externe : chaque nuit (après 3 h UTC) et à la demande depuis le back-office.
+  const backup = createBackup(env);
+  let backupRunning = false;
+  async function runBackup(now = new Date()) {
+    if (!backup.enabled || backupRunning) return;
+    backupRunning = true;
+    const key = `belote/sauvegarde-${now.toISOString().slice(0, 10)}.json`;
+    try {
+      await backup.upload(key, JSON.stringify(db), now);
+      db.backup = { at: now.getTime(), ok: true, key, day: now.toISOString().slice(0, 10) };
+    } catch (e) {
+      db.backup = { ...db.backup, at: now.getTime(), ok: false, error: String(e.message).slice(0, 300), day: now.toISOString().slice(0, 10) };
+      console.error("Sauvegarde :", e.message);
+    } finally {
+      backupRunning = false;
+      persist();
+    }
+  }
   function persist() {
     writeFileSync(file + ".tmp", JSON.stringify(db), { mode: 0o600 });
     renameSync(file + ".tmp", file);
@@ -1995,6 +2014,9 @@ export function createApp({
           } else if (d.type === "loginBonus") {
             check(Number.isInteger(d.amount) && d.amount >= 0 && d.amount <= 100000, "Montant invalide");
             db.settings.loginBonus = d.amount;
+          } else if (d.type === "backupNow") {
+            check(backup.enabled, "Sauvegarde externe non configurée");
+            runBackup();
           } else if (d.type === "maintenance") {
             check(typeof d.enabled === "boolean", "Valeur invalide");
             db.settings.maintenance = d.enabled;
@@ -2066,6 +2088,11 @@ export function createApp({
       }
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Cache-Control", "no-store");
+      if (url.searchParams.get("download") === "1" && req.method === "GET") {
+        // Copie complète des données (joueurs, jetons, tables, tournois) à garder en lieu sûr.
+        res.setHeader("Content-Disposition", `attachment; filename="belote-sauvegarde-${new Date().toISOString().slice(0, 10)}.json"`);
+        return res.end(JSON.stringify(db));
+      }
       const detailId = url.searchParams.get("player");
       if (detailId && req.method === "GET") {
         const p = db.players[detailId];
@@ -2091,6 +2118,7 @@ export function createApp({
           alerts: db.alerts.map((a) => ({ ...a, names: a.players.map((x) => db.players[x]?.name ?? x) })),
           settings: db.settings,
           storage: { ephemeral, since: db.createdAt },
+          backup: { configured: backup.enabled, bucket: backup.enabled ? backup.bucket : null, last: db.backup ?? null },
           tournaments: tournaments.adminList(),
           rewards: TOURNAMENT_REWARDS,
           shop: shop.catalog(),
@@ -2210,6 +2238,8 @@ export function createApp({
   const timer = setInterval(() => {
     let dirty = false;
     const now = Date.now();
+    const today = new Date(now).toISOString().slice(0, 10);
+    if (backup.enabled && new Date(now).getUTCHours() >= 3 && db.backup?.day !== today) runBackup(new Date(now));
     if (now - lastGuestSweep >= 3600_000) {
       lastGuestSweep = now;
       if (sweepGuests(now)) dirty = true;

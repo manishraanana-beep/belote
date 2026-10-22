@@ -2965,6 +2965,21 @@ document.addEventListener("click", async (ev) => {
     case "deleteTable":
       await adminRequest({ type: "deleteTable", id: el.dataset.id });
       break;
+    case "backupDownload": {
+      const res = await fetch("/api/admin?download=1", { headers: { Authorization: "Bearer " + adminToken } });
+      if (!res.ok) return toast("Téléchargement impossible");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(await res.blob());
+      a.download = `belote-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      break;
+    }
+    case "backupNow":
+      await adminRequest({ type: "backupNow" });
+      toast("Sauvegarde lancée");
+      setTimeout(() => adminRequest(), 3000);
+      break;
     case "reviewAlert":
       await adminRequest({ type: "reviewAlert", id: el.dataset.id });
       break;
@@ -3089,6 +3104,17 @@ document.addEventListener("input", (ev) => {
   const q = ev.target.value.trim().toLowerCase();
   for (const r of document.querySelectorAll(".client-row")) r.hidden = !!q && !r.dataset.q.includes(q);
 });
+// Sauvegarde : téléchargement immédiat et état de la copie automatique de chaque nuit.
+function backupCard(b) {
+  const last = b?.last;
+  const status = !b?.configured
+    ? "Copie automatique non configurée (stockage externe à ajouter dans Railway)."
+    : last
+      ? `Dernière copie automatique : ${new Date(last.at).toLocaleString("fr-FR")} · ${last.ok ? "✅ réussie" : `❌ échec : ${e(last.error ?? "")}`}`
+      : "Copie automatique configurée : première copie cette nuit.";
+  return `<div class="admin-card"><b>💾 Sauvegarde des données</b><p class="muted small">${status}</p>
+    <div class="row">${btn("Télécharger une sauvegarde", "backupDownload", "chip-btn")}${b?.configured ? btn("Sauvegarder maintenant", "backupNow", "chip-btn") : ""}</div></div>`;
+}
 async function adminRequest(data) {
   try {
     const res = await fetch("/api/admin", {
@@ -3120,7 +3146,8 @@ async function adminRequest(data) {
       <div class="admin-body">
       ${panel("dash", `<h2>Tableau de bord</h2>
         <div class="admin-stats"><div><b>${d.players.length}</b><small>clients</small></div><div><b>${online}</b><small>en ligne</small></div><div><b>${d.tables.length}</b><small>tables</small></div><div><b>${upcoming.length}</b><small>tournois à venir</small></div><div><b>${fmt(d.economy.circulating)}</b><small>crédits en circulation</small></div><div><b>${fmt(d.economy.reserved)}</b><small>crédits engagés</small></div><div><b>${open.length}</b><small>signalements</small></div><div><b>${alerts.length}</b><small>alertes</small></div></div>
-        <p class="muted small">Achats ${d.economy.purchases ? "ouverts" : "fermés"} (web ${d.economy.stripe ? "✓" : "—"}, iOS ${d.economy.apple ? "✓" : "—"}, Android ${d.economy.google ? "✓" : "—"}) · Push navigateur ${d.push.web ? "✓" : "—"} · Push natif ${d.push.native ? "✓" : "—"} · Entrées ${d.settings.maintenance ? "suspendues" : "ouvertes"}</p>`)}
+        <p class="muted small">Achats ${d.economy.purchases ? "ouverts" : "fermés"} (web ${d.economy.stripe ? "✓" : "—"}, iOS ${d.economy.apple ? "✓" : "—"}, Android ${d.economy.google ? "✓" : "—"}) · Push navigateur ${d.push.web ? "✓" : "—"} · Push natif ${d.push.native ? "✓" : "—"} · Entrées ${d.settings.maintenance ? "suspendues" : "ouvertes"}</p>
+        ${backupCard(d.backup)}`)}
       ${panel("clients", `<h2>Clients</h2><div id="admin-clients">${clientList(d)}</div>`)}
       ${panel("tours", `<h2>Tournois</h2><div id="admin-tours">${tourAdmin(d)}</div>`)}
       ${panel("moderation", `<h2>Modération</h2><h3>Alertes à examiner</h3><p class="muted small">Indices combinés, jamais une preuve : aucune sanction automatique.</p>
