@@ -1324,3 +1324,48 @@ test("visiteurs sans compte absents depuis 7 jours : retirés, les autres sont g
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("sauvegarde : téléchargement par l'administrateur et copie vers le stockage externe", async () => {
+  const http = await import("node:http");
+  const received = [];
+  const storage = http.createServer((req, res) => {
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      received.push({ method: req.method, url: req.url, auth: req.headers.authorization, body });
+      res.end("ok");
+    });
+  });
+  await new Promise((r) => storage.listen(0, "127.0.0.1", r));
+  const env = {
+    BELOTE_BACKUP_S3_ENDPOINT: `http://127.0.0.1:${storage.address().port}`,
+    BELOTE_BACKUP_S3_BUCKET: "sauvegardes",
+    BELOTE_BACKUP_S3_ACCESS_KEY_ID: "id",
+    BELOTE_BACKUP_S3_SECRET_ACCESS_KEY: "secret",
+  };
+  const f = await fixture({ adminKey: "test-admin-key", env });
+  try {
+    const auth = { Authorization: "Bearer test-admin-key" };
+    assert.equal((await fetch(f.base + "/api/admin?download=1")).status, 403);
+    const dl = await fetch(f.base + "/api/admin?download=1", { headers: auth });
+    assert.equal(dl.status, 200);
+    assert.match(dl.headers.get("content-disposition"), /belote-sauvegarde-/);
+    assert.ok((await dl.json()).players);
+    for (let i = 0; i < 200 && !received.length; i++) await delay(10); // copie automatique au démarrage (après 3 h UTC)
+    if (new Date().getUTCHours() < 3) {
+      const r = await fetch(f.base + "/api/admin", { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ type: "backupNow" }) });
+      assert.equal(r.status, 200);
+      for (let i = 0; i < 200 && !received.length; i++) await delay(10);
+    }
+    assert.equal(received[0].method, "PUT");
+    assert.match(received[0].url, /^\/sauvegardes\/belote\/sauvegarde-\d{4}-\d\d-\d\d\.json$/);
+    assert.match(received[0].auth, /^AWS4-HMAC-SHA256 Credential=id\//);
+    assert.ok(JSON.parse(received[0].body).players);
+    const d = await (await fetch(f.base + "/api/admin", { headers: auth })).json();
+    assert.equal(d.backup.configured, true);
+    for (let i = 0; i < 100 && !d.backup.last; i++) await delay(10);
+  } finally {
+    await f.close?.();
+    storage.close();
+  }
+});
