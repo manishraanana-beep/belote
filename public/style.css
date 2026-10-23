@@ -1893,3 +1893,13 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .qtile b { font-size: 14px; font-weight: 700; letter-spacing: .01em; }
 .qmed .dot { position: absolute; top: 2px; right: 2px; }
 .qmed .badge-n { position: absolute; top: -4px; right: -4px; }
+/* Compte à rebours : anneau de couleur qui tourne autour de l'avatar du joueur dont c'est le tour. */
+.me-av { position: relative; display: inline-grid; border-radius: 50%; }
+.seat-avatar.ring::after, .me-av.ring::after { content: ""; position: absolute; inset: -7px; border-radius: 50%; pointer-events: none; background: conic-gradient(var(--ring-c, #4fe0b0) var(--ring, 360deg), #ffffff22 0); -webkit-mask: radial-gradient(farthest-side, #0000 calc(100% - 6px), #000 calc(100% - 5px)); mask: radial-gradient(farthest-side, #0000 calc(100% - 6px), #000 calc(100% - 5px)); filter: drop-shadow(0 0 6px var(--ring-c, #4fe0b0)); }
+/* Téléphone à la verticale : cartes en main plus grandes et contrat du preneur plus lisible. */
+@media (max-aspect-ratio: 4/5) {
+  .screen.game { --cw: clamp(70px, min(25vw, 15vh), 130px); --step: min(calc(var(--cw) * 0.5), calc((100vw - var(--cw) * 1.45 - 24px) / 7)); }
+  .taker-badge, .seat.p2 .taker-badge { font-size: 20px; padding: 5px 16px; gap: 5px; border: 2px solid #fff6c4; box-shadow: 0 4px 14px #000a, 0 0 12px #f6c85f88; }
+  .taker-badge em { font-size: 14px; }
+}
+.me-seat > b { position: relative; z-index: 2; }
