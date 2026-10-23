@@ -1899,7 +1899,8 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 /* Téléphone à la verticale : cartes en main plus grandes et contrat du preneur plus lisible. */
 @media (max-aspect-ratio: 4/5) {
   .screen.game { --cw: clamp(70px, min(25vw, 15vh), 130px); --step: min(calc(var(--cw) * 0.5), calc((100vw - var(--cw) * 1.45 - 24px) / 7)); }
-  .taker-badge, .seat.p2 .taker-badge { font-size: 20px; padding: 5px 16px; gap: 5px; border: 2px solid #fff6c4; box-shadow: 0 4px 14px #000a, 0 0 12px #f6c85f88; }
-  .taker-badge em { font-size: 14px; }
 }
+/* Contrat du preneur bien lisible, à la verticale comme à l'horizontale. */
+.screen.game .taker-badge, .screen.game .seat.p2 .taker-badge { font-size: 17px; padding: 3px 13px; gap: 4px; border: 2px solid #fff6c4; box-shadow: 0 4px 12px #000a, 0 0 10px #f6c85f77; }
+.screen.game .taker-badge em { font-size: 13px; }
 .me-seat > b { position: relative; z-index: 2; }
