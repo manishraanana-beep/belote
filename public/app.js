@@ -1394,7 +1394,7 @@ function seatView(g, t, me, i) {
         : "";
   return `<div class="seat p${rel} ${team} ${active ? "active" : ""} ${offline ? "offline" : ""} ${s?.frame ?? ""}">
     ${g.contract?.seat === i ? '<span class="crown-top" title="Preneur">♛</span>' : ""}
-    <div class="seat-avatar ${human ? "tappable" : ""}" ${human ? `data-action="player" data-id="${s.id}" role="button" aria-label="Profil de ${e(s.name)}"` : ""}>${avatar(s?.avatar)}${g.dealer === i ? '<span class="dealer" title="Donneur">D</span>' : ""}</div>
+    <div class="seat-avatar ${human ? "tappable" : ""} ${active && t.deadline ? "ring" : ""}" ${active && t.deadline ? `data-ring="${t.deadline}" data-ring-total="${(t.rules.turnSeconds ?? 20) * 1000}"` : ""} ${human ? `data-action="player" data-id="${s.id}" role="button" aria-label="Profil de ${e(s.name)}"` : ""}>${avatar(s?.avatar)}${g.dealer === i ? '<span class="dealer" title="Donneur">D</span>' : ""}</div>
     <div class="name-pill"><b>${e(s?.name ?? "—")}</b></div>${takerBadge(g, i)}${s?.bot ? '<span class="robot-tag">ROBOT</span>' : ""}${status}
     ${rel !== 0 ? `<div class="backs bk${Math.min(8, g.handCounts[i])}">${Array.from({ length: Math.min(8, g.handCounts[i]) }, () => "<i></i>").join("")}</div>` : ""}
     ${seatBubble(g, i)}${chatBubble(t, s)}${reactionBubble(t, s)}
@@ -1577,7 +1577,7 @@ function handView(g, me, t) {
     ${hand.map((c, i) => `<button type="button" class="hcard c${i} ${c === selected ? "selected" : ""}" data-action="pick" data-card="${c}" aria-label="${cardName(c)}" aria-pressed="${c === selected}"><img src="${cardImage(c)}" alt="" draggable="false"></button>`).join("")}
   </div>
   <div class="status-row">
-    <span class="me-mini"><span class="me-seat">${avatar(state.player.avatar)}<b>${e(state.player.name)}</b>${takerBadge(g, me)}${seatBubble(g, me) ? `<span class="me-bub">${seatBubble(g, me)}</span>` : ""}</span>${t.money ? `<small>${fmt(mine?.engaged ?? 0)} engagés</small>` : ""}</span>
+    <span class="me-mini"><span class="me-seat"><span class="me-av ${["bidding", "playing"].includes(g.phase) && g.turn === me && t.deadline ? "ring" : ""}" ${["bidding", "playing"].includes(g.phase) && g.turn === me && t.deadline ? `data-ring="${t.deadline}" data-ring-total="${(t.rules.turnSeconds ?? 20) * 1000}"` : ""}>${avatar(state.player.avatar)}</span><b>${e(state.player.name)}</b>${takerBadge(g, me)}${seatBubble(g, me) ? `<span class="me-bub">${seatBubble(g, me)}</span>` : ""}</span>${t.money ? `<small>${fmt(mine?.engaged ?? 0)} engagés</small>` : ""}</span>
     ${status}
     <span class="status-btns">${btn("😊", "react", "round-btn", 'aria-label="Réactions"')}${btn(`${icon("chat")}${t.chat.length > seenChat && sheet !== "chat" ? '<i class="dot"></i>' : ""}`, "chat", "round-btn gold-round", 'aria-label="Discussion"')}</span>
   </div>`;
@@ -1775,6 +1775,17 @@ function clock() {
   });
 }
 setInterval(clock, 250);
+// Compte à rebours autour de l'avatar du joueur dont c'est le tour : l'anneau se vide
+// et passe du vert à l'orange puis au rouge.
+(function ringLoop() {
+  for (const el of document.querySelectorAll("[data-ring]")) {
+    const total = Number(el.dataset.ringTotal) || 20000;
+    const f = Math.max(0, Math.min(1, (Number(el.dataset.ring) - Date.now()) / total));
+    el.style.setProperty("--ring", `${(f * 360).toFixed(1)}deg`);
+    el.style.setProperty("--ring-c", f > 0.5 ? "#4fe0b0" : f > 0.25 ? "#ffb23d" : "#ff4d4d");
+  }
+  requestAnimationFrame(ringLoop);
+})();
 setInterval(() => {
   // Les bulles de discussion s'effacent toutes seules.
   const m = state?.table?.chat?.at(-1);
