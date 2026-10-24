@@ -694,6 +694,25 @@ const qtile = (name, label, action, attrs = "", extra = "") =>
   `<button type="button" class="qtile" data-action="${action}" ${attrs}><span class="qmed"><svg viewBox="0 0 48 48" aria-hidden="true">${QICONS[name]}</svg>${extra}</span><b>${label}</b></button>`;
 const icon = (name, cls = "") => `<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] ?? ""}</svg>`;
 const logo = (sub = "") => `<div class="logo"><img class="logo-img" src="/decor/logo.webp" alt="Belote Prestige" draggable="false">${sub ? `<em>${sub}</em>` : ""}</div>`;
+// Thème d'affichage (habillage seulement) : « classique » par défaut, « arcade » en option.
+// Mémorisé sur l'appareil ; retour arrière = décocher le réglage.
+const readLocal = (k) => {
+  try {
+    return localStorage.getItem(k);
+  } catch {
+    return null;
+  }
+};
+const writeLocal = (k, v) => {
+  try {
+    localStorage.setItem(k, v);
+  } catch {}
+};
+let skin = readLocal("beloteSkin") === "arcade" ? "arcade" : "classique";
+const arcade = () => skin === "arcade";
+document.documentElement.dataset.skin = skin;
+// Accueil Arcade : mode présélectionné (contrée / classique), mémorisé localement.
+let arcMode = readLocal("beloteMode") === "classique" ? "classique" : "contree";
 let page = { name: null, params: {} },
   pageStack = [];
 function go(name, params = {}) {
@@ -716,6 +735,17 @@ function shell(body, { backBtn = true, tabs = false, vip = false, cls = "", righ
   </div>`;
 }
 function tabBar() {
+  if (arcade()) {
+    const on = (n) => (page.name === n || (n === "home" && ["home", "vip"].includes(page.name)) ? "on" : "");
+    const pending = state.player.friendIn.length;
+    return `<nav class="tabbar a-tabbar" aria-label="Navigation">
+      <button type="button" class="tab ${on("boutique")}" data-action="go" data-page="boutique"><i class="a-suit">♣</i><span>Boutique</span></button>
+      <button type="button" class="tab ${on("tournaments")}" data-action="go" data-page="tournaments"><i class="a-suit">♦</i><span>Tournois</span></button>
+      <button type="button" class="tab a-tab-play ${on("home")}" data-action="go" data-page="home"><i class="a-suit">♠</i><span>Jouer</span></button>
+      <button type="button" class="tab" data-action="friends"><i class="a-suit">♥${pending ? `<em class="badge-n">${pending}</em>` : ""}</i><span>Amis</span></button>
+      <button type="button" class="tab ${on("settings")} ${on("profile")}" data-action="go" data-page="settings">${avatar(state.player.avatar)}<span>Profil</span></button>
+    </nav>`;
+  }
   const t = (name, label, ic) => `<button type="button" class="tab ${page.name === name || (name === "home" && ["home", "vip"].includes(page.name)) ? "on" : ""}" data-action="go" data-page="${name}">${icon(ic)}<span>${label}</span></button>`;
   return `<nav class="tabbar" aria-label="Navigation">${t("home", "Accueil", "home")}${t("tables", "Jouer", "cards")}${t("boutique", "Boutique", "shop")}${t("settings", "Compte", "user")}</nav>`;
 }
@@ -805,7 +835,55 @@ function nextTourLine() {
 // Vérification de l'adresse : proposée seulement quand l'envoi d'e-mails est configuré sur le
 // serveur (RESEND_API_KEY + BELOTE_MAIL_FROM). Sans cela, le compte est pleinement utilisable.
 const needVerify = () => !!(state.player.account && !state.player.account.verified && authConfig.mail);
+// Accueil du thème Arcade : mêmes actions que l'accueil classique, autre mise en page.
+const A_ICONS = {
+  gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12M12 8c-2-4-6-4-6-1.5S10 8 12 8zm0 0c2-4 6-4 6-1.5S14 8 12 8z"/>',
+  wheel: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/><path d="M12 3v7M12 14v7M3 12h7M14 12h7M5.6 5.6l5 5M13.4 13.4l5 5M18.4 5.6l-5 5M10.6 13.4l-5 5"/>',
+  trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5c0 3 1.5 5 4 5M16 6h3c0 3-1.5 5-4 5M12 13v4M8 20h8M9 17h6v3H9z"/>',
+};
+const aIcon = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${A_ICONS[k]}</svg>`;
+function arcadeHome() {
+  const p = state.player;
+  const l = p.progress.level;
+  const classic = arcMode === "classique";
+  const online = state.tables.reduce((n, t) => n + (t.humans ?? 0), 0);
+  const levels = stakeLevels();
+  return shell(
+    `<div class="a-hud">
+      <button type="button" class="a-me" data-action="go" data-page="profile" aria-label="Mon profil">${avatar(p.avatar)}<i class="a-lvl">${l.index + 1}</i></button>
+      <div class="a-me-txt"><b>${e(p.name)}</b><div class="bar a-xp"><i class="w${Math.round(l.progress * 20) * 5}"></i></div></div>
+      <div class="a-wallet"><button type="button" data-action="wallet" aria-label="Portefeuille"><i class="a-coin"></i><b>${fmt(p.wallet.available / 2)}</b></button><button type="button" class="a-plus" data-action="shop" aria-label="Acheter des jetons">+</button></div>
+    </div>
+    <img class="a-logo" src="/decor/logo.webp" alt="Belote Prestige" draggable="false">
+    ${needVerify() ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
+    ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 crédits offerts ${icon("chevron", "tiny")}</button>`}
+    ${invitesBlock()}
+    <section class="a-hero">
+      <div class="a-hero-art"><img src="/decor/f-classique.webp" alt="" draggable="false"><span class="a-tag coral">Partie rapide</span>${online ? `<span class="a-tag dark"><i class="a-dot"></i>${fmt(online)} en ligne</span>` : ""}</div>
+      <div class="a-seg" role="group" aria-label="Variante">
+        <button type="button" class="${classic ? "" : "on"}" data-action="arcMode" data-mode="contree" aria-pressed="${!classic}">Contrée</button>
+        <button type="button" class="${classic ? "on" : ""}" data-action="arcMode" data-mode="classique" aria-pressed="${classic}">Classique</button>
+      </div>
+      <button type="button" class="gold-btn a-play" data-action="${classic ? "quickClassic" : "quick"}">JOUER<small>· ${classic ? "Classique · 750 pts" : "Contrée · 750 pts"}</small></button>
+    </section>
+    ${levels.length ? `<h2 class="a-h">Tables</h2>${stakeGrid(levels)}` : ""}
+    <h2 class="a-h">Tournois</h2>
+    ${(() => {
+      const tour = (state.tournaments ?? []).find((x) => ["soon", "open", "closed", "ready", "running"].includes(x.stage));
+      const tag = tour?.stage === "open" ? "Inscriptions ouvertes" : tour?.stage === "running" ? "En cours" : tour ? "Bientôt" : "";
+      return `<button type="button" class="a-banner a-tour" data-action="go" data-page="tournaments"><img src="/decor/club-vip.webp" alt="">${tag ? `<span class="a-tag coral">${tag}</span>` : ""}<b>${tour ? e(tour.name) : "Tournois"}</b><small>${nextTourLine()}</small></button>`;
+    })()}
+    <button type="button" class="a-banner a-vip" data-action="go" data-page="vip"><img src="/decor/f-vip.webp" alt=""><b>Club VIP</b><small>Tables privées, gros pots</small></button>
+    <div class="a-shortcuts">
+      ${p.account ? `<button type="button" data-action="referral"><span class="a-sc">${aIcon("gift")}</span>Parrainer</button>` : ""}
+      ${p.account ? `<button type="button" data-action="wheel"><span class="a-sc">${aIcon("wheel")}${wheelReady() ? '<i class="dot"></i>' : ""}</span>Roue</button>` : ""}
+      <button type="button" data-action="go" data-page="classement"><span class="a-sc">${aIcon("trophy")}</span>Classement</button>
+    </div>`,
+    { backBtn: false, tabs: true, cls: "page-home page-arcade" },
+  );
+}
 function homePage() {
+  if (arcade()) return arcadeHome();
   const p = state.player;
   const pending = p.friendIn.length;
   // Parties réellement en cours sur les tables publiques (chacune a au moins un joueur).
@@ -858,7 +936,11 @@ const CITY_FELT = { paris: "vert", monaco: "violet", dubai: "rouge", vegas: "ivo
 function stakeTables() {
   const levels = [...new Set(state.tables.filter((t) => t.lobby && t.stake).map((t) => t.stake))].sort((a, b) => a - b);
   if (!levels.length) return "";
-  return `<h2 class="section orn-title">Tables avec mise</h2><div class="stake-grid">${levels
+  return `<h2 class="section orn-title">Tables avec mise</h2>${stakeGrid(levels)}<p class="robot-note">${icon("robot")}<span>Tables automatiquement complétées avec d’autres joueurs. Les places encore libres après quelques secondes sont prises par des robots.</span></p>`;
+}
+const stakeLevels = () => [...new Set(state.tables.filter((t) => t.lobby && t.stake).map((t) => t.stake))].sort((a, b) => a - b);
+function stakeGrid(levels) {
+  return `<div class="stake-grid">${levels
     .map((stake) => {
       const open = state.tables.filter((t) => t.lobby && t.stake === stake && t.status !== "Partie en cours");
       const waiting = Math.max(0, ...open.map((t) => 4 - t.available));
@@ -872,7 +954,7 @@ function stakeTables() {
         <span class="sc-go">Jouer</span>
       </button>`;
     })
-    .join("")}</div><p class="robot-note">${icon("robot")}<span>Tables automatiquement complétées avec d’autres joueurs. Les places encore libres après quelques secondes sont prises par des robots.</span></p>`;
+    .join("")}</div>`;
 }
 function tableCard(t) {
   const busy = t.status === "Partie en cours";
@@ -959,6 +1041,7 @@ function settingsPage() {
       ${toggle("sounds", "sound", "Sons", s.sounds)}
       ${toggle("animations", "star", "Animations", s.animations)}
       ${toggle("emojis", "smile", "Emojis des joueurs pendant les parties", s.emojis !== false)}
+      <label class="toggle-row">${icon("cards")}<span>Thème Arcade <small class="muted">(nouveau look)</small></span><input type="checkbox" data-skin-toggle ${arcade() ? "checked" : ""}><i class="sw"></i></label>
       <label class="toggle-row">${icon("bell")}<span>Notifications</span><input type="checkbox" data-local="notifications" ${localStorage.getItem("notifications") !== "off" ? "checked" : ""}><i class="sw"></i></label>
       <div class="menu-link static">${icon("globe")}<span>Langue</span><em>Français</em></div>
     </div>
@@ -1325,7 +1408,26 @@ function tableLabel(t) {
   return t.stake ? `${kind} • ${fmt(t.stake)} jetons` : kind;
 }
 // Bandeau du haut (maquette « Votre annonce ») : logo, solde, table, menu, puis le score Nous / Eux.
+// Thème Arcade : pastille des scores (NOUS · état · EUX) et barre des points de la donne.
+function arcadeTop(g, t, me) {
+  const us = me % 2,
+    them = 1 - us;
+  const c = g.contract;
+  const state_ = c && !["bidding"].includes(g.phase)
+    ? `<span class="a-contract">${amountLabel(c.amount)} ${suitHtml(c.suit)}${g.multiplier > 1 ? ` <em>${multLabel(g.multiplier)}</em>` : ""}</span>`
+    : `<span class="a-state">${g.phase === "bidding" ? "Enchères" : ""}</span>`;
+  const live = ["playing", "summary"].includes(g.phase) && g.points && c;
+  const pts = (i) => (g.points?.[i] ?? 0) + (g.belote?.[i] ?? 0);
+  const pct = (n) => Math.max(0, Math.min(100, Math.round((n / 162) * 20) * 5));
+  const need = c ? (c.amount === 250 ? 162 : c.amount === 0 ? 82 : Math.min(162, c.amount)) : 0;
+  return `<header class="game-top a-gtop">
+    ${btn(icon("menu"), "menu", "square-btn", 'aria-label="Menu de la partie"')}
+    <div class="a-score" aria-label="Scores"><span class="a-team us">Nous</span><b>${fmt(g.scores[us])}</b>${state_}<b>${fmt(g.scores[them])}</b><span class="a-team them">Eux</span></div>
+  </header>
+  ${live ? `<div class="a-deal"><small>Donne</small><b class="us">${fmt(pts(us))}</b><span class="a-dbar"><i class="w${pct(pts(us))}"></i><em class="mk${pct(need)}"></em></span><small class="a-need">${c.amount === 250 ? "Capot" : `Contrat ${need}`}</small><b class="them">${fmt(pts(them))}</b></div>` : '<div class="a-deal empty" aria-hidden="true"></div>'}`;
+}
 function topBar(g, t, me) {
+  if (arcade()) return arcadeTop(g, t, me);
   const c = contractInfo(g, t, me);
   return `<header class="game-top">
     <div class="gt-logo">${logo()}</div>
@@ -1455,9 +1557,31 @@ function centerView(g, t, me) {
   return `<div class="bid-zone watching">${auctionStrip(g, t, me)}${flying ? btn("Contrer à la volée", "counter", "red-btn counter-fly") : ""}</div>`;
 }
 // Maquette « Résultat de la donne ».
+function arcadeDeal(g, t, me, h) {
+  const us = me % 2,
+    them = 1 - us;
+  const ours = h.contract.seat % 2 === us;
+  const good = ours === h.made; // la donne est bonne pour nous
+  const label = h.contract.amount === 0 ? (h.made ? "Fait" : "Dedans") : h.made ? "Contrat réussi" : "Contrat chuté";
+  const extra = h.belote[us] ? `<p class="a-line">Belote : +${h.belote[us]} points pour vous</p>` : h.belote[them] ? `<p class="a-line">Belote : +${h.belote[them]} points pour eux</p>` : "";
+  const capot = h.capot && h.contract.amount !== 250 && h.contract.amount !== 0 ? `<p class="a-line">Capot ! ${amountLabel(h.contract.amount)} + 250 points</p>` : "";
+  const goal = Math.max(0, Math.min(100, Math.round((g.scores[us] / (g.rules.target || 1000)) * 20) * 5));
+  return `<div class="overlay-page a-result"><div class="op-inner">
+    ${good ? '<img class="a-res-art" src="/decor/victoire.webp" alt="" draggable="false">' : ""}
+    <span class="a-pill ${good ? "ok" : "ko"}">${label} · ${e(t.seats[h.contract.seat]?.name ?? "")} · ${amountLabel(h.contract.amount)} ${suitHtml(h.contract.suit)}${h.multiplier > 1 ? ` · ${multLabel(h.multiplier)}` : ""}</span>
+    <b class="a-big">+${fmt(h.score[us])}</b>
+    <p class="a-sub">${ours ? "Notre contrat" : "Contrat adverse"} · Eux marquent ${fmt(h.score[them])}</p>
+    ${extra}${capot}
+    <div class="a-tiles"><div class="us"><small>Nous</small><b>${fmt(g.scores[us])}</b></div><div class="them"><small>Eux</small><b>${fmt(g.scores[them])}</b></div></div>
+    <div class="bar a-goal"><i class="w${goal}"></i></div><p class="a-goal-txt">Objectif ${fmt(g.rules.target)} points</p>
+    <p class="next-auto">Donne suivante dans <b data-deadline="${t.nextAt ?? 0}"></b></p>
+    ${tipLine(`deal:${t.gameId}:${h.deal}`)}
+  </div></div>`;
+}
 function dealResult(g, t, me) {
   const h = g.history.at(-1);
   if (!h) return "";
+  if (arcade()) return arcadeDeal(g, t, me, h);
   const ours = h.contract.seat % 2 === me % 2;
   const taker = t.seats[h.contract.seat];
   const belote = h.belote[me % 2] ? `<div class="res-line">${icon("cards", "big")}<div><b>Belote : +${h.belote[me % 2]} points</b><small>Pour votre équipe</small></div></div>` : h.belote[1 - (me % 2)] ? `<div class="res-line">${icon("cards", "big")}<div><b>Belote : +${h.belote[1 - (me % 2)]} points</b><small>Pour l’équipe adverse</small></div></div>` : "";
@@ -1510,7 +1634,41 @@ function moneyLines(r) {
 }
 // Maquette « Choisir votre contrat ».
 // Maquette « Votre annonce ».
+let bidOptions = [];
+function arcadeBid(g, me, t) {
+  const last = (g.auction ?? []).filter((a) => a.type === "bid").at(-1);
+  const lastTxt = last ? `${e(t.seats[last.seat]?.name ?? "")} : <b>${amountLabel(last.amount)} ${suitHtml(last.suit)}</b>` : "";
+  if (g.rules.variant === "classique") {
+    const up = g.turnUp ? g.turnUp.slice(-1) : null;
+    const body =
+      g.round === 1
+        ? `<div class="a-classic">${g.turnUp ? `<img class="a-turnup" src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}">` : ""}<p>Prenez-vous à <b class="${isRed(up) ? "a-red" : ""}">${SUIT_NAMES[up]?.toLowerCase() ?? ""}</b> ?</p></div>${btn("Je prends", "take", "gold-btn wide a-bigbtn", `data-suit="${up}"`)}`
+        : `<p class="a-q">Une autre couleur ?</p><div class="bid-suits a-suits">${HAND_ORDER.filter((x) => x !== up).map((x) => btn(`${SUITS[x]}`, "take", `suit-btn ${isRed(x) ? "red" : ""}`, `data-suit="${x}" aria-label="Atout ${SUIT_NAMES[x]}"`)).join("")}</div>`;
+    return `<div class="bid-zone a-bidzone"><div class="bid-panel a-sheet"><div class="a-sh-head"><b>À vous d’annoncer</b><small>${lastTxt}</small></div>${body}${btn("Je passe", "pass", "teal-btn wide")}</div></div>`;
+  }
+  const canCounter = g.contract && g.contract.seat % 2 !== me % 2;
+  return `<div class="bid-zone a-bidzone"><form id="bid-form" class="bid-panel a-sheet" aria-label="Votre annonce">
+    <div class="a-sh-head"><b>À vous d’annoncer</b><small>${lastTxt}</small></div>
+    <input type="hidden" name="amount" value="${bidAmount ?? ""}"><input type="hidden" name="suit" value="${bidSuit ?? ""}">
+    <div class="a-stepper">${btn("−", "stepAmount", "teal-btn", 'data-dir="-1" aria-label="Moins"', !bidOptions.length || bidOptions.indexOf(bidAmount) <= 0)}<b class="a-amt">${bidAmount ? amountLabel(bidAmount) : "—"}</b>${btn("+", "stepAmount", "teal-btn", 'data-dir="1" aria-label="Plus"', bidOptions.indexOf(bidAmount) >= bidOptions.length - 1)}</div>
+    <div class="bid-suits a-suits">${HAND_ORDER.map((s) => `<button type="button" class="suit-btn ${isRed(s) ? "red" : ""} ${s === bidSuit ? "on" : ""}" data-action="pickSuit" data-suit="${s}" aria-label="Atout ${SUIT_NAMES[s]}" aria-pressed="${s === bidSuit}">${SUITS[s]}</button>`).join("")}</div>
+    <button class="gold-btn announce a-announce" name="go" value="1" ${bidOptions.length && bidSuit ? "" : "disabled"}><span class="a-off">Choisissez un atout</span><span class="a-on">Annoncer</span><b>${bidAmount ? amountLabel(bidAmount) : ""} ${bidSuit ? suitHtml(bidSuit) : ""}</b></button>
+    <div class="a-row">${btn("Passer", "pass", "teal-btn")}${btn(g.rules.flyingCounter ? "Contrer" : "Contrer", "counter", "red-btn", "", !canCounter)}</div>
+  </form></div>`;
+}
 function bidPanel(g, me, t) {
+  if (arcade() && g.rules.variant !== "classique") {
+    // Même règle de montant par défaut que le panneau classique.
+    const options = BIDS.filter((n) => !g.contract || n > g.contract.amount);
+    const key = `${t.gameId}:${g.deal}:${(g.auction ?? []).length}`;
+    if (bidKey !== key || !options.includes(bidAmount)) {
+      bidKey = key;
+      bidAmount = options[0] ?? null;
+    }
+    bidOptions = options;
+    return arcadeBid(g, me, t);
+  }
+  if (arcade()) return arcadeBid(g, me, t);
   if (g.rules.variant === "classique") {
     const up = g.turnUp ? g.turnUp.slice(-1) : null;
     const choices =
@@ -2747,6 +2905,11 @@ document.addEventListener("click", async (ev) => {
     case "cheaper":
       fundsModal(state.table?.stake ?? 100);
       break;
+    case "arcMode":
+      arcMode = el.dataset.mode === "classique" ? "classique" : "contree";
+      writeLocal("beloteMode", arcMode);
+      render();
+      break;
     case "friends":
       // Place libre touchée : l'ami invité s'assiéra sur cette place-là.
       inviteSeat = el.dataset.seat !== undefined ? Number(el.dataset.seat) : null;
@@ -2867,6 +3030,18 @@ document.addEventListener("click", async (ev) => {
       } catch {
         modal(`<h2>Lien d’invitation</h2><input class="copy-field" readonly value="${e(link)}" aria-label="Lien à copier">`);
       }
+      break;
+    }
+    case "stepAmount": {
+      const i = bidOptions.indexOf(bidAmount) + Number(el.dataset.dir);
+      if (i < 0 || i >= bidOptions.length) break;
+      bidAmount = bidOptions[i];
+      el.form.amount.value = bidAmount;
+      el.form.querySelector(".a-amt").textContent = amountLabel(bidAmount);
+      const [minus, plus] = el.form.querySelectorAll(".a-stepper button");
+      minus.disabled = i <= 0;
+      plus.disabled = i >= bidOptions.length - 1;
+      announceLabel(el.form);
       break;
     }
     case "pickAmount":
@@ -3008,6 +3183,12 @@ document.addEventListener("click", async (ev) => {
 document.addEventListener("change", (ev) => {
   if (/^photo-input/.test(ev.target.id) && ev.target.files[0]) openCropper(ev.target.files[0]);
   if (ev.target.dataset?.local) localStorage.setItem(ev.target.dataset.local, ev.target.checked ? "on" : "off");
+  if (ev.target.hasAttribute?.("data-skin-toggle")) {
+    skin = ev.target.checked ? "arcade" : "classique";
+    writeLocal("beloteSkin", skin);
+    document.documentElement.dataset.skin = skin;
+    render();
+  }
   const k = ev.target.dataset?.setting;
   if (k) cmd("settings", { [k]: ev.target.type === "checkbox" ? ev.target.checked : ev.target.value });
 });
