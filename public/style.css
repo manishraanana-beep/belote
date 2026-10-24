@@ -2008,3 +2008,107 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .page-arcade .stake-card .sc-main b { font: 800 22px/1.1 var(--arc); white-space: nowrap; }
 .page-arcade .stake-card .sc-main small { font-weight: 700; color: var(--a-text); }
 .page-arcade .stake-card .sc-meta { white-space: nowrap; font-weight: 700; }
+/* — Table Arcade : barre des scores — */
+.a-gtop { align-items: center; padding-bottom: 6px; }
+.a-gtop .square-btn { width: 46px; height: 46px; }
+.a-score { flex: 1; display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 6px; border-radius: 23px; background: rgba(8, 38, 42, 0.92); box-shadow: inset 0 0 0 2px var(--a-line); }
+.a-score > b { font: 800 22px/1 var(--arc); }
+.a-team { padding: 2px 8px; border-radius: 10px; font: 800 12px/18px var(--arc); letter-spacing: 1px; text-transform: uppercase; color: var(--a-bg2); }
+.a-team.us { background: var(--a-us); } .a-team.them { background: var(--a-them); }
+.a-state, .a-contract { flex: 1; text-align: center; font: 800 15px var(--arc); color: var(--a-gold); }
+.a-contract { flex: 0 1 auto; margin: 0 auto; padding: 2px 12px; border-radius: 12px; background: var(--a-cream); color: var(--a-ink); box-shadow: inset 0 0 0 2px var(--a-gold); font-size: 17px; }
+.a-contract .suit { color: #1a1410; } .a-contract .suit.red { color: #d8202a; }
+.a-contract em { font-style: normal; font-size: 12px; color: #b8432e; }
+.a-deal { position: relative; z-index: 5; display: flex; align-items: center; gap: 8px; margin: 0 6px; height: 34px; padding: 0 12px; border-radius: 17px; background: rgba(8, 38, 42, 0.8); box-shadow: inset 0 0 0 2px var(--a-line); font-weight: 700; }
+.a-deal.empty { height: 0; padding: 0; box-shadow: none; background: none; }
+.a-deal small { color: var(--a-muted); font-size: 13px; }
+.a-deal b { font: 800 17px var(--arc); } .a-deal b.us { color: var(--a-us); } .a-deal b.them { color: var(--a-them); }
+.a-deal .a-need { color: var(--a-gold); }
+.a-dbar { position: relative; flex: 1; height: 10px; border-radius: 5px; background: var(--a-bg2); }
+.a-dbar i { position: absolute; inset: 0 auto 0 0; border-radius: 5px; background: linear-gradient(var(--a-us2), var(--a-us)); }
+.a-dbar em { position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1px; border-radius: 2px; background: var(--a-gold); }
+.a-dbar i.w0 { width: 0%; } .a-dbar em.mk0 { left: 0%; }
+.a-dbar i.w5 { width: 5%; } .a-dbar em.mk5 { left: 5%; }
+.a-dbar i.w10 { width: 10%; } .a-dbar em.mk10 { left: 10%; }
+.a-dbar i.w15 { width: 15%; } .a-dbar em.mk15 { left: 15%; }
+.a-dbar i.w20 { width: 20%; } .a-dbar em.mk20 { left: 20%; }
+.a-dbar i.w25 { width: 25%; } .a-dbar em.mk25 { left: 25%; }
+.a-dbar i.w30 { width: 30%; } .a-dbar em.mk30 { left: 30%; }
+.a-dbar i.w35 { width: 35%; } .a-dbar em.mk35 { left: 35%; }
+.a-dbar i.w40 { width: 40%; } .a-dbar em.mk40 { left: 40%; }
+.a-dbar i.w45 { width: 45%; } .a-dbar em.mk45 { left: 45%; }
+.a-dbar i.w50 { width: 50%; } .a-dbar em.mk50 { left: 50%; }
+.a-dbar i.w55 { width: 55%; } .a-dbar em.mk55 { left: 55%; }
+.a-dbar i.w60 { width: 60%; } .a-dbar em.mk60 { left: 60%; }
+.a-dbar i.w65 { width: 65%; } .a-dbar em.mk65 { left: 65%; }
+.a-dbar i.w70 { width: 70%; } .a-dbar em.mk70 { left: 70%; }
+.a-dbar i.w75 { width: 75%; } .a-dbar em.mk75 { left: 75%; }
+.a-dbar i.w80 { width: 80%; } .a-dbar em.mk80 { left: 80%; }
+.a-dbar i.w85 { width: 85%; } .a-dbar em.mk85 { left: 85%; }
+.a-dbar i.w90 { width: 90%; } .a-dbar em.mk90 { left: 90%; }
+.a-dbar i.w95 { width: 95%; } .a-dbar em.mk95 { left: 95%; }
+.a-dbar i.w100 { width: 100%; } .a-dbar em.mk100 { left: 100%; }
+/* Le thème Arcade remplace le tableau des scores classique par la pastille ci-dessus. */
+:root[data-skin="arcade"] .screen.game .gt-logo, :root[data-skin="arcade"] .screen.game .gt-chips { display: none; }
+/* Sièges : anneau de la couleur de l'équipe, plaque du nom en Baloo. */
+:root[data-skin="arcade"] .seat.us .seat-avatar { background: var(--a-us); }
+:root[data-skin="arcade"] .seat.them .seat-avatar { background: var(--a-them); }
+:root[data-skin="arcade"] .seat .name-pill { margin-top: -8px; padding: 0 12px; border-radius: 10px; background: var(--a-bg2); border: 2px solid var(--a-line); font: 800 15px/24px var(--arc); }
+:root[data-skin="arcade"] .seat.us .name-pill { border-color: var(--a-us); } :root[data-skin="arcade"] .seat.them .name-pill { border-color: var(--a-them); }
+:root[data-skin="arcade"] .bubble { border-radius: 10px; font-family: var(--arc); font-weight: 800; background: var(--a-cream); color: var(--a-ink); }
+:root[data-skin="arcade"] .bubble.bid { background: linear-gradient(var(--a-gold1), var(--a-gold)); }
+:root[data-skin="arcade"] .turn-pill { border-radius: 16px; border: 0; background: var(--a-felt1); color: var(--a-text); font-family: var(--arc); font-weight: 800; box-shadow: 0 4px 0 var(--a-felt3); }
+:root[data-skin="arcade"] .turn-pill.on { background: var(--a-coral); color: var(--a-coral-ink); box-shadow: 0 4px 0 var(--a-coral-sh); }
+:root[data-skin="arcade"] .turn-pill.on b { background: #fff6; color: var(--a-coral-ink); }
+:root[data-skin="arcade"] .last-trick-btn { border-radius: 16px; border: 0; background: var(--a-felt1); box-shadow: 0 4px 0 var(--a-felt3); font-family: var(--arc); font-weight: 800; }
+/* Panneau d'enchères (contrée et classique). */
+.a-sheet { width: min(360px, 94vw); display: grid; gap: 10px; padding: 14px 14px 16px; border-radius: 28px; background: var(--a-panel); box-shadow: inset 0 3px 0 var(--a-gold), 0 12px 30px #000a; color: var(--a-text); }
+:root[data-skin="arcade"] .a-sheet { border: 0; }
+.a-sh-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.a-sh-head > b { font: 800 22px var(--arc); }
+.a-sh-head small { color: var(--a-muted); font-weight: 700; font-size: 14px; }
+.a-sh-head small b { color: var(--a-gold); }
+.a-stepper { display: grid; grid-template-columns: 56px 1fr 56px; gap: 10px; align-items: stretch; }
+.a-stepper .teal-btn { min-height: 54px; font-size: 26px; padding: 0; }
+.a-stepper .teal-btn:disabled { opacity: 0.4; }
+.a-amt { display: grid; place-items: center; border-radius: 16px; background: var(--a-bg2); box-shadow: inset 0 0 0 2px var(--a-line); font: 800 34px/1 var(--arc); color: var(--a-gold1); }
+.a-suits { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+:root[data-skin="arcade"] .a-suits .suit-btn { min-height: 56px; border-radius: 14px; border: 0; background: var(--a-cream-off); color: #1a1410; font-size: 26px; box-shadow: 0 4px 0 var(--a-cream-sh); transition: transform 0.08s; }
+:root[data-skin="arcade"] .a-suits .suit-btn.red { color: #d8202a; }
+:root[data-skin="arcade"] .a-suits .suit-btn.on { background: var(--a-cream); transform: translateY(-2px); box-shadow: 0 0 0 3px var(--a-gold), 0 5px 0 var(--a-gold-sh); }
+.a-announce { min-height: 58px; display: flex !important; gap: 8px; font-size: 22px; }
+.a-announce .a-off { display: none; }
+.a-announce:disabled { background: #2a5e5a; color: var(--a-muted); box-shadow: 0 4px 0 var(--a-felt3); text-shadow: none; filter: none; opacity: 1; }
+.a-announce:disabled .a-off { display: inline; font-size: 18px; }
+.a-announce:disabled .a-on, .a-announce:disabled b { display: none; }
+.a-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.a-row button { min-height: 50px; font-size: 19px; }
+.a-classic { display: flex; align-items: center; gap: 14px; }
+.a-turnup { width: 80px; border-radius: 8px; rotate: -5deg; box-shadow: 0 8px 16px #0009; }
+.a-classic p, .a-q { margin: 0; font: 800 24px/1.2 var(--arc); }
+.a-red { color: var(--a-them); }
+.a-bigbtn { min-height: 58px; font-size: 24px; }
+/* Résultat de la donne. */
+.a-result .op-inner { display: grid; justify-items: center; gap: 10px; text-align: center; }
+.a-res-art { width: 100%; max-height: 160px; object-fit: cover; border-radius: 22px; box-shadow: 0 0 0 3px var(--a-gold); }
+.a-pill { padding: 4px 14px; border-radius: 12px; font: 800 14px var(--arc); letter-spacing: 1px; text-transform: uppercase; color: var(--a-bg2); }
+.a-pill.ok { background: var(--a-us); } .a-pill.ko { background: var(--a-them); }
+.a-pill .suit { color: inherit; }
+.a-big { font: 800 92px/0.9 var(--arc); color: var(--a-gold1); text-shadow: 0 5px 0 var(--a-gold-sh); }
+.a-result .a-big { min-height: 0; }
+.a-sub, .a-line, .a-goal-txt { margin: 0; color: var(--a-muted); font-weight: 700; }
+.a-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
+.a-tiles div { display: grid; gap: 2px; padding: 10px; border-radius: 22px; background: var(--a-panel); }
+.a-tiles .us { box-shadow: inset 0 0 0 3px var(--a-us); } .a-tiles .them { box-shadow: inset 0 0 0 3px var(--a-them); }
+.a-tiles small { font: 800 13px var(--arc); letter-spacing: 1px; text-transform: uppercase; }
+.a-tiles .us small { color: var(--a-us); } .a-tiles .them small { color: var(--a-them); }
+.a-tiles b { font: 800 36px/1 var(--arc); }
+.bar.a-goal { width: 100%; height: 14px; border-radius: 7px; background: var(--a-bg2); box-shadow: inset 0 0 0 2px var(--a-line); border: 0; }
+.bar.a-goal i { border-radius: 7px; background: linear-gradient(var(--a-us2), var(--a-us)); }
+:root[data-skin="arcade"] .bid-panel.a-sheet { background: var(--a-panel); color: var(--a-text); border: 0; box-shadow: inset 0 3px 0 var(--a-gold), 0 12px 30px #000a; }
+:root[data-skin="arcade"] .bid-panel.a-sheet::before, :root[data-skin="arcade"] .bid-panel.a-sheet::after { content: none; }
+:root[data-skin="arcade"] .bid-panel.a-sheet .gold-btn.a-announce:disabled { background: #2a5e5a; color: var(--a-muted); box-shadow: 0 4px 0 var(--a-felt3); text-shadow: none; filter: none; opacity: 1; }
+:root[data-skin="arcade"] .bid-panel.a-sheet .red-btn:disabled { opacity: 0.45; }
+:root[data-skin="arcade"] .gold-btn.announce.a-announce { display: flex; gap: 8px; }
+:root[data-skin="arcade"] .gold-btn.announce.a-announce span { font-size: 1em; }
+:root[data-skin="arcade"] .gold-btn.announce.a-announce b { font-size: 1.1em; }

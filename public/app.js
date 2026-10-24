@@ -1409,7 +1409,26 @@ function tableLabel(t) {
   return t.stake ? `${kind} • ${fmt(t.stake)} jetons` : kind;
 }
 // Bandeau du haut (maquette « Votre annonce ») : logo, solde, table, menu, puis le score Nous / Eux.
+// Thème Arcade : pastille des scores (NOUS · état · EUX) et barre des points de la donne.
+function arcadeTop(g, t, me) {
+  const us = me % 2,
+    them = 1 - us;
+  const c = g.contract;
+  const state_ = c && !["bidding"].includes(g.phase)
+    ? `<span class="a-contract">${amountLabel(c.amount)} ${suitHtml(c.suit)}${g.multiplier > 1 ? ` <em>${multLabel(g.multiplier)}</em>` : ""}</span>`
+    : `<span class="a-state">${g.phase === "bidding" ? "Enchères" : ""}</span>`;
+  const live = ["playing", "summary"].includes(g.phase) && g.points && c;
+  const pts = (i) => (g.points?.[i] ?? 0) + (g.belote?.[i] ?? 0);
+  const pct = (n) => Math.max(0, Math.min(100, Math.round((n / 162) * 20) * 5));
+  const need = c ? (c.amount === 250 ? 162 : c.amount === 0 ? 82 : Math.min(162, c.amount)) : 0;
+  return `<header class="game-top a-gtop">
+    ${btn(icon("menu"), "menu", "square-btn", 'aria-label="Menu de la partie"')}
+    <div class="a-score" aria-label="Scores"><span class="a-team us">Nous</span><b>${fmt(g.scores[us])}</b>${state_}<b>${fmt(g.scores[them])}</b><span class="a-team them">Eux</span></div>
+  </header>
+  ${live ? `<div class="a-deal"><small>Donne</small><b class="us">${fmt(pts(us))}</b><span class="a-dbar"><i class="w${pct(pts(us))}"></i><em class="mk${pct(need)}"></em></span><small class="a-need">${c.amount === 250 ? "Capot" : `Contrat ${need}`}</small><b class="them">${fmt(pts(them))}</b></div>` : '<div class="a-deal empty" aria-hidden="true"></div>'}`;
+}
 function topBar(g, t, me) {
+  if (arcade()) return arcadeTop(g, t, me);
   const c = contractInfo(g, t, me);
   return `<header class="game-top">
     <div class="gt-logo">${logo()}</div>
@@ -1539,9 +1558,31 @@ function centerView(g, t, me) {
   return `<div class="bid-zone watching">${auctionStrip(g, t, me)}${flying ? btn("Contrer à la volée", "counter", "red-btn counter-fly") : ""}</div>`;
 }
 // Maquette « Résultat de la donne ».
+function arcadeDeal(g, t, me, h) {
+  const us = me % 2,
+    them = 1 - us;
+  const ours = h.contract.seat % 2 === us;
+  const good = ours === h.made; // la donne est bonne pour nous
+  const label = h.contract.amount === 0 ? (h.made ? "Fait" : "Dedans") : h.made ? "Contrat réussi" : "Contrat chuté";
+  const extra = h.belote[us] ? `<p class="a-line">Belote : +${h.belote[us]} points pour vous</p>` : h.belote[them] ? `<p class="a-line">Belote : +${h.belote[them]} points pour eux</p>` : "";
+  const capot = h.capot && h.contract.amount !== 250 && h.contract.amount !== 0 ? `<p class="a-line">Capot ! ${amountLabel(h.contract.amount)} + 250 points</p>` : "";
+  const goal = Math.max(0, Math.min(100, Math.round((g.scores[us] / (g.rules.target || 1000)) * 20) * 5));
+  return `<div class="overlay-page a-result"><div class="op-inner">
+    ${good ? '<img class="a-res-art" src="/decor/victoire.webp" alt="" draggable="false">' : ""}
+    <span class="a-pill ${good ? "ok" : "ko"}">${label} · ${e(t.seats[h.contract.seat]?.name ?? "")} · ${amountLabel(h.contract.amount)} ${suitHtml(h.contract.suit)}${h.multiplier > 1 ? ` · ${multLabel(h.multiplier)}` : ""}</span>
+    <b class="a-big">+${fmt(h.score[us])}</b>
+    <p class="a-sub">${ours ? "Notre contrat" : "Contrat adverse"} · Eux marquent ${fmt(h.score[them])}</p>
+    ${extra}${capot}
+    <div class="a-tiles"><div class="us"><small>Nous</small><b>${fmt(g.scores[us])}</b></div><div class="them"><small>Eux</small><b>${fmt(g.scores[them])}</b></div></div>
+    <div class="bar a-goal"><i class="w${goal}"></i></div><p class="a-goal-txt">Objectif ${fmt(g.rules.target)} points</p>
+    <p class="next-auto">Donne suivante dans <b data-deadline="${t.nextAt ?? 0}"></b></p>
+    ${tipLine(`deal:${t.gameId}:${h.deal}`)}
+  </div></div>`;
+}
 function dealResult(g, t, me) {
   const h = g.history.at(-1);
   if (!h) return "";
+  if (arcade()) return arcadeDeal(g, t, me, h);
   const ours = h.contract.seat % 2 === me % 2;
   const taker = t.seats[h.contract.seat];
   const belote = h.belote[me % 2] ? `<div class="res-line">${icon("cards", "big")}<div><b>Belote : +${h.belote[me % 2]} points</b><small>Pour votre équipe</small></div></div>` : h.belote[1 - (me % 2)] ? `<div class="res-line">${icon("cards", "big")}<div><b>Belote : +${h.belote[1 - (me % 2)]} points</b><small>Pour l’équipe adverse</small></div></div>` : "";
@@ -1594,7 +1635,41 @@ function moneyLines(r) {
 }
 // Maquette « Choisir votre contrat ».
 // Maquette « Votre annonce ».
+let bidOptions = [];
+function arcadeBid(g, me, t) {
+  const last = (g.auction ?? []).filter((a) => a.type === "bid").at(-1);
+  const lastTxt = last ? `${e(t.seats[last.seat]?.name ?? "")} : <b>${amountLabel(last.amount)} ${suitHtml(last.suit)}</b>` : "";
+  if (g.rules.variant === "classique") {
+    const up = g.turnUp ? g.turnUp.slice(-1) : null;
+    const body =
+      g.round === 1
+        ? `<div class="a-classic">${g.turnUp ? `<img class="a-turnup" src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}">` : ""}<p>Prenez-vous à <b class="${isRed(up) ? "a-red" : ""}">${SUIT_NAMES[up]?.toLowerCase() ?? ""}</b> ?</p></div>${btn("Je prends", "take", "gold-btn wide a-bigbtn", `data-suit="${up}"`)}`
+        : `<p class="a-q">Une autre couleur ?</p><div class="bid-suits a-suits">${HAND_ORDER.filter((x) => x !== up).map((x) => btn(`${SUITS[x]}`, "take", `suit-btn ${isRed(x) ? "red" : ""}`, `data-suit="${x}" aria-label="Atout ${SUIT_NAMES[x]}"`)).join("")}</div>`;
+    return `<div class="bid-zone a-bidzone"><div class="bid-panel a-sheet"><div class="a-sh-head"><b>À vous d’annoncer</b><small>${lastTxt}</small></div>${body}${btn("Je passe", "pass", "teal-btn wide")}</div></div>`;
+  }
+  const canCounter = g.contract && g.contract.seat % 2 !== me % 2;
+  return `<div class="bid-zone a-bidzone"><form id="bid-form" class="bid-panel a-sheet" aria-label="Votre annonce">
+    <div class="a-sh-head"><b>À vous d’annoncer</b><small>${lastTxt}</small></div>
+    <input type="hidden" name="amount" value="${bidAmount ?? ""}"><input type="hidden" name="suit" value="${bidSuit ?? ""}">
+    <div class="a-stepper">${btn("−", "stepAmount", "teal-btn", 'data-dir="-1" aria-label="Moins"', !bidOptions.length || bidOptions.indexOf(bidAmount) <= 0)}<b class="a-amt">${bidAmount ? amountLabel(bidAmount) : "—"}</b>${btn("+", "stepAmount", "teal-btn", 'data-dir="1" aria-label="Plus"', bidOptions.indexOf(bidAmount) >= bidOptions.length - 1)}</div>
+    <div class="bid-suits a-suits">${HAND_ORDER.map((s) => `<button type="button" class="suit-btn ${isRed(s) ? "red" : ""} ${s === bidSuit ? "on" : ""}" data-action="pickSuit" data-suit="${s}" aria-label="Atout ${SUIT_NAMES[s]}" aria-pressed="${s === bidSuit}">${SUITS[s]}</button>`).join("")}</div>
+    <button class="gold-btn announce a-announce" name="go" value="1" ${bidOptions.length && bidSuit ? "" : "disabled"}><span class="a-off">Choisissez un atout</span><span class="a-on">Annoncer</span><b>${bidAmount ? amountLabel(bidAmount) : ""} ${bidSuit ? suitHtml(bidSuit) : ""}</b></button>
+    <div class="a-row">${btn("Passer", "pass", "teal-btn")}${btn(g.rules.flyingCounter ? "Contrer" : "Contrer", "counter", "red-btn", "", !canCounter)}</div>
+  </form></div>`;
+}
 function bidPanel(g, me, t) {
+  if (arcade() && g.rules.variant !== "classique") {
+    // Même règle de montant par défaut que le panneau classique.
+    const options = BIDS.filter((n) => !g.contract || n > g.contract.amount);
+    const key = `${t.gameId}:${g.deal}:${(g.auction ?? []).length}`;
+    if (bidKey !== key || !options.includes(bidAmount)) {
+      bidKey = key;
+      bidAmount = options[0] ?? null;
+    }
+    bidOptions = options;
+    return arcadeBid(g, me, t);
+  }
+  if (arcade()) return arcadeBid(g, me, t);
   if (g.rules.variant === "classique") {
     const up = g.turnUp ? g.turnUp.slice(-1) : null;
     const choices =
@@ -2956,6 +3031,18 @@ document.addEventListener("click", async (ev) => {
       } catch {
         modal(`<h2>Lien d’invitation</h2><input class="copy-field" readonly value="${e(link)}" aria-label="Lien à copier">`);
       }
+      break;
+    }
+    case "stepAmount": {
+      const i = bidOptions.indexOf(bidAmount) + Number(el.dataset.dir);
+      if (i < 0 || i >= bidOptions.length) break;
+      bidAmount = bidOptions[i];
+      el.form.amount.value = bidAmount;
+      el.form.querySelector(".a-amt").textContent = amountLabel(bidAmount);
+      const [minus, plus] = el.form.querySelectorAll(".a-stepper button");
+      minus.disabled = i <= 0;
+      plus.disabled = i >= bidOptions.length - 1;
+      announceLabel(el.form);
       break;
     }
     case "pickAmount":
