@@ -874,7 +874,6 @@ function arcadeHome() {
       return `<button type="button" class="a-banner a-tour" data-action="go" data-page="tournaments"><img src="/decor/club-vip.webp" alt="">${tag ? `<span class="a-tag coral">${tag}</span>` : ""}<b>${tour ? e(tour.name) : "Tournois"}</b><small>${nextTourLine()}</small></button>`;
     })()}
     <button type="button" class="a-banner a-vip" data-action="go" data-page="vip"><img src="/decor/f-vip.webp" alt=""><b>Club VIP</b><small>Tables privées, gros pots</small></button>
-    <button type="button" class="a-banner a-pub" data-action="go" data-page="tables"><img src="/decor/f-publiques.webp" alt=""><b>Tables publiques</b><small>Jouez avec d’autres joueurs</small></button>
     <div class="a-shortcuts">
       ${p.account ? `<button type="button" data-action="referral"><span class="a-sc">${aIcon("gift")}</span>Parrainer</button>` : ""}
       ${p.account ? `<button type="button" data-action="wheel"><span class="a-sc">${aIcon("wheel")}${wheelReady() ? '<i class="dot"></i>' : ""}</span>Roue</button>` : ""}
