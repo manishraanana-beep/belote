@@ -1996,3 +1996,15 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .a-tabbar .tab .avatar { width: 28px; height: 28px; border-radius: 50%; }
 .a-tabbar .a-tab-play { margin-top: -26px; }
 .a-tabbar .a-tab-play .a-suit { display: grid; place-items: center; width: 58px; height: 58px; border-radius: 50%; color: var(--a-ink); background: linear-gradient(var(--a-gold1), var(--a-gold) 55%, var(--a-gold2)); box-shadow: 0 0 0 4px var(--a-bg2), 0 5px 0 4px var(--a-gold-sh); font-size: 26px; }
+:root[data-skin="arcade"] .a-tabbar .tab, :root[data-skin="arcade"] .a-tabbar .tab.on { background: none; border: 0; box-shadow: none; outline: 0; max-width: none; padding: 0; }
+.a-tabbar .a-tab-play { align-self: start; }
+.a-tabbar .a-tab-play span { margin-top: 2px; }
+/* Cartes des villes dans l'accueil Arcade : jeton à droite, la carte entière lance la partie. */
+.page-arcade .stake-card:is(.paris, .monaco, .dubai, .vegas) { min-height: 100px; padding: 10px 12px 10px 16px; box-shadow: inset 0 0 0 2px var(--sc-edge), 0 6px 0 var(--sc-2), 0 0 16px var(--glow); }
+.page-arcade .stake-card .sc-go { display: none; }
+.page-arcade .stake-card .sc-chip { order: 2; margin-left: auto; width: 60px; height: 60px; }
+.page-arcade .stake-card .sc-chip small { display: none; }
+.page-arcade .stake-card .sc-chip b { font: 800 15px var(--arc); }
+.page-arcade .stake-card .sc-main b { font: 800 22px/1.1 var(--arc); white-space: nowrap; }
+.page-arcade .stake-card .sc-main small { font-weight: 700; color: var(--a-text); }
+.page-arcade .stake-card .sc-meta { white-space: nowrap; font-weight: 700; }

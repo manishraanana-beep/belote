@@ -868,7 +868,11 @@ function arcadeHome() {
     </section>
     ${levels.length ? `<h2 class="a-h">Tables</h2>${stakeGrid(levels)}` : ""}
     <h2 class="a-h">Tournois</h2>
-    <button type="button" class="a-banner a-tour" data-action="go" data-page="tournaments"><img src="/decor/club-vip.webp" alt=""><span class="a-tag coral">Tournois</span><b>Tournois</b><small>${nextTourLine()}</small></button>
+    ${(() => {
+      const tour = (state.tournaments ?? []).find((x) => ["soon", "open", "closed", "ready", "running"].includes(x.stage));
+      const tag = tour?.stage === "open" ? "Inscriptions ouvertes" : tour?.stage === "running" ? "En cours" : tour ? "Bientôt" : "";
+      return `<button type="button" class="a-banner a-tour" data-action="go" data-page="tournaments"><img src="/decor/club-vip.webp" alt="">${tag ? `<span class="a-tag coral">${tag}</span>` : ""}<b>${tour ? e(tour.name) : "Tournois"}</b><small>${nextTourLine()}</small></button>`;
+    })()}
     <button type="button" class="a-banner a-vip" data-action="go" data-page="vip"><img src="/decor/f-vip.webp" alt=""><b>Club VIP</b><small>Tables privées, gros pots</small></button>
     <button type="button" class="a-banner a-pub" data-action="go" data-page="tables"><img src="/decor/f-publiques.webp" alt=""><b>Tables publiques</b><small>Jouez avec d’autres joueurs</small></button>
     <div class="a-shortcuts">
