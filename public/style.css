@@ -1904,3 +1904,5 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .screen.game .taker-badge, .screen.game .seat.p2 .taker-badge { font-size: 17px; padding: 3px 13px; gap: 4px; border: 2px solid #fff6c4; box-shadow: 0 4px 12px #000a, 0 0 10px #f6c85f77; }
 .screen.game .taker-badge em { font-size: 13px; }
 .me-seat > b { position: relative; z-index: 2; }
+.seat-avatar .dealer { z-index: 3; }
+.seat-avatar.ring::after { z-index: 1; }
