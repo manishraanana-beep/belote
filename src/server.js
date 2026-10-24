@@ -244,9 +244,9 @@ export function createApp({
     }
     delete db.players[p.id];
   }
-  // Visiteurs sans compte (« Joueur xxxx », 0 jeton) absents depuis 7 jours, qui n'ont jamais
+  // Visiteurs sans compte (« Joueur xxxx », 0 jeton) absents depuis 24 heures, qui n'ont jamais
   // joué ni rien gardé : on les retire pour ne pas encombrer la liste des clients.
-  const GUEST_TTL = 7 * 86400_000;
+  const GUEST_TTL = 86400_000;
   let lastGuestSweep = 0;
   function sweepGuests(now = Date.now()) {
     let n = 0;

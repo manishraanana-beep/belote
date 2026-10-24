@@ -1306,14 +1306,14 @@ test("parrainage : lien, code enregistré, 1 000 jetons chacun à la première p
   }
 });
 
-test("visiteurs sans compte absents depuis 7 jours : retirés, les autres sont gardés", async () => {
+test("visiteurs sans compte absents depuis 24 h : retirés, les autres sont gardés", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "belote-guests-"));
   const app = createApp({ dataDir: dir, tickMs: 100000 });
   try {
-    const old = Date.now() - 8 * 86400_000;
+    const old = Date.now() - 2 * 86400_000;
     const base = { stats: { games: 0, wins: 0 }, history: [], tableId: null, seen: [], friends: {}, friendIn: [], friendOut: [], invites: [] };
     app.db.players.vieux = { ...base, id: "vieux", name: "Joueur aaaa", created: old, lastSeen: old };
-    app.db.players.recent = { ...base, id: "recent", name: "Joueur bbbb", created: old, lastSeen: Date.now() - 86400_000 };
+    app.db.players.recent = { ...base, id: "recent", name: "Joueur bbbb", created: old, lastSeen: Date.now() - 3600_000 };
     app.db.players.joueur = { ...base, id: "joueur", name: "Joueur cccc", created: old, lastSeen: old, stats: { games: 2, wins: 1 } };
     app.db.players.compte = { ...base, id: "compte", name: "Sophie", accountId: "acc1", created: old, lastSeen: old };
     app.db.players.jetons = { ...base, id: "jetons", name: "Joueur dddd", created: old, lastSeen: old, wallet: { balance: 100, reserved: 0 } };
