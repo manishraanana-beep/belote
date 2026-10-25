@@ -2116,3 +2116,5 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 :root[data-skin="arcade"] .gold-btn.announce.a-announce span { font-size: 1em; }
 :root[data-skin="arcade"] .gold-btn.announce.a-announce b { font-size: 1.1em; }
 .a-play-note { margin: -4px 14px 0; text-align: center; color: var(--a-muted); font-weight: 600; font-size: 15px; }
+.gold-btn.a-play { flex-direction: column; gap: 0; min-height: 74px; margin-bottom: 8px; line-height: 1.1; }
+.gold-btn.a-play .a-play-sub { font-size: 14px; letter-spacing: 0; font-weight: 700; }

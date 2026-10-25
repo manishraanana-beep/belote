@@ -850,8 +850,7 @@ function playHero() {
         <button type="button" class="${classic ? "" : "on"}" data-action="arcMode" data-mode="contree" aria-pressed="${!classic}">Contrée</button>
         <button type="button" class="${classic ? "on" : ""}" data-action="arcMode" data-mode="classique" aria-pressed="${classic}">Classique</button>
       </div>
-      <button type="button" class="gold-btn a-play" data-action="${classic ? "quickClassic" : "quick"}">JOUER</button>
-      <p class="a-play-note">Partie rapide en 750 points${state.player.account && state.player.wallet.available / 2 >= 200 ? " · 200 jetons" : ""}</p>
+      <button type="button" class="gold-btn a-play" data-action="${classic ? "quickClassic" : "quick"}">JOUER<small class="a-play-sub">Partie rapide en 750 points${state.player.account && state.player.wallet.available / 2 >= 200 ? " · 200 jetons" : ""}</small></button>
     </section>`;
 }
 function arcadeHome() {
