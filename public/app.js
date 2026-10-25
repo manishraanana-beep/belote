@@ -850,7 +850,8 @@ function playHero() {
         <button type="button" class="${classic ? "" : "on"}" data-action="arcMode" data-mode="contree" aria-pressed="${!classic}">Contrée</button>
         <button type="button" class="${classic ? "on" : ""}" data-action="arcMode" data-mode="classique" aria-pressed="${classic}">Classique</button>
       </div>
-      <button type="button" class="gold-btn a-play" data-action="${classic ? "quickClassic" : "quick"}">JOUER<small>· ${classic ? "Classique · 750 pts" : "Contrée · 750 pts"}</small></button>
+      <button type="button" class="gold-btn a-play" data-action="${classic ? "quickClassic" : "quick"}">JOUER</button>
+      <p class="a-play-note">Partie rapide en 750 points${state.player.account && state.player.wallet.available / 2 >= 200 ? " · 200 jetons" : ""}</p>
     </section>`;
 }
 function arcadeHome() {
@@ -903,7 +904,7 @@ function homePage() {
     ${playHero()}
     ${live ? `<p class="live-now"><i class="live-dot"></i>${live} partie${live > 1 ? "s" : ""} en cours en ce moment</p>` : ""}
     ${invitesBlock()}
-    ${stakeLevels().length ? `<h2 class="section orn-title">Tables des villes</h2>${stakeGrid(stakeLevels())}` : ""}
+    ${stakeLevels().length ? `<h2 class="section orn-title">Tables contrée en 1000 points</h2>${stakeGrid(stakeLevels())}` : ""}
     <div class="features">
       ${featureCard("go", 'data-page="vip"', "f-vip", "Tables VIP", "Une expérience exclusive", '<img src="/decor/f-vip.webp" alt="">')}
       ${featureCard("go", 'data-page="tournaments"', "f-tour", "Tournois", nextTourLine(), '<img src="/decor/club-vip.webp" alt="">')}
