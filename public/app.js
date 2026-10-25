@@ -905,7 +905,6 @@ function homePage() {
     ${invitesBlock()}
     ${stakeLevels().length ? `<h2 class="section orn-title">Tables des villes</h2>${stakeGrid(stakeLevels())}` : ""}
     <div class="features">
-      ${featureCard("go", 'data-page="tables"', "f-public", "Table contrée", "Jouez avec d’autres joueurs", '<img src="/decor/f-publiques.webp" alt="">')}
       ${featureCard("go", 'data-page="vip"', "f-vip", "Tables VIP", "Une expérience exclusive", '<img src="/decor/f-vip.webp" alt="">')}
       ${featureCard("go", 'data-page="tournaments"', "f-tour", "Tournois", nextTourLine(), '<img src="/decor/club-vip.webp" alt="">')}
     </div>
