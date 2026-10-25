@@ -735,7 +735,8 @@ function shell(body, { backBtn = true, tabs = false, vip = false, cls = "", righ
   </div>`;
 }
 function tabBar() {
-  if (arcade()) {
+  // Barre du bas (tous thèmes) : Boutique · Tournois · Jouer · Amis · Profil.
+  {
     const on = (n) => (page.name === n || (n === "home" && ["home", "vip"].includes(page.name)) ? "on" : "");
     const pending = state.player.friendIn.length;
     return `<nav class="tabbar a-tabbar" aria-label="Navigation">
@@ -746,8 +747,6 @@ function tabBar() {
       <button type="button" class="tab ${on("settings")} ${on("profile")}" data-action="go" data-page="settings">${avatar(state.player.avatar)}<span>Profil</span></button>
     </nav>`;
   }
-  const t = (name, label, ic) => `<button type="button" class="tab ${page.name === name || (name === "home" && ["home", "vip"].includes(page.name)) ? "on" : ""}" data-action="go" data-page="${name}">${icon(ic)}<span>${label}</span></button>`;
-  return `<nav class="tabbar" aria-label="Navigation">${t("home", "Accueil", "home")}${t("tables", "Jouer", "cards")}${t("boutique", "Boutique", "shop")}${t("settings", "Compte", "user")}</nav>`;
 }
 const field = (ic, name, type, label, extra = "") =>
   `<label class="field">${icon(ic)}<input name="${name}" type="${type}" placeholder="${label}" aria-label="${label}" ${extra}>${type === "password" ? `<button type="button" class="eye" data-action="peek" aria-label="Afficher le mot de passe">${icon("eye")}</button>` : ""}</label>`;
@@ -842,6 +841,18 @@ const A_ICONS = {
   trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5c0 3 1.5 5 4 5M16 6h3c0 3-1.5 5-4 5M12 13v4M8 20h8M9 17h6v3H9z"/>',
 };
 const aIcon = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${A_ICONS[k]}</svg>`;
+function playHero() {
+  const classic = arcMode === "classique";
+  const online = state.tables.reduce((n, t) => n + (t.humans ?? 0), 0);
+  return `<section class="a-hero">
+      <div class="a-hero-art"><img src="/decor/f-classique.webp" alt="" draggable="false"><span class="a-tag coral">Partie rapide</span>${online ? `<span class="a-tag dark"><i class="a-dot"></i>${fmt(online)} en ligne</span>` : ""}</div>
+      <div class="a-seg" role="group" aria-label="Variante">
+        <button type="button" class="${classic ? "" : "on"}" data-action="arcMode" data-mode="contree" aria-pressed="${!classic}">Contrée</button>
+        <button type="button" class="${classic ? "on" : ""}" data-action="arcMode" data-mode="classique" aria-pressed="${classic}">Classique</button>
+      </div>
+      <button type="button" class="gold-btn a-play" data-action="${classic ? "quickClassic" : "quick"}">JOUER<small>· ${classic ? "Classique · 750 pts" : "Contrée · 750 pts"}</small></button>
+    </section>`;
+}
 function arcadeHome() {
   const p = state.player;
   const l = p.progress.level;
@@ -858,14 +869,7 @@ function arcadeHome() {
     ${needVerify() ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
     ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 crédits offerts ${icon("chevron", "tiny")}</button>`}
     ${invitesBlock()}
-    <section class="a-hero">
-      <div class="a-hero-art"><img src="/decor/f-classique.webp" alt="" draggable="false"><span class="a-tag coral">Partie rapide</span>${online ? `<span class="a-tag dark"><i class="a-dot"></i>${fmt(online)} en ligne</span>` : ""}</div>
-      <div class="a-seg" role="group" aria-label="Variante">
-        <button type="button" class="${classic ? "" : "on"}" data-action="arcMode" data-mode="contree" aria-pressed="${!classic}">Contrée</button>
-        <button type="button" class="${classic ? "on" : ""}" data-action="arcMode" data-mode="classique" aria-pressed="${classic}">Classique</button>
-      </div>
-      <button type="button" class="gold-btn a-play" data-action="${classic ? "quickClassic" : "quick"}">JOUER<small>· ${classic ? "Classique · 750 pts" : "Contrée · 750 pts"}</small></button>
-    </section>
+    ${playHero()}
     ${levels.length ? `<h2 class="a-h">Tables</h2>${stakeGrid(levels)}` : ""}
     <h2 class="a-h">Tournois</h2>
     ${(() => {
@@ -896,14 +900,14 @@ function homePage() {
     ${p.account && p.wallet.loginBonus?.amount > 0 ? (wheelReady() ? `<p class="bonus-line">${btn("🎡 La roue du jour vous attend ! Tourner", "wheel", "inline-link")}</p>` : `<p class="bonus-line">🎡 Prochaine roue du jour dans <b data-countdown="${p.wallet.loginBonus.next}"></b>${p.wallet.loginBonus.streak ? ` · série ${p.wallet.loginBonus.streak} j 🔥` : ""}</p>`) : ""}
     ${needVerify() ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
     ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 crédits offerts ${icon("chevron", "tiny")}</button>`}
-    ${btn(`${icon("cards")} Jouer maintenant${p.account && p.wallet.available / 2 >= 200 ? '<small class="quick-stake">Partie rapide en 750 points · 200 jetons</small>' : '<small class="quick-stake">Partie rapide en 750 points</small>'}`, "quick", "gold-btn wide big quick-btn")}
+    ${playHero()}
     ${live ? `<p class="live-now"><i class="live-dot"></i>${live} partie${live > 1 ? "s" : ""} en cours en ce moment</p>` : ""}
     ${invitesBlock()}
+    ${stakeLevels().length ? `<h2 class="section orn-title">Tables des villes</h2>${stakeGrid(stakeLevels())}` : ""}
     <div class="features">
       ${featureCard("go", 'data-page="tables"', "f-public", "Table contrée", "Jouez avec d’autres joueurs", '<img src="/decor/f-publiques.webp" alt="">')}
       ${featureCard("go", 'data-page="vip"', "f-vip", "Tables VIP", "Une expérience exclusive", '<img src="/decor/f-vip.webp" alt="">')}
       ${featureCard("go", 'data-page="tournaments"', "f-tour", "Tournois", nextTourLine(), '<img src="/decor/club-vip.webp" alt="">')}
-      ${featureCard("quickClassic", "", "f-classic", "Belote classique", "Je prends ou je passe · 750 points", '<img src="/decor/f-classique.webp" alt="">')}
     </div>
     <div class="quick-tiles">
       ${state.player.account ? qtile("gift", "Parrainer", "referral") : ""}

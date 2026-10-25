@@ -1915,8 +1915,11 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 @font-face { font-family: "Baloo 2"; src: url("/fonts/baloo-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
 @font-face { font-family: "Baloo 2"; src: url("/fonts/baloo-800.woff2") format("woff2"); font-weight: 800; font-display: swap; }
 :root[data-skin="arcade"] {
-  --arc: "Baloo 2", var(--title), sans-serif;
+  --arc: "Baloo 2", sans-serif;
   --title: "Baloo 2", "Cinzel", serif;
+}
+:root {
+  --arc: var(--title);
   --a-bg1: #0f3a3b; --a-bg2: #08262a; --a-panel: #0b3134; --a-glow: #1a5a58; --a-line: #2f8f86;
   --a-text: #fdf3dc; --a-muted: #b7d3cd;
   --a-gold1: #ffe08a; --a-gold: #f6c85f; --a-gold2: #e8a92c; --a-gold-sh: #a8701a; --a-ink: #3a2306;
@@ -1988,7 +1991,7 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .a-sc svg { width: 24px; height: 24px; fill: none; stroke: var(--a-gold); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .a-sc .dot { position: absolute; top: 0; right: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--a-coral); }
 /* — Barre d'onglets Arcade — */
-:root[data-skin="arcade"] .tabbar.a-tabbar { height: calc(78px + var(--safe-b)); padding: 6px 4px var(--safe-b); align-items: center; background: var(--a-bg2); border-top: 2px solid var(--a-line); backdrop-filter: none; }
+.tabbar.a-tabbar { height: calc(78px + var(--safe-b)); padding: 6px 4px var(--safe-b); align-items: center; background: var(--a-bg2); border-top: 2px solid var(--a-line); backdrop-filter: none; }
 .a-tabbar .tab { position: relative; display: grid; justify-items: center; gap: 2px; color: var(--a-muted); font: 700 12px var(--ui); }
 .a-tabbar .tab.on { color: var(--a-gold1); }
 .a-suit { position: relative; font-style: normal; font-size: 24px; line-height: 28px; }
@@ -1996,7 +1999,7 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .a-tabbar .tab .avatar { width: 28px; height: 28px; border-radius: 50%; }
 .a-tabbar .a-tab-play { margin-top: -26px; }
 .a-tabbar .a-tab-play .a-suit { display: grid; place-items: center; width: 58px; height: 58px; border-radius: 50%; color: var(--a-ink); background: linear-gradient(var(--a-gold1), var(--a-gold) 55%, var(--a-gold2)); box-shadow: 0 0 0 4px var(--a-bg2), 0 5px 0 4px var(--a-gold-sh); font-size: 26px; }
-:root[data-skin="arcade"] .a-tabbar .tab, :root[data-skin="arcade"] .a-tabbar .tab.on { background: none; border: 0; box-shadow: none; outline: 0; max-width: none; padding: 0; }
+.a-tabbar .tab, .a-tabbar .tab.on { background: none; border: 0; box-shadow: none; outline: 0; max-width: none; padding: 0; }
 .a-tabbar .a-tab-play { align-self: start; }
 .a-tabbar .a-tab-play span { margin-top: 2px; }
 /* Cartes des villes dans l'accueil Arcade : jeton à droite, la carte entière lance la partie. */

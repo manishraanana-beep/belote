@@ -92,7 +92,8 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   await B.keyboard.press("Escape");
 
   // Création d'une table publique à 200 crédits.
-  await A.locator('.tabbar [data-page="tables"]').click();
+  await A.locator('.tabbar [data-page="home"]').click();
+  await A.locator('.page-home .feature[data-page="tables"]').click();
   await A.locator('[data-action="createPublic"]').click();
   await A.locator('#create-form [name="name"]').fill("Table des amis");
   await A.locator('#create-form label:has(input[name="stake"][value="200"])').click();
@@ -117,7 +118,7 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   // C et D rejoignent depuis la liste publique, après l'avertissement de mise.
   for (const p of [C, D]) {
     await p.reload();
-    await p.locator('.tabbar [data-page="tables"]').click();
+    await p.locator('.page-home .feature[data-page="tables"]').click();
     await p.locator('.table-card:has-text("Table des amis") [data-action="join"]').click();
     // Entrée directe, sans fenêtre de règles.
     await expect(p.locator(".page-room .page-title")).toHaveText("Table des amis");
