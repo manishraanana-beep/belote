@@ -1239,7 +1239,7 @@ function tournamentPage() {
       <li>Mêmes règles sur toutes les tables du tournoi ; équipes fixes après le départ, les gagnants passent au tour suivant.</li>
       <li>Coupure de connexion : reprise possible pendant ${Math.round(t.rules.reconnectSeconds / 60) || 1} min ; au-delà de ${Math.round(t.rules.forfeitSeconds / 60)} min d’absence ou en cas d’abandon, l’équipe perd par forfait.</li>
       <li>Temps de jeu dépassé : passe aux enchères, carte autorisée la plus forte au jeu. Aucun robot ne participe.</li>
-      <li>Équipes insuffisantes (moins de ${t.minTeams}) : ${t.insufficient === "cancel" ? "tournoi annulé" : `report de ${t.postponeMinutes} min`}, inscrits prévenus.</li>
+      <li>Équipes insuffisantes (moins de ${t.minTeams}) : ${t.insufficient === "cancel" ? "tournoi annulé" : t.insufficient === "bots" ? "tableau complété avec des robots" : `report de ${t.postponeMinutes} min`}, inscrits prévenus.</li>
       <li>Aucune mise : les rencontres ne débitent aucun jeton.</li>
     </ul>
     <p class="hint mid">Heure de référence : ${new Date(t.start).toLocaleString("fr-FR", { timeZone: t.timeZone, hour: "2-digit", minute: "2-digit", timeZoneName: "short" })} (${e(t.timeZone)})</p>`,
@@ -3245,7 +3245,7 @@ function tourForm(t) {
       <label>Temps par tour (s)<input type="number" name="turnSeconds" min="10" max="120" value="${v.rules.turnSeconds}"></label>
       <label>Reprise après coupure (s)<input type="number" name="reconnectSeconds" min="30" max="600" value="${v.rules.reconnectSeconds}"></label>
       <label>Forfait après absence (s)<input type="number" name="forfeitSeconds" min="30" max="1800" value="${v.rules.forfeitSeconds}"></label>
-      <label>Équipes insuffisantes${sel("insufficient", [["postpone", "Reporter"], ["cancel", "Annuler"]], v.insufficient)}</label>
+      <label>Équipes insuffisantes${sel("insufficient", [["postpone", "Reporter"], ["cancel", "Annuler"], ["bots", "Compléter avec des robots"]], v.insufficient)}</label>
       <label>Rappel avant le départ (heures)<input type="number" name="reminderHours" min="0" max="48" value="${v.reminderHours ?? 3}"></label>
       <label>Report de (min)<input type="number" name="postponeMinutes" min="5" max="10080" value="${v.postponeMinutes}"></label>
     </div>

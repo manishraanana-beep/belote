@@ -275,3 +275,34 @@ test("tableaux de 16 et 32 équipes jusqu’à la finale", () => {
     assert.equal(tour.rounds.length, Math.log2(size));
   }
 });
+
+test("équipes insuffisantes : tableau complété avec des robots", () => {
+  const s = setup();
+  const tour = s.tours.create(s.base({ minTeams: 4, insufficient: "bots" }));
+  s.advance(HOUR);
+  for (let i = 0; i < 3; i++) s.tours.register(tour.id, "p" + i); // 1 équipe de 2 + 1 joueur seul
+  s.at(tour.start - 10 * MIN);
+  for (let i = 0; i < 3; i++) s.tours.confirm(tour.id, "p" + i);
+  s.at(tour.confirmBy);
+  s.tours.tick();
+  assert.equal(tour.status, "published", "pas de report");
+  assert.equal(tour.teamsList.length, 4, "complété jusqu'au minimum");
+  const solo = tour.teamsList.find((t) => t.pids.length === 1);
+  assert.equal(solo.bots, 1);
+  assert.match(solo.name, / & Robot$/);
+  assert.equal(tour.teamsList.filter((t) => !t.pids.length).length, 2, "deux équipes de robots");
+  s.at(tour.start);
+  s.tours.tick();
+  assert.equal(tour.status, "running");
+  // Robots contre robots : rencontre réglée sans table.
+  const botMatch = tour.rounds[0].find((m) => !s.tours.isTournamentTable?.(m.tableId) && m.status === "done");
+  if (botMatch) assert.ok(botMatch.winner);
+  playOut(s, tour);
+  assert.equal(tour.status, "finished");
+  // Sans joueur confirmé, pas de tournoi 100 % robots.
+  const s2 = setup();
+  const t2 = s2.tours.create(s2.base({ minTeams: 4, insufficient: "bots" }));
+  s2.at(t2.confirmBy);
+  s2.tours.tick();
+  assert.equal(t2.status, "cancelled");
+});

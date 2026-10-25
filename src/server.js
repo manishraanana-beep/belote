@@ -401,6 +401,8 @@ export function createApp({
     t.tournament = { id: tour.id, match: m.id, name: tour.name, round: m.round, forfeitSeconds: tour.forfeitSeconds };
     const order = [a.pids[0], b.pids[0], a.pids[1], b.pids[1]];
     order.forEach((pid, seat) => {
+      // Place sans joueur (option « compléter avec des robots ») : un robot s'assoit.
+      if (!pid) return void (t.seats[seat] = makeBot(seat, null, t));
       const p = db.players[pid];
       if (p.tableId && p.tableId !== t.id && db.tables[p.tableId]) leave(p, true);
       p.tableId = t.id;

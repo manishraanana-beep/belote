@@ -85,7 +85,8 @@ export function normalize(input, rewardIds) {
   // Rappel « quelques heures avant » (0 = aucun ; le rappel d'une heure reste toujours envoyé).
   const reminderHours = Number(d.reminderHours ?? 3);
   check(Number.isInteger(reminderHours) && reminderHours >= 0 && reminderHours <= 48, "Délai de rappel invalide");
-  const insufficient = d.insufficient === "cancel" ? "cancel" : "postpone";
+  // Équipes insuffisantes : reporter, annuler, ou compléter avec des robots (badge ROBOT).
+  const insufficient = ["cancel", "bots"].includes(d.insufficient) ? d.insufficient : "postpone";
   const postponeMinutes = Number(d.postponeMinutes ?? 30);
   check(Number.isInteger(postponeMinutes) && postponeMinutes >= 5 && postponeMinutes <= 7 * 24 * 60, "Délai de report invalide");
   const minTeams = Number(d.minTeams ?? teams);
@@ -385,6 +386,14 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
     take(tour.regs.filter((r) => !r.waitlist));
     take(tour.regs.filter((r) => r.waitlist)); // remplaçants confirmés, dans l'ordre d'inscription
     while (singles.length >= 2 && teams.length < tour.teams) teams.push({ id: id(), pids: singles.splice(0, 2), formed: true });
+    // Option « compléter avec des robots » : un inscrit seul joue avec un robot, puis des équipes
+    // de robots complètent le tableau jusqu'au minimum d'équipes (au moins un joueur inscrit).
+    if (tour.insufficient === "bots" && (teams.length || singles.length)) {
+      while (singles.length && teams.length < tour.teams) teams.push({ id: id(), pids: [singles.shift()], bots: 1, formed: true });
+      let n = 0;
+      while (teams.length < tour.minTeams) teams.push({ id: id(), pids: [], bots: 2, formed: true, robots: ++n });
+      if (n || teams.some((t) => t.bots)) log(tour, "robots", { teams: n, partners: teams.filter((t) => t.bots === 1).length });
+    }
     excluded.push(...singles);
     const absent = registered(tour).filter((pid) => !tour.confirmed[pid]);
     if (teams.length < tour.minTeams) {
@@ -402,7 +411,7 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
       }
       return false;
     }
-    for (const t of teams) t.name = t.pids.map(name).join(" & ");
+    for (const t of teams) t.name = t.pids.length ? [...t.pids.map(name), ...Array(t.bots ?? 0).fill("Robot")].join(" & ") : `Robots ${t.robots}`;
     // Tirage au sort du tableau (aléa cryptographique) ; les places vides sont des exemptions.
     for (let i = teams.length - 1; i > 0; i--) {
       const j = randomInt(i + 1);
@@ -436,7 +445,12 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
   function launchRound(tour, r) {
     for (const m of tour.rounds[r]) {
       if (m.status !== "waiting") continue;
-      if (m.a && m.b) {
+      if (m.a && m.b && !team(tour, m.a).pids.length && !team(tour, m.b).pids.length) {
+        // Deux équipes de robots : rencontre tirée au sort, sans table.
+        m.status = "done";
+        m.winner = randomInt(2) ? m.a : m.b;
+        log(tour, "robots-match", { match: m.id, winner: m.winner });
+      } else if (m.a && m.b) {
         m.status = "playing";
         m.startedAt = now();
         try {
