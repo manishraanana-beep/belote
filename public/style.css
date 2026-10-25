@@ -1969,7 +1969,7 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .a-seg { display: flex; margin: 0 14px; padding: 4px; border-radius: 16px; background: var(--a-bg2); }
 .a-seg button { flex: 1; height: 42px; border-radius: 12px; font: 800 17px var(--arc); color: var(--a-muted); }
 .a-seg button.on { background: var(--a-felt1); color: var(--a-text); box-shadow: inset 0 -3px 0 var(--a-felt2); }
-.gold-btn.a-play { margin: 0 14px 6px; min-height: 62px; font-size: 28px; letter-spacing: 2px; gap: 8px; }
+.gold-btn.a-play { margin: 0 14px 2px; min-height: 62px; font-size: 28px; letter-spacing: 2px; gap: 8px; }
 .gold-btn.a-play small { font-size: 15px; letter-spacing: 0; font-weight: 700; }
 .a-h { margin: 6px 0 -2px; font: 800 18px var(--arc); }
 .page-arcade .stake-grid { gap: 12px; }
@@ -2115,3 +2115,4 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 :root[data-skin="arcade"] .gold-btn.announce.a-announce { display: flex; gap: 8px; }
 :root[data-skin="arcade"] .gold-btn.announce.a-announce span { font-size: 1em; }
 :root[data-skin="arcade"] .gold-btn.announce.a-announce b { font-size: 1.1em; }
+.a-play-note { margin: -4px 14px 0; text-align: center; color: var(--a-muted); font-weight: 600; font-size: 15px; }
