@@ -2262,7 +2262,8 @@ export function createApp({
       if (waitingForPlayers(t)) {
         if (callPlayers(t, now)) dirty = true;
       } else if (t.calls) endCalls(t);
-      if (t.idleSince && now - t.idleSince > 14 * 86400_000 && !t.seats.some(Boolean)) {
+      if (t.idleSince && now - t.idleSince > 86400_000 && !t.seats.some(Boolean)) {
+        // Table vide et inactive depuis 24 h : supprimée (les tables des villes sont recréées aussitôt).
         delete db.tables[t.id];
         continue;
       }
