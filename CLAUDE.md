@@ -4,14 +4,16 @@ Belote contrée et belote classique en ligne, **en français**.
 Site : https://appi-belote.up.railway.app · version en ligne : `/api/health` (champ `version`) · back-office : `/admin`.
 Documentation détaillée (à lire seulement si besoin) : `docs/DOCUMENTATION-COMPLETE.md` (le plan économie/monétisation est dans sa section 14).
 
-## Économie de tokens — à appliquer à chaque tâche
+## Économie de tokens — règles obligatoires
 
-- **Ne lire que les fichiers nécessaires.** Chercher avec `grep -n` / Grep, puis lire la plage utile (`sed -n 'a,bp'`, Read avec `offset`/`limit`). Jamais `app.js`, `server.js` ou `style.css` en entier.
-- **Modifications ciblées** : Edit ou remplacement exact d'un passage. Ne pas réécrire un fichier, ne pas reformater, ne pas renommer sans raison.
-- **Préserver l'existant** : aucune régression ; ne pas toucher à ce qui n'est pas demandé (moteur, comptes, jetons, serveur si la demande est visuelle).
-- **Réponses concises**, en français simple : le résultat d'abord, puis l'essentiel.
-- **Pas d'analyses répétées** : s'appuyer sur ce fichier et sur ce qui a déjà été lu dans la conversation ; ne pas relire un fichier déjà vu sans raison.
-- Lancer seulement les tests utiles pendant le travail (ex. `node --test test/engine.test.js`), la suite complète avant la mise en ligne.
+1. **Lire uniquement les fichiers nécessaires** à la tâche : chercher d'abord (`grep -n` / Grep), puis lire la plage utile (`sed -n 'a,bp'`, Read avec `offset`/`limit`). Jamais `app.js`, `server.js` ou `style.css` en entier. Ne pas relire un fichier déjà vu sans raison.
+2. **Jamais de réécriture complète** si une modification ciblée suffit : Edit ou remplacement exact d'un passage ; pas de reformatage, pas de renommage gratuit.
+3. **Ne pas modifier l'existant sans nécessité** : aucune régression ; ne pas toucher à ce qui n'est pas demandé (moteur, comptes, jetons, serveur si la demande est visuelle).
+4. **Réutiliser les composants existants** : `btn()`, `icon()`, `coins()`, `fmt()`, `modal()`, `toast()`, `ask()`/`cmd()`, `feeOf()`, `stakeLevels()`, `economy.post()`, `progression.grant()`/`award()`, `registry.record()`, `check()` ; classes CSS existantes avant d'en créer.
+5. **Réponses courtes**, en français simple : le résultat d'abord, puis l'essentiel. Pas de répétition ni d'analyse déjà faite ; s'appuyer sur ce fichier.
+6. **Ne pas afficher de code** dans les réponses sauf demande explicite.
+7. **Conserver les décisions techniques** (section ci-dessous) ; les mettre à jour ici quand une nouvelle décision importante est prise.
+8. **Vérifier après chaque modification** : `node --check public/app.js` pour le client ; test ciblé (ex. `node --test test/engine.test.js`) ; suite complète (`npm test` + `npx playwright test`) avant la mise en ligne ; capture si changement visuel.
 
 ## Architecture
 
@@ -31,6 +33,17 @@ Documentation détaillée (à lire seulement si besoin) : `docs/DOCUMENTATION-CO
 - **Tournois** (inscriptions, présence, élimination directe, pause 1 min entre tours, robots en complément, invitation WhatsApp).
 - Comptes, amis, invitations, parrainage, roue du jour, défis, niveaux, boutique, classement, thème Arcade optionnel.
 - **Back-office** : tableau de bord + sauvegarde, clients, tournois, modération, boutique, tables, réglages.
+
+## Décisions techniques à conserver
+
+- Montants internes en **demi-crédits** (`toUnits`/`toCredits`) ; tout mouvement passe par `economy.post` (clé unique, jamais deux fois).
+- **Droit de table** 10 % de la mise (`BELOTE_TABLE_FEE_PCT`), retiré de la circulation, rendu si annulation ; pas en tournoi ni partie gratuite.
+- **Tournois payants** : droit d'entrée prélevé au départ sur les seuls joueurs présents ; cagnotte = entrées − part Maison (10–20 %), 70 / 30.
+- **Parrainage** versé après 10 parties et e-mail vérifié ; **Gmail normalisé** (points et « + ») ; connexion d'abord à l'adresse exacte.
+- **Achats fermés** ; registre `db.purchases` (clé `provider:ref`), reprise des jetons si remboursement/opposition ; plafond mensuel ; **Pack Fondateur** une fois, après 3 parties, jusqu'à `BELOTE_FOUNDER_UNTIL`.
+- **Membre Prestige** attribué depuis le back-office (`p.prestige.until`) : jetons du jour avec la roue, cadre/étoile, voix d'annonce ; objets Prestige invalides à la fin de l'abonnement (`progression.shown`).
+- Attente avant robots **15 s** ; « en ligne » = autres joueurs connectés, masqué à 0.
+- Écartés par Jacques (ne pas refaire) : explication des annonces des robots, Classique sur les villes, accessibilité (taille du texte, 4 couleurs), tournoi quotidien, ligues, classement par équipe.
 
 ## Règles de développement
 
