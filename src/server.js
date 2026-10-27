@@ -1876,7 +1876,8 @@ export function createApp({
     if (url.pathname === "/api/classement") {
       const me = getPlayer(req);
       // Tournois gagnés : les joueurs de l'équipe championne.
-      const cups = {};
+      // Trophées des tournois supprimés du back-office, conservés à part.
+      const cups = { ...(db.tourCups ?? {}) };
       for (const tour of Object.values(db.tournaments ?? {}))
         if (tour.status === "finished" && tour.champion)
           for (const pid of tour.teamsList?.find((x) => x.id === tour.champion)?.pids ?? []) cups[pid] = (cups[pid] ?? 0) + 1;
@@ -2020,6 +2021,16 @@ export function createApp({
             tournaments.postpone(String(d.id), d.start);
           } else if (d.type === "tourCancel") {
             tournaments.cancel(String(d.id), clean(d.reason || "Annulé par l’organisateur", 200));
+          } else if (d.type === "tourDelete") {
+            // Suppression d'un ancien tournoi (terminé, annulé ou brouillon) ; les trophées restent.
+            const tour = db.tournaments?.[String(d.id)];
+            check(tour, "Tournoi introuvable");
+            check(["finished", "cancelled", "draft"].includes(tour.status), "Seuls les tournois terminés, annulés ou en brouillon peuvent être supprimés");
+            if (tour.status === "finished" && tour.champion) {
+              db.tourCups ??= {};
+              for (const pid of tour.teamsList?.find((x) => x.id === tour.champion)?.pids ?? []) db.tourCups[pid] = (db.tourCups[pid] ?? 0) + 1;
+            }
+            delete db.tournaments[tour.id];
           } else if (d.type === "tourDuplicate") {
             tournaments.duplicate(String(d.id));
           } else if (d.type === "loginBonus") {
