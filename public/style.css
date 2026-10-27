@@ -2137,3 +2137,10 @@ table.metrics th, table.metrics td { padding: 4px 6px; text-align: right; border
 table.metrics th:first-child, table.metrics td:first-child { text-align: left; }
 table.metrics .plus { color: #7fd48a; }
 table.metrics .minus { color: #ff8f8f; }
+/* Sens d'une annonce de robot */
+.bubble .bid-why { display: block; font-size: 11px; font-weight: 600; white-space: normal; width: 130px; line-height: 1.2; opacity: .8; margin-top: 2px; }
+/* Fin de partie d'un visiteur : proposition de compte */
+.guest-keep { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 8px auto; padding: 10px 14px; max-width: 320px; border-radius: 14px; background: rgba(255, 214, 102, .12); border: 1px solid rgba(255, 214, 102, .45); text-align: center; }
+.guest-keep small { opacity: .85; }
+.seat.p1 .bubble:has(.bid-why) { left: 0; translate: none; }
+.seat.p3 .bubble:has(.bid-why) { left: auto; right: 0; translate: none; }

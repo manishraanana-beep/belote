@@ -209,10 +209,32 @@ const SFX = {
   coin: () => chime([1568, 2093], { gap: 0.05, vol: 0.03, decay: 0.3 }),
 };
 // Compare l'état précédent et le nouveau pour jouer le bon effet.
+// Carte jouée pour vous : la seule carte possible, ou celle présélectionnée avant votre tour.
+function autoPlay(tries = 0) {
+  const t = state?.table,
+    g = t?.game;
+  if (!g || g.phase !== "playing") return;
+  const me = t.seats.findIndex((s) => s?.id === state.player.id);
+  if (g.turn !== me || sentCard?.version === g.version || playedOnDown) return;
+  if (collection) return tries < 10 && setTimeout(() => autoPlay(tries + 1), 400);
+  const pre = selected && g.legal.includes(selected) ? selected : null;
+  if (selected && !pre) {
+    selected = null;
+    toast("Votre carte présélectionnée n’est pas autorisée : choisissez-en une autre");
+    render();
+  }
+  const c = pre ?? (g.legal.length === 1 ? g.legal[0] : null);
+  if (!c) return;
+  selected = null;
+  markSent(c, g.version);
+  cmd("action", { version: g.version, action: { type: "play", card: c } });
+  render();
+}
 function gameEffects(prevT, nextT) {
   const a = prevT?.game,
     b = nextT?.game;
   if (!b || !nextT || prevT?.id !== nextT.id) return;
+  if (b.phase === "playing" && a?.version !== b.version) setTimeout(autoPlay, 500);
   const me = nextT.seats.findIndex((x) => x?.id === state?.player?.id);
   if (me < 0) return;
   if (!a) return;
@@ -586,7 +608,7 @@ function onlineBlock(t, me, free) {
         .map((o) => `<div class="online-row">${avatar(o.avatar)}<span><b>${e(o.name)}</b><small>${o.friend ? "Ami · " : ""}${o.busy ? "En partie" : "Disponible"}</small></span>${o.invited ? '<span class="tag-ok">Invité ✓</span>' : btn("Inviter", "inviteOnline", "gold-btn small", `data-id="${o.id}"`, o.busy)}</div>`)
         .join("") || '<p class="empty">Personne d’autre n’est connecté pour l’instant.</p>'
     }</div>
-    ${t.fillBots && !t.stake ? `<p class="hint mid">Sans réponse sous ${45} s, des robots complètent la table et la partie démarre.</p>` : ""}`;
+    ${t.fillBots && !t.stake ? `<p class="hint mid">Sans réponse sous ${15} s, des robots complètent la table et la partie démarre.</p>` : ""}`;
 }
 // ———————————————————————————————————————————————————————————— table de jeu
 function sheetView(g, t, me) {
@@ -734,7 +756,7 @@ function back() {
 function shell(body, { backBtn = true, tabs = false, vip = false, cls = "", right = "", sub = "" } = {}) {
   return `<div class="page ${vip ? "theme-vip" : "theme-club"} ${cls}">
     <div class="ambient" aria-hidden="true"><i class="lamp l1"></i><i class="lamp l2"></i><i class="leaf f1"></i><i class="leaf f2"></i></div>
-    <header class="page-top">${backBtn ? btn(icon("back"), "back", "round-btn", 'aria-label="Retour"') : '<span class="round-spacer"></span>'}${logo(sub || (vip ? "Club VIP" : ""))}${right || '<span class="round-spacer"></span>'}</header>
+    <header class="page-top">${backBtn ? btn(icon("back"), "back", "round-btn", 'aria-label="Retour"') : '<span class="round-spacer"></span>'}${logo(sub || (vip ? "Entre amis" : ""))}${right || '<span class="round-spacer"></span>'}</header>
     <main class="page-body">${body}</main>
     ${tabs ? tabBar() : ""}
   </div>`;
@@ -848,7 +870,7 @@ const A_ICONS = {
 const aIcon = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${A_ICONS[k]}</svg>`;
 function playHero() {
   const classic = arcMode === "classique";
-  const online = state.tables.reduce((n, t) => n + (t.humans ?? 0), 0);
+  const online = state.onlineCount ?? 0;
   return `<section class="a-hero">
       <div class="a-hero-art"><img src="/decor/f-classique.webp" alt="" draggable="false"><span class="a-tag coral">Partie rapide</span>${online ? `<span class="a-tag dark"><i class="a-dot"></i>${fmt(online)} en ligne</span>` : ""}</div>
       <div class="a-seg" role="group" aria-label="Variante">
@@ -862,7 +884,7 @@ function arcadeHome() {
   const p = state.player;
   const l = p.progress.level;
   const classic = arcMode === "classique";
-  const online = state.tables.reduce((n, t) => n + (t.humans ?? 0), 0);
+  const online = state.onlineCount ?? 0;
   const levels = stakeLevels();
   return shell(
     `<div class="a-hud">
@@ -882,7 +904,7 @@ function arcadeHome() {
       const tag = tour?.stage === "open" ? "Inscriptions ouvertes" : tour?.stage === "running" ? "En cours" : tour ? "Bientôt" : "";
       return `<button type="button" class="a-banner a-tour" data-action="go" data-page="tournaments"><img src="/decor/club-vip.webp" alt="">${tag ? `<span class="a-tag coral">${tag}</span>` : ""}<b>${tour ? e(tour.name) : "Tournois"}</b><small>${nextTourLine()}</small></button>`;
     })()}
-    <button type="button" class="a-banner a-vip" data-action="go" data-page="vip"><img src="/decor/f-vip.webp" alt=""><b>Club VIP</b><small>Tables privées, gros pots</small></button>
+    <button type="button" class="a-banner a-vip" data-action="go" data-page="vip"><img src="/decor/f-vip.webp" alt=""><b>Jouer entre amis</b><small>Tables privées, gratuites ou avec mise</small></button>
     <div class="a-shortcuts">
       ${p.account ? `<button type="button" data-action="referral"><span class="a-sc">${aIcon("gift")}</span>Parrainer</button>` : ""}
       ${p.account ? `<button type="button" data-action="wheel"><span class="a-sc">${aIcon("wheel")}${wheelReady() ? '<i class="dot"></i>' : ""}</span>Roue</button>` : ""}
@@ -910,7 +932,7 @@ function homePage() {
     ${invitesBlock()}
     ${stakeLevels().length ? `<h2 class="section orn-title">Tables contrée en 1000 points</h2>${stakeGrid(stakeLevels())}` : ""}
     <div class="features">
-      ${featureCard("go", 'data-page="vip"', "f-vip", "Tables VIP", "Une expérience exclusive", '<img src="/decor/f-vip.webp" alt="">')}
+      ${featureCard("go", 'data-page="vip"', "f-vip", "Jouer entre amis", "Votre table privée", '<img src="/decor/f-vip.webp" alt="">')}
       ${featureCard("go", 'data-page="tournaments"', "f-tour", "Tournois", nextTourLine(), '<img src="/decor/club-vip.webp" alt="">')}
     </div>
     <div class="quick-tiles">
@@ -970,7 +992,7 @@ function stakeGrid(levels) {
         <span class="sc-photo" aria-hidden="true"></span>
         <span class="sc-chip"><b>${fmt(stake)}</b><small>jetons</small></span>
         <span class="sc-main"><b>${title}<i class="sc-flag" aria-hidden="true"></i></b><small>Mise ${fmt(stake)}${feeOf(stake) ? ` + droit de table ${fmt(feeOf(stake))}` : ""} · gain +${fmt(stake)}</small>
-        <span class="sc-meta"><span class="sc-seats">${[0, 1, 2, 3].map((i) => `<i class="${i < waiting ? "on" : ""}"></i>`).join("")}</span>${waiting}/4 joueurs${playing ? ` · ${playing} en jeu` : ""}</span></span>
+        <span class="sc-meta"><span class="sc-seats">${[0, 1, 2, 3].map((i) => `<i class="${i < waiting ? "on" : ""}"></i>`).join("")}</span>${waiting ? `${waiting}/4 joueurs` : "Table libre"}${playing ? ` · ${playing} en jeu` : ""}</span></span>
         <span class="sc-go">Jouer</span>
       </button>`;
     })
@@ -1107,7 +1129,7 @@ function vipPage() {
   const p = state.player;
   return shell(
     `<div class="vip-hero"><img class="art vh-art" src="/decor/club-vip.webp" alt="" draggable="false">
-      <p class="vh-title"><b>${e(p.name)}</b> vous accueille au Club VIP !</p></div>
+      <p class="vh-title"><b>${e(p.name)}</b> vous accueille à sa table !</p></div>
     <div class="stack">${btn(`${icon("crown")} Créer une table privée`, "go", "gold-btn wide", 'data-page="vipCreate"')}${btn(`${icon("link")} Rejoindre avec un code`, "joinCode", "line-btn wide")}${btn(`${icon("trophy")} Tournois`, "go", "line-btn wide", 'data-page="tournaments"')}</div>
     <h2 class="section orn-title">Mes tables privées</h2>
     <div class="list">${p.myTables.filter((t) => t.vip).map((t) => `<div class="row-del"><button type="button" class="vip-row" data-action="enterTable" data-id="${t.id}">${avatar(p.avatar, "lg ring")}<span class="vr-main"><b>${e(t.name)}</b><span class="mini-avs">${t.avatars.map((a) => avatar(a)).join("")}${t.players < 4 ? '<i class="plus">+</i>' : ""}</span></span><span class="vr-count">${icon("users")} ${t.players}/4</span>${icon("chevron", "tiny")}</button>${btn(icon("trash"), "closeTableAsk", "round-btn small del-btn", `data-id="${t.id}" aria-label="Supprimer la table"`, t.playing)}</div>`).join("") || '<p class="empty">Créez votre première table privée et invitez vos amis.</p>'}</div>`,
@@ -1117,7 +1139,7 @@ function vipPage() {
 function vipCreatePage() {
   const r = DEFAULT_RULES;
   return shell(
-    `<h1 class="page-title">Créer une table VIP</h1><p class="lead">Personnalisez votre table selon vos envies.</p>
+    `<h1 class="page-title">Créer une table entre amis</h1><p class="lead">Personnalisez votre table selon vos envies.</p>
     <form id="create-form" class="form-card">
       <input type="hidden" name="vip" value="true">
       <label class="lbl">Nom de la table<input name="name" value="La table de ${e(state.player.name)}" maxlength="40" required></label>
@@ -1221,6 +1243,12 @@ function tournamentsPage() {
   );
 }
 // Invitation par WhatsApp : message prêt à envoyer, avec le lien direct vers le tournoi.
+// Invitation WhatsApp « Rejoins ma table » (table entre amis, avec son code).
+function tableWhatsapp(t) {
+  const link = location.origin + "/#" + encodeURIComponent(JSON.stringify({ code: t.code }));
+  const text = `Rejoins ma table de belote sur Belote Prestige ! Code ${t.code} : ${link}`;
+  return `<a class="line-btn wide wa-btn" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener"><span class="wa-ico" aria-hidden="true"></span>Rejoins ma table (WhatsApp)</a>`;
+}
 function whatsappInvite(t) {
   const link = `${location.origin}/?tournoi=${encodeURIComponent(t.id)}`;
   const text = `Viens jouer au tournoi « ${t.name} » sur Belote Prestige ! Départ ${dt(t.start)}. Inscris-toi ici : ${link}`;
@@ -1413,7 +1441,7 @@ function roomView() {
   const code =
     vip && t.code && owner
       ? `<div class="code-card"><small>Code d’invitation</small><div class="code"><b>${e(t.code)}</b>${btn(icon("copy"), "copyCode", "round-btn small", 'aria-label="Copier le code"')}</div>
-        <div class="row2">${btn(`${icon("link")} Copier le lien`, "copyInvite", "line-btn")}${btn(`${icon("share")} Partager`, "shareInvite", "line-btn")}</div></div>`
+        <div class="row2">${btn(`${icon("link")} Copier le lien`, "copyInvite", "line-btn")}${btn(`${icon("share")} Partager`, "shareInvite", "line-btn")}</div>${tableWhatsapp(t)}</div>`
       : "";
   const stake = t.stake
     ? `<div class="stake-card">${coins(t.stake, "big")}<div><b>Mise par joueur</b><small>Engagé au lancement : votre solde, au plus ${fmt(2 * t.stake)} (rubicon).${t.fee ? ` Droit de table : ${fmt(t.fee)} jetons, payé au lancement (rendu si la partie est annulée).` : ""}</small></div></div>`
@@ -1431,13 +1459,13 @@ function roomView() {
     `${top}${t.quick || t.lobby ? `<p class="target-note">🎯 Partie en <b>${t.rules?.variant === "classique" ? "750" : t.quick ? "750" : "1 000"} points</b>${t.rules?.variant === "classique" ? " · belote classique" : t.quick ? " · partie rapide" : ""}</p>` : ""}${(t.quick || t.lobby) && free && t.humans > 0 && me >= 0 ? callBox(t) : ""}${code}${pending}
     <h2 class="section">Joueurs (${players}/4)</h2>
     <div class="slots">${t.seats.map(slot).join("")}</div>
-    ${!t.quick && t.fillBots && !t.stake && t.fillAt && free ? `<div class="fill-timer">${icon("robot")} Robots dans <b data-deadline="${t.fillAt}"></b> si personne ne rejoint</div>` : ""}
+    ${(t.quick || t.lobby || (t.fillBots && !t.stake)) && t.fillAt && free ? `<div class="fill-timer">${icon("robot")} Robots dans <b data-deadline="${t.fillAt}"></b> si personne ne rejoint</div>` : ""}
     ${onlineBlock(t, me, free)}
     ${stake}
     <div class="stack">${actions}</div>
     ${tipLine("room:" + t.id)}
     <p class="foot-link">${btn(`${icon("doc")} Règles de la table`, "rulesInfo", "inline-link")}${owner && !t.quick && !t.lobby ? ` · ${btn("Modifier", "editRules", "inline-link")}` : ""}</p>`,
-    { vip, cls: "page-room", right: btn(icon("menu"), "roomMenu", "round-btn", 'aria-label="Menu"'), sub: vip ? "VIP" : "" },
+    { vip, cls: "page-room", right: btn(icon("menu"), "roomMenu", "round-btn", 'aria-label="Menu"'), sub: vip ? "Entre amis" : "" },
   );
 }
 
@@ -1450,7 +1478,7 @@ function contractInfo(g, t, me) {
 }
 const multLabel = (m) => (m === 4 ? "Surcontré" : m === 2 ? "Contré" : "");
 function tableLabel(t) {
-  const kind = t.tournament ? `${e(t.tournament.name)}${t.tournament.roundName ? ` · ${e(t.tournament.roundName)}` : ""}` : t.practice ? "Entraînement" : t.vip ? "Table VIP" : "Table classique";
+  const kind = t.tournament ? `${e(t.tournament.name)}${t.tournament.roundName ? ` · ${e(t.tournament.roundName)}` : ""}` : t.practice ? "Entraînement" : t.vip ? "Table entre amis" : "Table classique";
   return t.stake ? `${kind} • ${fmt(t.stake)} jetons` : kind;
 }
 // Bandeau du haut (maquette « Votre annonce ») : logo, solde, table, menu, puis le score Nous / Eux.
@@ -1513,13 +1541,36 @@ function reactionBubble(t, s) {
   const def = r && REACTIONS.find((x) => x.id === r.reaction);
   return def ? `<span class="reaction-pop"><b>${def.emoji}</b>${def.text ? `<small>${e(def.text)}</small>` : ""}</span>` : "";
 }
-function seatBubble(g, i) {
+// Sens d'une annonce de robot, d'après le système de la maison (doc, section 5).
+function bidMeaning(g, a) {
+  if (a.type === "counter") return "Je pense que vous allez chuter";
+  if (a.type !== "bid") return "";
+  const list = g.auction ?? [];
+  const before = list.slice(0, list.indexOf(a)).filter((x) => x.type === "bid");
+  const partner = before.filter((x) => x.seat % 2 === a.seat % 2 && x.seat !== a.seat).at(-1);
+  const opp = before.filter((x) => x.seat % 2 !== a.seat % 2).at(-1);
+  const mine = before.some((x) => x.seat === a.seat);
+  if (partner && partner.suit === a.suit && !mine) {
+    const up = a.amount - partner.amount;
+    if (partner.amount >= 100 && partner.amount !== 110) return `${up / 10} As à côté`;
+    if (partner.amount === 80) return "J’ai 3 atouts";
+    return up >= 20 ? "Valet, 9 ou 3 atouts, et un As" : "J’ai le Valet, le 9 ou 3 atouts";
+  }
+  if (opp && a.amount === opp.amount + 10) return "Je cherche le Valet ou le 9 : réponds-moi";
+  if (opp && a.amount === 100 && a.amount - opp.amount >= 20) return "Je suis maître : annonce tes As";
+  if (a.amount === 80) return "J’ai deux As";
+  if (a.amount === 90) return "J’ai le Valet ou le 9, je cherche l’autre";
+  if (a.amount === 100) return "Maître à l’atout : Valet et 9";
+  return "";
+}
+function seatBubble(g, i, s) {
   // Annonce de chaque joueur affichée à côté de son avatar (enchères et délai de surcontre).
   if (!["bidding", "counter"].includes(g.phase)) return "";
   const a = (g.auction ?? []).filter((x) => x.seat === i).at(-1);
   if (!a) return "";
   const text = a.type === "bid" ? `${amountLabel(a.amount)} ${suitHtml(a.suit)}` : a.type === "pass" ? "Passe" : a.type === "counter" ? "Contre !" : "Surcontre !";
-  return `<span class="bubble ${a.type}">${text}</span>`;
+  const why = s?.bot ? bidMeaning(g, a) : "";
+  return `<span class="bubble ${a.type}">${text}${why ? `<small class="bid-why">${e(why)}</small>` : ""}</span>`;
 }
 function chatBubble(t, s) {
   const m = t.chat.at(-1);
@@ -1545,7 +1596,7 @@ function seatView(g, t, me, i) {
     <div class="seat-avatar ${human ? "tappable" : ""} ${active && t.deadline ? "ring" : ""}" ${active && t.deadline ? `data-ring="${t.deadline}" data-ring-total="${(t.rules.turnSeconds ?? 20) * 1000}"` : ""} ${human ? `data-action="player" data-id="${s.id}" role="button" aria-label="Profil de ${e(s.name)}"` : ""}>${avatar(s?.avatar)}${g.dealer === i ? '<span class="dealer" title="Donneur">D</span>' : ""}</div>
     <div class="name-pill"><b>${e(s?.name ?? "—")}</b></div>${takerBadge(g, i)}${s?.bot ? '<span class="robot-tag">ROBOT</span>' : ""}${status}
     ${rel !== 0 ? `<div class="backs bk${Math.min(8, g.handCounts[i])}">${Array.from({ length: Math.min(8, g.handCounts[i]) }, () => "<i></i>").join("")}</div>` : ""}
-    ${seatBubble(g, i)}${chatBubble(t, s)}${reactionBubble(t, s)}
+    ${seatBubble(g, i, s)}${chatBubble(t, s)}${reactionBubble(t, s)}
   </div>`;
 }
 // Rappel compact du contrat, sous le nom du preneur.
@@ -1656,6 +1707,7 @@ function finalResult(g, t, me) {
     ${won ? '<img class="art final-art-img" src="/decor/victoire.webp" alt="" draggable="false">' : `<div class="final-art">${avatar(t.seats[me]?.avatar, "xl")}${avatar(t.seats[(me + 2) % 4]?.avatar, "xl")}</div>`}
     <div class="ribbon">${won ? "Victoire !" : "Défaite…"}</div>
     ${won ? btn("📤 Partager ma victoire", "shareWin", "line-btn small share-win") : ""}
+    ${state.player.account || t.tournament ? "" : `<div class="guest-keep"><b>${won ? "Garde ta victoire !" : "Garde ta progression !"}</b><small>Crée ton compte : 2 000 jetons offerts, ton niveau et tes parties sont conservés.</small>${btn("Créer mon compte", "go", "gold-btn small", 'data-page="register"')}</div>`}
     <div class="final-scores"><div><small>Votre équipe</small><b>${won ? icon("crown") : ""}${fmt(g.scores[me % 2])}</b></div><i></i><div class="them"><small>Équipe adverse</small><b>${fmt(g.scores[1 - (me % 2)])}</b></div></div>
     ${r ? moneyLines(r) + `<div class="xp-line">✨ +${r.xp} XP${r.badges?.length ? ` · ${r.badges.map((b) => `${b.icon} ${e(b.name)}`).join(", ")}` : ""}${r.challenges?.length ? ` · 🎯 ${r.challenges.map(e).join(", ")}` : ""}</div>` : ""}
     ${
@@ -1672,7 +1724,7 @@ function finalResult(g, t, me) {
     ${t.stake ? `<p class="op-note">${e(stakeRisk(t.stake))}</p>` : ""}
     ${blocked.length ? `<p class="warn">Solde insuffisant pour ${blocked.map(e).join(", ")}. ${btn("Boutique", "shop", "inline-link")} · ${btn("Tables moins chères", "cheaper", "inline-link")}</p>` : ""}
     ${mine ? '<p class="waiting-vote">En attente des autres joueurs…</p>' : btn(`${icon("refresh")} Rejouer avec cette table`, "rematchYes", "gold-btn wide")}
-    ${btn(`${icon("home")} Retour au salon${t.vip ? " VIP" : ""}`, "rematchNo", "line-btn wide")}
+    ${btn(`${icon("home")} Retour au salon`, "rematchNo", "line-btn wide")}
     ${btn(`${icon("logout")} Quitter la table`, "leave", "line-btn wide small")}`
     }
   </div></div>`;
@@ -2543,7 +2595,7 @@ function createModal(r = DEFAULT_RULES, editing = false) {
   const num = (k, label, min, max) => `<label>${label}<input name="${k}" type="number" value="${r[k]}" min="${min}" max="${max}" required></label>`;
   const sw = (k, label) => `<label class="switch"><input name="${k}" type="checkbox" ${r[k] ? "checked" : ""}><span class="knob"></span>${label}</label>`;
   modal(
-    `<div class="modal-head"><span class="modal-icon">${editing ? "⚙️" : "👑"}</span><h2>${editing ? "Règles de la table" : "Créer une table VIP"}</h2></div>
+    `<div class="modal-head"><span class="modal-icon">${editing ? "⚙️" : "👑"}</span><h2>${editing ? "Règles de la table" : "Créer une table entre amis"}</h2></div>
     <form id="${editing ? "rules-form" : "create-form"}" class="form">
       ${editing ? "" : `<label>Nom de la table<input name="name" placeholder="Le salon de Sophie" maxlength="40" required></label>
       <div class="seg radio"><label><input type="radio" name="vip" value="true" checked><span>👑 Privée</span></label><label><input type="radio" name="vip" value="false"><span>🌍 Publique</span></label></div>
@@ -3136,7 +3188,14 @@ document.addEventListener("click", async (ev) => {
         break;
       }
       const myTurn = g.phase === "playing" && g.turn === me && !collection;
-      if (!myTurn) break;
+      if (!myTurn) {
+        // Présélection avant son tour : la carte partira dès que ce sera à vous (si elle est permise).
+        if (g.phase === "playing" && me >= 0) {
+          selected = selected === c ? null : c;
+          render();
+        }
+        break;
+      }
       if (!g.legal.includes(c)) {
         toast("Cette carte n’est pas autorisée ici");
         break;

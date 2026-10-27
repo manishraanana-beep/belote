@@ -14,6 +14,9 @@ test("carte jouée : posée au centre aussitôt, sans trou dans la main ni nouve
     await page.waitForTimeout(500);
   }
   await expect(page.locator(".hand.my-turn")).toBeVisible({ timeout: 30000 });
+  // Une seule carte possible : elle part toute seule (carte automatique) ; on attend alors le tour suivant.
+  await page.waitForTimeout(900);
+  await expect(page.locator(".hand.my-turn")).toBeVisible({ timeout: 30000 });
   const before = await page.locator(".trick .tcard").count();
   const handBefore = await page.locator(".hand .hcard").count();
   // Essaie chaque carte : seule une carte autorisée part (les autres restent en main).
