@@ -2140,3 +2140,10 @@ table.metrics .minus { color: #ff8f8f; }
 /* Fin de partie d'un visiteur : proposition de compte */
 .guest-keep { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 8px auto; padding: 10px 14px; max-width: 320px; border-radius: 14px; background: rgba(255, 214, 102, .12); border: 1px solid rgba(255, 214, 102, .45); text-align: center; }
 .guest-keep small { opacity: .85; }
+/* Prochain objectif et amis en ligne */
+.next-goal { margin: 6px auto; text-align: center; font-size: 14px; }
+.friends-online { margin: 12px 0; padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, .06); }
+.friends-online > b { display: block; margin-bottom: 8px; }
+.fo-list { display: flex; gap: 12px; overflow-x: auto; }
+.fo-item { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 72px; }
+.fo-item small { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
