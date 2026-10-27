@@ -12,6 +12,7 @@ import {
 import { fileURLToPath } from "node:url";
 import { createAccounts, createMailer, normalizeEmail } from "./accounts.js";
 import { createBackup } from "./backup.js";
+import { openStorage } from "./storage.js";
 import { createEconomy, economyConfig, STAKES, toCredits, toUnits } from "./economy.js";
 import { createProgression, TOURNAMENT_REWARDS } from "./progression.js";
 import { createTournaments, validTimeZone } from "./tournaments.js";
@@ -134,14 +135,14 @@ export function createApp({
   matchWaitMs = (process.env.BELOTE_MATCH_WAIT_SECONDS !== undefined ? Number(process.env.BELOTE_MATCH_WAIT_SECONDS) : 45) * 1000,
 } = {}) {
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-  const file = path.join(dataDir, "state.json");
-  let db = {
+  // Données dans SQLite (belote.db) ; l'ancien state.json est importé une fois puis conservé.
+  const storage = openStorage({ dataDir, mode: env.BELOTE_STORAGE === "json" ? "json" : "sqlite" });
+  let db = storage.load() ?? {
     players: {},
     tables: {},
     reports: [],
     settings: { maintenance: false },
   };
-  if (existsSync(file)) db = JSON.parse(readFileSync(file, "utf8"));
   db.createdAt ??= Date.now();
   const ephemeral = !!env.RAILWAY_ENVIRONMENT && !env.RAILWAY_VOLUME_MOUNT_PATH && !env.BELOTE_DATA_DIR;
   if (ephemeral)
@@ -297,8 +298,7 @@ export function createApp({
     }
   }
   function persist() {
-    writeFileSync(file + ".tmp", JSON.stringify(db), { mode: 0o600 });
-    renameSync(file + ".tmp", file);
+    storage.save(db);
   }
   // Code d'invitation court et lisible (ex. VIP-482), unique parmi les tables ouvertes.
   function shortCode() {
@@ -2139,7 +2139,7 @@ export function createApp({
           reports: db.reports,
           alerts: db.alerts.map((a) => ({ ...a, names: a.players.map((x) => db.players[x]?.name ?? x) })),
           settings: db.settings,
-          storage: { ephemeral, since: db.createdAt },
+          storage: { ephemeral, since: db.createdAt, kind: storage.kind, migration: db.migration ?? null },
           backup: { configured: backup.enabled, bucket: backup.enabled ? backup.bucket : null, last: db.backup ?? null },
           tournaments: tournaments.adminList(),
           rewards: TOURNAMENT_REWARDS,
@@ -2430,7 +2430,7 @@ export function createApp({
         clearInterval(heartbeat);
         persist();
         for (const ws of wss.clients) ws.terminate();
-        wss.close(() => server.close(resolve));
+        wss.close(() => server.close(() => (storage.close(), resolve())));
       }),
   };
 }

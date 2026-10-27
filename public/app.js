@@ -3365,7 +3365,8 @@ async function adminRequest(data) {
       ${panel("dash", `<h2>Tableau de bord</h2>
         <div class="admin-stats"><div><b>${d.players.length}</b><small>clients</small></div><div><b>${online}</b><small>en ligne</small></div><div><b>${d.tables.length}</b><small>tables</small></div><div><b>${upcoming.length}</b><small>tournois à venir</small></div><div><b>${fmt(d.economy.circulating)}</b><small>crédits en circulation</small></div><div><b>${fmt(d.economy.reserved)}</b><small>crédits engagés</small></div><div><b>${open.length}</b><small>signalements</small></div><div><b>${alerts.length}</b><small>alertes</small></div></div>
         <p class="muted small">Achats ${d.economy.purchases ? "ouverts" : "fermés"} (web ${d.economy.stripe ? "✓" : "—"}, iOS ${d.economy.apple ? "✓" : "—"}, Android ${d.economy.google ? "✓" : "—"}) · Push navigateur ${d.push.web ? "✓" : "—"} · Push natif ${d.push.native ? "✓" : "—"} · Entrées ${d.settings.maintenance ? "suspendues" : "ouvertes"}</p>
-        ${backupCard(d.backup)}`)}
+        ${backupCard(d.backup)}
+        <p class="muted small">Stockage : ${d.storage.kind === "sqlite" ? "base SQLite" : "fichier JSON"}${d.storage.migration ? ` · migration du ${new Date(d.storage.migration.at).toLocaleString("fr-FR")} ${d.storage.migration.ok ? "✅" : "❌"} (${d.storage.migration.players} joueurs, ${d.storage.migration.ledger} mouvements, ${fmt(d.storage.migration.balance / 2)} jetons)` : ""}</p>`)}
       ${panel("clients", `<h2>Clients</h2><div id="admin-clients">${clientList(d)}</div>`)}
       ${panel("tours", `<h2>Tournois</h2><div id="admin-tours">${tourAdmin(d)}</div>`)}
       ${panel("moderation", `<h2>Modération</h2><h3>Alertes à examiner</h3><p class="muted small">Indices combinés, jamais une preuve : aucune sanction automatique.</p>
