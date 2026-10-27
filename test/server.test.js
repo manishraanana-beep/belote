@@ -645,7 +645,7 @@ async function member(f, email) {
 }
 test("crédits : table à 200, réservations, achat en cours, départ, règlement unique et équilibré", async () => {
   const { createHmac } = await import("node:crypto");
-  const env = { BELOTE_TEST_SHOP: "on", BELOTE_PURCHASES: "on", STRIPE_SECRET_KEY: "sk", STRIPE_WEBHOOK_SECRET: "whsec", BELOTE_LOGIN_BONUS: "0" };
+  const env = { BELOTE_TEST_SHOP: "on", BELOTE_PURCHASES: "on", STRIPE_SECRET_KEY: "sk", STRIPE_WEBHOOK_SECRET: "whsec", BELOTE_LOGIN_BONUS: "0", BELOTE_PACKS: "[{\"id\":\"pack-1000\",\"credits\":1000,\"price\":\"0,99 \u20ac\",\"priceCents\":99},{\"id\":\"pack-3000\",\"credits\":3000,\"price\":\"2,49 \u20ac\",\"priceCents\":249}]" };
   const f = await fixture({ env, botDelay: 1 });
   try {
     const ps = [];
@@ -1416,5 +1416,32 @@ test("conformité : chat filtré, plafond de dépenses, historique des achats", 
     assert.equal(a.state.table.chat.at(-1).text, "Bien joué c******, belle contrée");
   } finally {
     await f.close();
+  }
+});
+
+test("pack Fondateur : après 3 parties, une seule fois, cadre offert, plus rien après la date de fin", async () => {
+  const f = await fixture({ env: { BELOTE_TEST_SHOP: "on", BELOTE_LOGIN_BONUS: "0", BELOTE_FOUNDER_UNTIL: new Date(Date.now() + 86400_000).toISOString() } });
+  try {
+    const m = await member(f, "fondateur@exemple.fr");
+    const P = f.app.db.players[m.state.player.id];
+    const buy = (tx) => api(f, m.cookie, "/api/shop/test", { pack: "pack-founder", transactionId: tx });
+    assert.equal((await buy("t0")).status, 400, "pas avant 3 parties");
+    P.stats.games = 3;
+    const before = P.wallet.balance;
+    const r = await buy("t1");
+    assert.equal(r.status, 200);
+    assert.equal(P.wallet.balance - before, 20000); // 10 000 jetons (demi-crédits)
+    assert.ok(P.progress.owned["frame-fondateur"], "cadre Fondateur offert");
+    assert.equal((await buy("t2")).status, 400, "une seule fois par compte");
+  } finally {
+    await f.close();
+  }
+  const g = await fixture({ env: { BELOTE_TEST_SHOP: "on", BELOTE_FOUNDER_UNTIL: "2020-01-01" } });
+  try {
+    const m = await member(g, "tard@exemple.fr");
+    g.app.db.players[m.state.player.id].stats.games = 5;
+    assert.equal((await api(g, m.cookie, "/api/shop/test", { pack: "pack-founder", transactionId: "x" })).status, 400, "période de lancement terminée");
+  } finally {
+    await g.close();
   }
 });

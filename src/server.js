@@ -545,6 +545,7 @@ export function createApp({
   function playerView(p) {
     return {
       // Historique des achats (portefeuille) : les 20 derniers.
+      founderOffer: founderOk(p),
       purchases: registry.list(p.id).slice(0, 20).map((x) => ({ at: x.at, credits: x.credits, amountCents: x.amountCents, currency: x.currency, status: x.status })),
       id: p.id,
       name: p.name,
@@ -1763,8 +1764,15 @@ export function createApp({
   }
   // Crédit d'un achat vérifié, une seule fois par transaction de la plateforme.
   // L'achat (registre) et ses jetons (journal) sont enregistrés ensemble, dans la même transaction.
+  // Pack Fondateur : 3 parties jouées, jamais acheté, période de lancement en cours.
+  function founderOk(p) {
+    const c = economy.config;
+    return !!(p?.accountId && c.founderUntil && Date.now() < c.founderUntil && (p.stats?.games ?? 0) >= c.founderGames && !registry.list(p.id).some((x) => x.pack === "pack-founder"));
+  }
   function creditPurchase(p, purchase) {
     const { credited } = registry.record(p, purchase);
+    const pack = economy.config.packs.find((x) => x.id === purchase.packId);
+    if (credited && pack?.frame) progression.grant(p, pack.frame); // cadre Fondateur, jamais revendu
     persist();
     return credited;
   }
@@ -1974,7 +1982,8 @@ export function createApp({
     if (url.pathname === "/api/shop/config") {
       const c = economy.config;
       return json(res, 200, {
-        packs: c.packs.map(({ id, credits, price, priceCents, bonus }) => ({ id, credits, price, priceCents, bonus })),
+        packs: c.packs.map(({ id, name, credits, price, priceCents, bonus, founder }) => ({ id, name, credits, price, priceCents, bonus, founder })),
+        founderUntil: c.founderUntil,
         purchases: c.purchases,
         stripe: c.stripe,
         apple: c.apple,
@@ -2008,6 +2017,7 @@ export function createApp({
           check(cfg.stripe, "Paiement web non configuré");
           const pack = cfg.packs.find((x) => x.id === d.pack);
           check(pack, "Pack inconnu");
+          check(!pack.founder || founderOk(p), "Pack Fondateur indisponible");
           const cap = p.settings?.spendCap ?? 0;
           if (cap) {
             const month = new Date().toISOString().slice(0, 7);
@@ -2024,6 +2034,7 @@ export function createApp({
         } else if (action === "test") {
           // Paiement fictif réservé au développement : refusé dès que l'environnement est en production.
           check(cfg.testShop, "Indisponible");
+          check(d.pack !== "pack-founder" || founderOk(p), "Pack Fondateur indisponible");
           result = creditPurchase(p, { provider: "test", transactionId: clean(d.transactionId, 80) || id(), packId: d.pack });
         } else throw Object.assign(Error("Action inconnue"), { status: 404 });
         broadcast();

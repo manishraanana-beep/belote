@@ -2147,3 +2147,12 @@ table.metrics .minus { color: #ff8f8f; }
 .fo-list { display: flex; gap: 12px; overflow-x: auto; }
 .fo-item { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 72px; }
 .fo-item small { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Plus de jetons : offre Fondateur, nom des packs, manque */
+.founder-card { position: relative; margin: 12px 0; padding: 22px 14px 12px; border-radius: 16px; text-align: center; background: linear-gradient(160deg, rgba(246, 200, 95, .22), rgba(138, 92, 240, .18)); border: 1.5px solid var(--gold); }
+.founder-card > b { display: block; font-size: 18px; }
+.founder-card p { margin: 6px 0 10px; font-size: 13px; }
+.founder-card .pack-tag { position: absolute; top: -10px; left: 50%; translate: -50% 0; white-space: nowrap; }
+.pack .pack-name { display: block; font-weight: 700; opacity: .85; }
+.missing { margin: 8px 0; font-size: 14px; }
+.free-line { margin: 4px 0; font-size: 14px; }
+.frame-fondateur .seat-avatar, .pv-avatar.frame-fondateur .seat-avatar, .swatch.frame-fondateur { background: conic-gradient(#fdf3d0, #c9a24a, #1f6b55, #c9a24a, #fdf3d0); box-shadow: 0 0 16px #c9a24a; }

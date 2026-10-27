@@ -441,7 +441,7 @@ const ownedShop = (kind) => (state.player.shop?.items ?? []).filter((x) => x.own
 const favEmojis = () => (state.player.shop?.favorites ?? []).map(shopItem).filter(Boolean);
 // Équivalent en euros d'un prix en jetons (au tarif du plus petit pack), seulement quand les achats sont ouverts.
 const euroOf = (n) => {
-  const pk = shopConfig?.purchases ? [...(shopConfig.packs ?? [])].filter((x) => x.priceCents).sort((a, b) => a.credits - b.credits)[0] : null;
+  const pk = shopConfig?.purchases ? [...(shopConfig.packs ?? [])].filter((x) => x.priceCents && !x.founder).sort((a, b) => a.credits - b.credits)[0] : null;
   return pk ? ` <small class="euro">≈ ${((n * pk.priceCents) / pk.credits / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}</small>` : "";
 };
 const jetons = (n) => `${fmt(n).replace(/\s/g, "\u00a0")} jetons`;
@@ -2450,10 +2450,23 @@ async function shopModal() {
   } catch {}
   const c = shopConfig ?? { packs: [], purchases: false };
   const open = c.purchases || c.test;
+  const acc = state.player.account;
+  const w = state.player.wallet;
+  const founder = c.packs.find((x) => x.founder);
+  const packs = c.packs.filter((x) => !x.founder);
+  // Écran « Plus de jetons » : le gratuit d'abord, puis l'offre Fondateur, puis les packs.
+  const free = [
+    acc && w.loginBonus ? (wheelReady() || w.loginBonus.next <= Date.now() ? btn("🎡 Roue du jour : un tour vous attend", "wheel", "menu-item") : `<p class="free-line">🎡 Prochain tour de roue dans <b data-countdown="${w.loginBonus.next}"></b></p>`) : "",
+    btn("⚡ Partie rapide gratuite (sans mise)", "quick", "menu-item"),
+    acc ? btn("🎯 Défis du jour", "challenges", "menu-item") : "",
+  ].join("");
   modal(
-    `<div class="modal-head"><span class="modal-icon">🪙</span><h2>Boutique de crédits</h2></div>
+    `<div class="modal-head"><span class="modal-icon">🪙</span><h2>Plus de jetons</h2></div>
     <p class="muted">Solde : ${coins(state.player.wallet.balance / 2)}</p>
-    <div class="packs">${c.packs.map((pk) => `<article class="pack">${pk.bonus ? `<span class="pack-tag">${e(pk.bonus)}</span>` : ""}<span class="pack-coins">${"<i class=\"coin\"></i>".repeat(Math.min(4, 1 + Math.round(Math.log10(pk.credits / 500))))}</span><b>${fmt(pk.credits)}</b><small>crédits</small>
+    <h3 class="wallet-sub">Gratuit</h3><div class="menu-list wide">${free}</div>
+    ${founder && state.player.founderOffer ? `<article class="founder-card"><span class="pack-tag">Lancement · jusqu’au ${new Date(c.founderUntil).toLocaleDateString("fr-FR")}</span><b>Pack Fondateur</b><p>${fmt(founder.credits)} jetons + cadre « Fondateur », qui ne sera plus jamais vendu. Une seule fois par compte.</p>${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(founder.price)) : e(founder.price), "buy", "gold-btn small", `data-pack="${founder.id}"`, !open)}</article>` : ""}
+    <h3 class="wallet-sub">Packs de jetons</h3>
+    <div class="packs">${packs.map((pk) => `<article class="pack">${pk.bonus ? `<span class="pack-tag">${e(pk.bonus)}</span>` : ""}${pk.name ? `<small class="pack-name">${e(pk.name)}</small>` : ""}<span class="pack-coins">${"<i class=\"coin\"></i>".repeat(Math.min(4, 1 + Math.round(Math.log10(pk.credits / 500))))}</span><b>${fmt(pk.credits)}</b><small>jetons</small>
       ${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(pk.price)) : e(pk.price), "buy", "pill small", `data-pack="${pk.id}"`, !open || !state.player.account)}</article>`).join("")}</div>
     ${!state.player.account ? '<p class="warn">Créez un compte pour acheter des crédits.</p>' : open ? "" : '<p class="warn">Les achats ne sont pas encore ouverts. En attendant : bonus du jour, défis et entraînement gratuit.</p>'}
     ${c.test && !c.purchases ? '<p class="warn">Mode développement : paiement fictif, jamais disponible en production.</p>' : ""}
@@ -2474,14 +2487,23 @@ async function historyModal() {
   };
   ws.send(JSON.stringify({ id, type: "wallet", data: {} }));
 }
+// « Il te manque X jetons pour … » avec le plus petit pack qui couvre le manque (prix en euros).
+function missingLine(stake) {
+  const miss = Math.ceil(stake + feeOf(stake) - state.player.wallet.available / 2);
+  if (miss <= 0) return "";
+  const city = STAKE_LOOK[stake]?.[1];
+  const pk = [...(shopConfig?.packs ?? [])].filter((x) => !x.founder && x.credits >= miss).sort((a, b) => a.credits - b.credits)[0];
+  return `<p class="missing">Il te manque <b>${fmt(miss)} jetons</b>${city ? ` pour ${e(city)}` : ""}.${pk ? ` Le pack ${e(pk.name ?? "")} (${fmt(pk.credits)} jetons, ${e(pk.price)}) suffit.` : ""}</p>`;
+}
 function fundsModal(stake) {
   const cheaper = state.tables.filter((t) => t.stake < stake && t.available && t.status !== "Partie en cours");
   modal(
     `<div class="confirm"><span class="confirm-icon">🪙</span><h2>Solde insuffisant</h2>
-    <p>Il faut ${coins(stake)} disponibles pour cette table. Vous avez ${coins(state.player.wallet.available / 2)}.</p>
+    <p>Il faut ${coins(stake + feeOf(stake))} disponibles pour cette table${feeOf(stake) ? " (droit de table compris)" : ""}. Vous avez ${coins(state.player.wallet.available / 2)}.</p>
+    ${missingLine(stake)}
     <div class="menu-list wide">
       ${cheaper.slice(0, 3).map((t) => btn(`${t.stake ? `🪙 ${fmt(t.stake)}` : "Gratuite"} · ${e(t.name)}`, "join", "menu-item", `data-table="${t.id}"`)).join("") || btn("⚡ Partie rapide gratuite", "quick", "menu-item")}
-      ${btn("🪙 Boutique de crédits", "shop", "menu-item")}
+      ${btn("🪙 Plus de jetons", "shop", "menu-item")}
       ${btn("🤖 Entraînement gratuit", "practice", "menu-item")}
     </div></div>`,
     "confirm-modal",
@@ -3689,6 +3711,7 @@ async function connect() {
   try {
     const session = await fetch("/api/session", { method: "POST" });
     if (!session.ok) return toast("Accès au profil indisponible. Contactez l’administrateur.");
+    if (!shopConfig) fetch("/api/shop/config").then((r) => r.json()).then((c) => (shopConfig = c)).catch(() => {});
     ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
     ws.onopen = () => {
       ws.send(JSON.stringify({ id: crypto.randomUUID(), type: "timezone", data: { timeZone: myTz() } }));

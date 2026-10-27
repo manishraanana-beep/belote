@@ -5,9 +5,11 @@ import { createRegistry } from "../src/registry.js";
 import { stripeEvent } from "../src/purchases.js";
 import { createHmac } from "node:crypto";
 
+// Ancienne grille de packs : les montants de ces tests en dépendent.
+const OLD_PACKS = "[{\"id\":\"pack-1000\",\"credits\":1000,\"price\":\"0,99 \u20ac\",\"priceCents\":99},{\"id\":\"pack-3000\",\"credits\":3000,\"price\":\"2,49 \u20ac\",\"priceCents\":249}]";
 function setup() {
   const db = { players: { p1: { id: "p1", name: "Jacko", wallet: { balance: 0, reserved: 0 } } }, settings: {} };
-  const economy = createEconomy(db, economyConfig({}));
+  const economy = createEconomy(db, economyConfig({ BELOTE_PACKS: OLD_PACKS }));
   const registry = createRegistry({ db, economy, toUnits, packs: () => economy.config.packs, now: () => 1000 });
   return { db, economy, registry, p: db.players.p1 };
 }
