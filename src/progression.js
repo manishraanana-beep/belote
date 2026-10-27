@@ -43,6 +43,7 @@ export const COSMETICS = [
   { id: "felt-ocean", kind: "felt", name: "Océan", unlock: { type: "level", value: 1, label: "Niveau Habitué" } },
   { id: "felt-bordeaux", kind: "felt", name: "Bordeaux", unlock: { type: "badge", value: "first-rubicon", label: "Badge Premier rubicon" } },
   { id: "felt-lagon", kind: "felt", name: "Lagon", unlock: { type: "badge", value: "games-50", label: "Badge Cinquante parties" } },
+  { id: "frame-fondateur", kind: "frame", name: "Fondateur", unlock: { type: "founder", label: "Pack Fondateur (lancement uniquement)" } },
   { id: "frame-champion", kind: "frame", name: "Couronne de champion", unlock: { type: "tournament", label: "Exclusif tournoi" } },
   { id: "back-velours", kind: "back", name: "Velours VIP", unlock: { type: "tournament", label: "Exclusif tournoi" } },
   { id: "felt-velours", kind: "felt", name: "Velours violet", unlock: { type: "tournament", label: "Exclusif tournoi" } },

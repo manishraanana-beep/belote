@@ -13,17 +13,21 @@ export const toCredits = (units) => units / U;
 
 export function economyConfig(env = process.env) {
   const num = (k, d) => (env[k] !== undefined && env[k] !== "" ? Number(env[k]) : d);
+  // Grille de la section 14.4 (site web ; le pack « Relance » à 0,99 € est réservé à l'appli native).
   let packs = [
-    { id: "pack-1000", credits: 1000, price: "0,99 €", priceCents: 99 },
-    { id: "pack-3000", credits: 3000, price: "2,49 €", priceCents: 249, bonus: "+20 %" },
-    { id: "pack-8000", credits: 8000, price: "4,99 €", priceCents: 499, bonus: "+60 %" },
-    { id: "pack-20000", credits: 20000, price: "9,99 €", priceCents: 999, bonus: "Meilleure offre" },
+    { id: "pack-4000", name: "Petit", credits: 4000, price: "1,99 €", priceCents: 199 },
+    { id: "pack-11000", name: "Moyen", credits: 11000, price: "4,99 €", priceCents: 499, bonus: "+10 %" },
+    { id: "pack-24000", name: "Grand", credits: 24000, price: "9,99 €", priceCents: 999, bonus: "+20 %" },
+    { id: "pack-52000", name: "Prestige", credits: 52000, price: "19,99 €", priceCents: 1999, bonus: "+30 % · Meilleure valeur" },
   ];
   try {
     if (env.BELOTE_PACKS) packs = JSON.parse(env.BELOTE_PACKS);
   } catch {
     console.error("BELOTE_PACKS illisible : packs par défaut");
   }
+  // Pack Fondateur : une fois par compte, après 3 parties, jusqu'à la fin de la période de lancement.
+  const founderUntil = Date.parse(env.BELOTE_FOUNDER_UNTIL ?? "2027-01-31T23:59:59+01:00");
+  if (founderUntil) packs = [...packs.filter((x) => x.id !== "pack-founder"), { id: "pack-founder", name: "Fondateur", credits: 10000, price: "1,99 €", priceCents: 199, founder: true, frame: "frame-fondateur" }];
   const production = env.NODE_ENV === "production" || !!env.RAILWAY_ENVIRONMENT;
   return {
     signupBonus: num("BELOTE_SIGNUP_BONUS", 2000),
@@ -33,6 +37,8 @@ export function economyConfig(env = process.env) {
     loginBonus: num("BELOTE_LOGIN_BONUS", 200),
     dayStartUtc: num("BELOTE_DAY_START_UTC", 3), // heure commune de renouvellement
     packs,
+    founderUntil: founderUntil || 0,
+    founderGames: 3,
     // Les achats restent désactivables globalement.
     purchases: env.BELOTE_PURCHASES === "on",
     stripe: !!(env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET),
