@@ -82,6 +82,12 @@ export function normalize(input, rewardIds) {
     prizes[k] = Number(pz[k] ?? 0);
     check(Number.isInteger(prizes[k]) && prizes[k] >= 0 && prizes[k] <= 1_000_000, "Enjeu invalide");
   }
+  // Droit d'entrée en jetons (payé au départ, seulement par les joueurs qui jouent) ;
+  // cagnotte = droits d'entrée moins la part de la Maison (10 à 20 %), partagée 70 / 30.
+  const entryFee = Number(d.entryFee ?? 0);
+  check(Number.isInteger(entryFee) && entryFee >= 0 && entryFee <= 100_000, "Droit d’entrée invalide");
+  const houseCut = Number(d.houseCut ?? 15);
+  check(Number.isInteger(houseCut) && houseCut >= 10 && houseCut <= 20, "Part de la Maison : 10 à 20 %");
   // Rappel « quelques heures avant » (0 = aucun ; le rappel d'une heure reste toujours envoyé).
   const reminderHours = Number(d.reminderHours ?? 3);
   check(Number.isInteger(reminderHours) && reminderHours >= 0 && reminderHours <= 48, "Délai de rappel invalide");
@@ -115,6 +121,8 @@ export function normalize(input, rewardIds) {
     rules,
     rewards,
     prizes,
+    entryFee,
+    houseCut,
     reminderHours,
     insufficient,
     postponeMinutes,
@@ -268,8 +276,9 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
   // ———————————————— joueurs
   function eligible(tour, p) {
     const available = hooks.available(p); // en crédits
-    if (available < tour.minBalance)
-      fail(`Solde insuffisant : ${tour.minBalance} jetons minimum`, { code: "funds", balance: available, missing: tour.minBalance - available, required: tour.minBalance });
+    const need = Math.max(tour.minBalance, tour.entryFee ?? 0);
+    if (available < need)
+      fail(`Solde insuffisant : ${need} jetons minimum`, { code: "funds", balance: available, missing: need - available, required: need });
   }
   function lateReminders(tour, pid) {
     const t = now();
@@ -410,6 +419,17 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
         for (const pid of registered(tour)) notify(tour, [pid], "annulation", `${tour.name} annulé`, "Nombre d’équipes insuffisant.");
       }
       return false;
+    }
+    // Droit d'entrée prélevé maintenant, une seule fois, uniquement sur les joueurs qui jouent.
+    if (tour.entryFee > 0) {
+      tour.paid ??= {};
+      for (const pid of teams.flatMap((t) => t.pids)) {
+        if (tour.paid[pid] !== undefined) continue;
+        const p = player(pid);
+        tour.paid[pid] = p ? (hooks.entry?.(p, tour.entryFee, `tournoi:${tour.id}:entree:${pid}`, tour.name) ?? 0) : 0;
+      }
+      const total = Object.values(tour.paid).reduce((a, b) => a + b, 0);
+      tour.pot = Math.floor((total * (100 - tour.houseCut)) / 100);
     }
     for (const t of teams) t.name = t.pids.length ? [...t.pids.map(name), ...Array(t.bots ?? 0).fill("Robot")].join(" & ") : `Robots ${t.robots}`;
     // Tirage au sort du tableau (aléa cryptographique) ; les places vides sont des exemptions.
@@ -561,7 +581,20 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
         if (p && tour.prizes[kind] > 0) hooks.prize?.(p, tour.prizes[kind], `tournoi:${tour.id}:${kind}:${pid}`, tour.name);
       }
     };
+    // Cagnotte des droits d'entrée : 70 % à l'équipe gagnante, 30 % à la finaliste (robots exclus ;
+    // une part sans joueur reste à la Maison).
+    const share = (pids, pct, kind) => {
+      if (!tour.pot || !pids.length) return;
+      const each = Math.floor((tour.pot * pct) / 100 / pids.length);
+      for (const pid of pids) {
+        const p = player(pid);
+        if (p && each > 0) hooks.prize?.(p, each, `tournoi:${tour.id}:cagnotte:${kind}:${pid}`, tour.name);
+      }
+    };
     if (winnerId) {
+      share(team(tour, winnerId).pids, 70, "winner");
+      const other = [final.a, final.b].find((x) => x && x !== winnerId);
+      if (other) share(team(tour, other).pids, 30, "finalist");
       pay(team(tour, winnerId).pids, "winner");
       const loser = [final.a, final.b].find((x) => x && x !== winnerId);
       if (loser) pay(team(tour, loser).pids, "finalist");
@@ -623,6 +656,9 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
       rules: { ...tour.rules, reconnectSeconds: tour.reconnectSeconds, forfeitSeconds: tour.forfeitSeconds },
       rewards: tour.rewards,
       prizes: tour.prizes ?? { winner: 0, finalist: 0 },
+      entryFee: tour.entryFee ?? 0,
+      houseCut: tour.houseCut ?? 15,
+      pot: tour.pot ?? null,
       reminderHours: tour.reminderHours ?? 3,
       insufficient: tour.insufficient,
       postponeMinutes: tour.postponeMinutes,

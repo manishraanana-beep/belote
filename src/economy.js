@@ -27,6 +27,8 @@ export function economyConfig(env = process.env) {
   const production = env.NODE_ENV === "production" || !!env.RAILWAY_ENVIRONMENT;
   return {
     signupBonus: num("BELOTE_SIGNUP_BONUS", 2000),
+    // Droit de table : % de la mise payé à l'entrée par chaque joueur, retiré de la circulation.
+    tableFeePct: num("BELOTE_TABLE_FEE_PCT", 10),
     // Bonus de connexion : montant par défaut, modifiable depuis l'administration.
     loginBonus: num("BELOTE_LOGIN_BONUS", 200),
     dayStartUtc: num("BELOTE_DAY_START_UTC", 3), // heure commune de renouvellement
@@ -100,8 +102,11 @@ export function createEconomy(db, config = economyConfig()) {
       if (db.ledger[i].pid === p.id) out.push(db.ledger[i]);
     return out;
   }
+  // Droit de table en crédits pour une mise donnée (0 en partie gratuite).
+  const tableFee = (stakeCredits) => (stakeCredits > 0 ? Math.round((stakeCredits * (config.tableFeePct ?? 0)) / 100) : 0);
   return {
     config,
+    tableFee,
     wallet,
     available,
     history,
@@ -155,12 +160,13 @@ export function createEconomy(db, config = economyConfig()) {
     // house : les places sans joueur (robots) sont tenues par la Maison, qui engage le maximum.
     reserve(t, players, { house = false } = {}) {
       const stake = toUnits(t.stake);
+      const fee = toUnits(tableFee(t.stake));
       const stakes = [];
       for (let seat = 0; seat < 4; seat++) {
         const p = players[seat];
         if (!p && house) continue;
         if (!p) throw Error("Les parties avec crédits se jouent à quatre joueurs");
-        if (available(p) < stake) throw Error(`${p.name} n’a pas assez de crédits disponibles`);
+        if (available(p) < stake + fee) throw Error(`${p.name} n’a pas assez de crédits disponibles`);
       }
       for (let seat = 0; seat < 4; seat++) {
         const p = players[seat];
@@ -168,18 +174,22 @@ export function createEconomy(db, config = economyConfig()) {
           stakes.push({ seat, pid: null, name: "Maison", engaged: RUBICON * stake, house: true });
           continue;
         }
+        if (fee) post(p, `fee:${t.gameId}:${p.id}`, "fee", -fee, { gameId: t.gameId, label: "Droit de table" });
         const engaged = Math.min(available(p), RUBICON * stake);
         wallet(p).reserved += engaged;
-        stakes.push({ seat, pid: p.id, name: p.name, engaged });
+        stakes.push({ seat, pid: p.id, name: p.name, engaged, fee });
       }
-      return { gameId: t.gameId, stake, seats: stakes, settled: false };
+      return { gameId: t.gameId, stake, fee, seats: stakes, settled: false };
     },
     // Annulation technique : réservations libérées, ni gain ni perte.
     release(players, money, reason = "Partie annulée") {
       if (!money || money.settled) return;
       for (const s of money.seats) {
         const p = players[s.pid];
-        if (p) wallet(p).reserved = Math.max(0, wallet(p).reserved - s.engaged);
+        if (!p) continue;
+        wallet(p).reserved = Math.max(0, wallet(p).reserved - s.engaged);
+        // Annulation technique : le droit de table est rendu.
+        if (s.fee) post(p, `fee-refund:${money.gameId}:${p.id}`, "fee", s.fee, { gameId: money.gameId, label: "Droit de table rendu (partie annulée)" });
       }
       money.settled = true;
       money.cancelled = reason;

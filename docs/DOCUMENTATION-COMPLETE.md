@@ -379,7 +379,7 @@ Grille à recalibrer après le lot Économie : aujourd'hui, le petit pack vaut c
 - [x] Suppression du compte par le joueur lui-même, depuis l'appli.
 - [x] Chat : filtre de mots en plus du signalement et du blocage ; phrases rapides.
 - [x] Prix en euros partout, plafond de dépenses réglable, historique des achats dans le portefeuille.
-- [ ] Indicateurs de la section 14.3 dans le tableau de bord.
+- [x] Indicateurs de la section 14.3 dans le tableau de bord (jetons créés/détruits par jour et par source, retour J1/J7, durée moyenne, part de payants).
 
 ### 14.7 Lots, dans l'ordre
 
@@ -390,7 +390,7 @@ Un lot à la fois. Un lot peut donner plusieurs PR (une branche par sujet). Apr�
 | 1 | **Données** : base dédiée, migration de `state.json` sans perte, registre des achats (plan proposé et validé avant de coder) | **fait** (PR #133 SQLite, #134 registre) |
 | 2 | **Conformité** : pages légales et « Jeu équitable », mélange `crypto.randomInt`, suppression de compte, filtre du chat, prix en euros, plafond et historique des achats | fait (textes CGV à faire relire par un avocat) |
 | 3 | **Fuites** : Gmail normalisé, parrainage après 10 parties, alertes `integrity.js` | fait (appareil différent : quand l’identifiant d’appareil existera) |
-| 4 | **Économie** : droit de table, tournois payants en jetons, indicateurs | à faire |
+| 4 | **Économie** : droit de table, tournois payants en jetons, indicateurs | fait (indicateur « départs pendant l’attente » à ajouter) |
 | 5 | **Premières minutes** : attente 15 s, bulle des annonces, compte après la 1re partie, carte automatique et présélection, « Jouer entre amis » + WhatsApp, accueil, Classique dans les villes, fins de partie, accessibilité | à faire |
 | 6 | **Offres** : Pack Fondateur, grille de packs, « Il te manque X jetons », écran « Plus de jetons » (achats toujours désactivés) | à faire |
 | 7 | **Fidélité et revenus récurrents** : tournoi quotidien, ligues par niveau de jeu, Membre Prestige, objets visibles, badge « Vainqueur à Las Vegas » et voix d'annonce | à faire |

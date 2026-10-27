@@ -177,6 +177,12 @@ export function createApp({
       launchMatch: (tour, m, a, b) => launchMatch(tour, m, a, b),
       endTable: (tableId) => endTournamentTable(tableId),
       award: (p, reward) => progression.award(p, reward),
+      // Droit d'entrée : retiré de la circulation (la cagnotte est reversée aux finalistes). Renvoie le montant payé.
+      entry: (p, credits, key, name) => {
+        const paid = Math.min(credits, Math.floor(toCredits(economy.available(p))));
+        if (paid > 0 && economy.post(p, key, "tournoi", -toUnits(paid), { label: `Droit d’entrée — ${name}` })) return paid;
+        return 0;
+      },
       prize: (p, credits, key, name) => {
         if (economy.post(p, key, "tournoi", toUnits(credits), { label: `Enjeu — ${name}` }))
           deliver(p.id, { title: "Gain de tournoi", body: `${credits} crédits crédités pour « ${name} ».`, kind: "gain" });
@@ -476,6 +482,7 @@ export function createApp({
       quick: !!t.quick,
       fillAt: t.fillAt,
       stake: t.stake ?? 0,
+      fee: economy.tableFee(t.stake ?? 0),
       practice: !!t.practice,
       fillBots: !!t.fillBots,
       lobby: !!t.lobby,
@@ -525,7 +532,7 @@ export function createApp({
       engagedPreview: t.stake
         ? t.seats.map((s) => {
             const p = s && !s.bot ? db.players[s.id] : null;
-            return p ? { engaged: toCredits(Math.min(economy.available(p), 2 * t.stake)), enough: economy.available(p) >= 2 * t.stake, account: !!p.accountId } : null;
+            return p ? { engaged: toCredits(Math.min(economy.available(p), 2 * t.stake)), enough: economy.available(p) >= 2 * t.stake + toUnits(economy.tableFee(t.stake)), account: !!p.accountId } : null;
           })
         : null,
       rematch: t.rematch ? { votes: t.rematch.votes, blocked: t.rematch.blocked ?? [] } : null,
@@ -641,6 +648,9 @@ export function createApp({
     const rubicon = g.scores[winTeam] > 2 * g.scores[1 - winTeam];
     const humans = t.seats.filter((s) => s && !s.bot).map((s) => s.id).sort();
     const lineup = humans.join("|");
+    if (t.startedAt) {
+      db.gameDurations = [...(db.gameDurations ?? []), Date.now() - t.startedAt].slice(-500);
+    }
     t.results = {};
     for (let seat = 0; seat < 4; seat++) {
       const s = t.seats[seat],
@@ -731,6 +741,39 @@ export function createApp({
       deliver(p.id, { kind: "parrainage", title: "🎁 Bonus de parrainage", body: `+${REFERRAL_CREDITS} jetons offerts grâce à ${r.name}.` });
     }
   }
+  // ———— Indicateurs du tableau de bord (section 14.3 de la doc).
+  function metrics(days = 7) {
+    const DAY = 86400_000;
+    const since = Date.now() - days * DAY;
+    const byDay = {};
+    const bySource = {};
+    for (let i = db.ledger.length - 1; i >= 0 && db.ledger[i].at >= since; i--) {
+      const e = db.ledger[i];
+      if (!e.amount) continue;
+      const day = new Date(e.at).toISOString().slice(0, 10);
+      const d = (byDay[day] ??= { day, created: 0, destroyed: 0 });
+      const src = (bySource[e.type] ??= { type: e.type, created: 0, destroyed: 0 });
+      if (e.amount > 0) (d.created += e.amount), (src.created += e.amount);
+      else (d.destroyed -= e.amount), (src.destroyed -= e.amount);
+    }
+    const half = (o) => ({ ...o, created: toCredits(o.created), destroyed: toCredits(o.destroyed) });
+    // Retour : comptes revenus au moins 1 jour (ou 7 jours) après leur création (inscrits ces 30 derniers jours).
+    const back = (n) => {
+      const accs = Object.values(db.players).filter((p) => p.accountId && p.created && p.created > Date.now() - 30 * DAY && p.created < Date.now() - n * DAY);
+      return accs.length ? Math.round((100 * accs.filter((p) => (p.lastSeen ?? 0) - p.created >= n * DAY).length) / accs.length) : null;
+    };
+    const d = db.gameDurations ?? [];
+    const accounts = Object.values(db.players).filter((p) => p.accountId).length;
+    const payers = new Set(registry.list().filter((x) => x.status === "paid").map((x) => x.pid)).size;
+    return {
+      days: Object.values(byDay).sort((a, b) => a.day.localeCompare(b.day)).map(half),
+      sources: Object.values(bySource).sort((a, b) => b.created + b.destroyed - (a.created + a.destroyed)).map(half),
+      j1: back(1),
+      j7: back(7),
+      gameMinutes: d.length ? Math.round(d.reduce((a, b) => a + b, 0) / d.length / 6000) / 10 : null,
+      payingShare: accounts ? Math.round((1000 * payers) / accounts) / 10 : 0,
+    };
+  }
   const QUICK_TARGET = 750;
   const CLASSIC_TARGET = 750; // belote classique
   function start(t) {
@@ -746,7 +789,7 @@ export function createApp({
       // (revanche comprise) ; elle n'est suspendue que si un joueur n'a pas de compte ou pas les crédits.
       t.quickStake ??= t.stake;
       const humans = t.seats.filter((s) => !s.bot).map((s) => db.players[s.id]);
-      t.stake = humans.some((h) => !h?.accountId || economy.available(h) < toUnits(t.quickStake)) ? 0 : t.quickStake;
+      t.stake = humans.some((h) => !h?.accountId || economy.available(h) < toUnits(t.quickStake + economy.tableFee(t.quickStake))) ? 0 : t.quickStake;
     }
     if (t.stake) {
       if (!t.houseBots) check(t.seats.every((s) => !s.bot), "Les parties avec crédits se jouent entre quatre joueurs");
@@ -811,7 +854,7 @@ export function createApp({
     const ready = t.seats.every((s) => s && t.rematch.votes[s.id]);
     if (!ready) return;
     if (t.stake) {
-      t.rematch.blocked = t.seats.filter((s) => (s.bot ? !t.houseBots : economy.available(db.players[s.id]) < 2 * t.stake)).map((s) => s.name);
+      t.rematch.blocked = t.seats.filter((s) => (s.bot ? !t.houseBots : economy.available(db.players[s.id]) < 2 * t.stake + toUnits(economy.tableFee(t.stake)))).map((s) => s.name);
       if (t.rematch.blocked.length) return;
     }
     start(t);
@@ -911,8 +954,9 @@ export function createApp({
   function canStake(p, stake) {
     if (!stake) return;
     check(p.accountId, "Créez un compte pour jouer avec des crédits");
-    if (economy.available(p) < stake * 2) {
-      const e = Error(`Solde insuffisant : il faut ${stake} crédits disponibles pour cette table.`);
+    const fee = economy.tableFee(stake);
+    if (economy.available(p) < toUnits(stake + fee)) {
+      const e = Error(`Solde insuffisant : il faut ${stake + fee} crédits disponibles pour cette table (mise ${stake} + droit de table ${fee}).`);
       e.code = "funds";
       throw e;
     }
@@ -974,7 +1018,7 @@ export function createApp({
     if (cur && (cur.game ? cur.game.phase !== "finished" : cur.seats.some((s) => s && !s.bot && s.id !== p.id) || cur.tournament)) return false;
     if (x.seats.some((s) => s && !s.bot && blockedEither(p, db.players[s.id] ?? {}))) return false;
     const stake = stakeKey(x);
-    if (stake && (!p.accountId || economy.available(p) < toUnits(stake))) return false;
+    if (stake && (!p.accountId || economy.available(p) < toUnits(stake + economy.tableFee(stake)))) return false;
     return true;
   }
   function callPlayers(x, now) {
@@ -2169,6 +2213,7 @@ export function createApp({
           settings: db.settings,
           storage: { ephemeral, since: db.createdAt, kind: storage.kind, migration: db.migration ?? null },
           purchasesSummary: registry.summary(),
+          metrics: metrics(),
           backup: { configured: backup.enabled, bucket: backup.enabled ? backup.bucket : null, last: db.backup ?? null },
           tournaments: tournaments.adminList(),
           rewards: TOURNAMENT_REWARDS,

@@ -2131,3 +2131,9 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .buy-list li { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 10px; background: rgba(0, 0, 0, 0.2); font-size: 14px; }
 .buy-list em { font-style: normal; color: var(--muted); }
 .euro { color: var(--muted); font-weight: 500; }
+/* Back-office : indicateurs */
+table.metrics { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+table.metrics th, table.metrics td { padding: 4px 6px; text-align: right; border-bottom: 1px solid rgba(255,255,255,.08); }
+table.metrics th:first-child, table.metrics td:first-child { text-align: left; }
+table.metrics .plus { color: #7fd48a; }
+table.metrics .minus { color: #ff8f8f; }

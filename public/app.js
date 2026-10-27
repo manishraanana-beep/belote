@@ -946,6 +946,18 @@ function stakeTables() {
   if (!levels.length) return "";
   return `<h2 class="section orn-title">Tables avec mise</h2>${stakeGrid(levels)}<p class="robot-note">${icon("robot")}<span>Tables automatiquement complétées avec d’autres joueurs. Les places encore libres après quelques secondes sont prises par des robots.</span></p>`;
 }
+// Back-office : jetons créés / détruits et indicateurs (7 derniers jours).
+const SOURCE_NAMES = { achat: "Boutique (objets)", signup: "Inscription", login: "Roue du jour", referral: "Parrainage", tournoi: "Tournois", purchase: "Achats", win: "Gains de parties", loss: "Pertes de parties", fee: "Droit de table", refund: "Remboursements", dispute: "Oppositions", admin: "Back-office", challenge: "Défis", defi: "Défis", cancel: "Annulations" };
+function metricsCard(m) {
+  const pct = (v) => (v == null ? "—" : `${v} %`);
+  const row = (label, c, d) => `<tr><td>${e(label)}</td><td class="plus">+${fmt(c)}</td><td class="minus">−${fmt(d)}</td><td>${c - d >= 0 ? "+" : "−"}${fmt(Math.abs(c - d))}</td></tr>`;
+  return `<div class="admin-card"><b>📊 Indicateurs (7 jours)</b>
+    <p class="muted small">Retour J1 ${pct(m.j1)} · retour J7 ${pct(m.j7)} · partie moyenne ${m.gameMinutes == null ? "—" : `${String(m.gameMinutes).replace(".", ",")} min`} · joueurs payants ${String(m.payingShare).replace(".", ",")} %</p>
+    <table class="metrics"><thead><tr><th>Jour</th><th>Créés</th><th>Détruits</th><th>Solde</th></tr></thead><tbody>${m.days.map((x) => row(x.day.slice(8, 10) + "/" + x.day.slice(5, 7), x.created, x.destroyed)).join("") || '<tr><td colspan="4">Aucun mouvement</td></tr>'}</tbody></table>
+    <table class="metrics"><thead><tr><th>Source</th><th>Créés</th><th>Détruits</th><th>Solde</th></tr></thead><tbody>${m.sources.map((x) => row(SOURCE_NAMES[x.type] ?? x.type, x.created, x.destroyed)).join("")}</tbody></table></div>`;
+}
+// Droit de table (fixé par le serveur), lu sur une table de même mise.
+const feeOf = (stake) => state.tables.find((t) => t.stake === stake)?.fee ?? 0;
 const stakeLevels = () => [...new Set(state.tables.filter((t) => t.lobby && t.stake).map((t) => t.stake))].sort((a, b) => a - b);
 function stakeGrid(levels) {
   return `<div class="stake-grid">${levels
@@ -957,7 +969,7 @@ function stakeGrid(levels) {
       return `<button type="button" class="stake-card ${cls}" data-action="playLobby" data-stake="${stake}">
         <span class="sc-photo" aria-hidden="true"></span>
         <span class="sc-chip"><b>${fmt(stake)}</b><small>jetons</small></span>
-        <span class="sc-main"><b>${title}<i class="sc-flag" aria-hidden="true"></i></b><small>Mise ${fmt(stake)} · gain +${fmt(stake)}</small>
+        <span class="sc-main"><b>${title}<i class="sc-flag" aria-hidden="true"></i></b><small>Mise ${fmt(stake)}${feeOf(stake) ? ` + droit de table ${fmt(feeOf(stake))}` : ""} · gain +${fmt(stake)}</small>
         <span class="sc-meta"><span class="sc-seats">${[0, 1, 2, 3].map((i) => `<i class="${i < waiting ? "on" : ""}"></i>`).join("")}</span>${waiting}/4 joueurs${playing ? ` · ${playing} en jeu` : ""}</span></span>
         <span class="sc-go">Jouer</span>
       </button>`;
@@ -1133,6 +1145,8 @@ function tourChip(t) {
 function rewardsText(t) {
   const lines = [];
   const names = (ids) => ids.map((x) => REWARD_NAMES[x] ?? x).join(", ");
+  if (t.entryFee) lines.push(`🎟️ Droit d’entrée : ${t.entryFee} jetons par joueur, payé au départ (rien si vous ne jouez pas)`);
+  if (t.entryFee) lines.push(`🏦 Cagnotte${t.pot != null ? ` : ${t.pot} jetons` : ""} — droits d’entrée moins ${t.houseCut} % pour la Maison ; 70 % aux vainqueurs, 30 % aux finalistes`);
   if (t.prizes?.winner) lines.push(`💰 Enjeu vainqueurs : ${t.prizes.winner} crédits par joueur`);
   if (t.prizes?.finalist) lines.push(`💰 Enjeu finalistes : ${t.prizes.finalist} crédits par joueur`);
   if (t.rewards.winner.length) lines.push(`🏆 Vainqueurs : ${names(t.rewards.winner)}`);
@@ -1402,7 +1416,7 @@ function roomView() {
         <div class="row2">${btn(`${icon("link")} Copier le lien`, "copyInvite", "line-btn")}${btn(`${icon("share")} Partager`, "shareInvite", "line-btn")}</div></div>`
       : "";
   const stake = t.stake
-    ? `<div class="stake-card">${coins(t.stake, "big")}<div><b>Mise par joueur</b><small>Engagé au lancement : votre solde, au plus ${fmt(2 * t.stake)} (rubicon).</small></div></div>`
+    ? `<div class="stake-card">${coins(t.stake, "big")}<div><b>Mise par joueur</b><small>Engagé au lancement : votre solde, au plus ${fmt(2 * t.stake)} (rubicon).${t.fee ? ` Droit de table : ${fmt(t.fee)} jetons, payé au lancement (rendu si la partie est annulée).` : ""}</small></div></div>`
     : `<p class="free-line">${icon("check")} Partie gratuite</p>`;
   const pending = owner
     ? t.pending.map((p) => `<div class="request">${icon("user")}<span><b>${e(p.name)}</b> demande une place</span>${btn("Accepter", "admit", "gold-btn small", `data-player="${p.id}"`)}${btn("Refuser", "reject", "mini-btn ghost", `data-player="${p.id}"`)}</div>`).join("")
@@ -3282,6 +3296,7 @@ function tourForm(t) {
     <label>Nom<input name="name" value="${e(v.name)}" minlength="3" maxlength="60" required></label>
     <label>Description<input name="description" value="${e(v.description ?? "")}" maxlength="400"></label>
     <fieldset class="prize-box"><legend>💰 Jetons gagnés (par joueur de l’équipe, offerts par la Maison)</legend><div class="form-grid"><label>🏆 Vainqueurs<input type="number" name="prizeWinner" min="0" max="1000000" step="1" value="${v.prizes?.winner ?? 0}"></label><label>🥈 Finalistes<input type="number" name="prizeFinalist" min="0" max="1000000" step="1" value="${v.prizes?.finalist ?? 0}"></label></div></fieldset>
+    <fieldset class="prize-box"><legend>🎟️ Tournoi payant en jetons (cagnotte : 70 % vainqueurs, 30 % finalistes)</legend><div class="form-grid"><label>Droit d’entrée par joueur (0 = gratuit)<input type="number" name="entryFee" min="0" max="100000" step="1" value="${v.entryFee ?? 0}"></label><label>Part de la Maison (%)<input type="number" name="houseCut" min="10" max="20" step="1" value="${v.houseCut ?? 15}"></label></div></fieldset>
     <label>Fuseau de référence<input name="timeZone" value="${e(v.timeZone)}" list="tz-list" required></label>
     <datalist id="tz-list">${["Europe/Paris", "Europe/Brussels", "Europe/Zurich", "America/Montreal", "Indian/Reunion", "America/Martinique", "Pacific/Noumea", "UTC"].map((z) => `<option value="${z}">`).join("")}</datalist>
     <div class="form-grid">
@@ -3394,6 +3409,7 @@ async function adminRequest(data) {
         <div class="admin-stats"><div><b>${d.players.length}</b><small>clients</small></div><div><b>${online}</b><small>en ligne</small></div><div><b>${d.tables.length}</b><small>tables</small></div><div><b>${upcoming.length}</b><small>tournois à venir</small></div><div><b>${fmt(d.economy.circulating)}</b><small>crédits en circulation</small></div><div><b>${fmt(d.economy.reserved)}</b><small>crédits engagés</small></div><div><b>${open.length}</b><small>signalements</small></div><div><b>${alerts.length}</b><small>alertes</small></div></div>
         <p class="muted small">Achats ${d.economy.purchases ? "ouverts" : "fermés"} (web ${d.economy.stripe ? "✓" : "—"}, iOS ${d.economy.apple ? "✓" : "—"}, Android ${d.economy.google ? "✓" : "—"}) · Push navigateur ${d.push.web ? "✓" : "—"} · Push natif ${d.push.native ? "✓" : "—"} · Entrées ${d.settings.maintenance ? "suspendues" : "ouvertes"}</p>
         ${backupCard(d.backup)}
+        ${d.metrics ? metricsCard(d.metrics) : ""}
         ${d.purchasesSummary ? `<div class="admin-card"><b>🧾 Registre des achats</b><p class="muted small">${d.purchasesSummary.paid} payé${d.purchasesSummary.paid > 1 ? "s" : ""} · ${d.purchasesSummary.reversed} remboursé${d.purchasesSummary.reversed > 1 ? "s" : ""} ou contesté${d.purchasesSummary.reversed > 1 ? "s" : ""} · ${(d.purchasesSummary.revenueCents / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}${d.purchasesSummary.owed ? ` · ${fmt(d.purchasesSummary.owed)} jetons non repris` : ""} · achats ${d.economy.purchases ? "ouverts" : "fermés"}</p>${d.economy.stripe ? btn("Réimporter les paiements Stripe (30 jours)", "purchasesResync", "chip-btn") : ""}</div>` : ""}
         <p class="muted small">Stockage : ${d.storage.kind === "sqlite" ? "base SQLite" : "fichier JSON"}${d.storage.migration ? ` · migration du ${new Date(d.storage.migration.at).toLocaleString("fr-FR")} ${d.storage.migration.ok ? "✅" : "❌"} (${d.storage.migration.players} joueurs, ${d.storage.migration.ledger} mouvements, ${fmt(d.storage.migration.balance / 2)} jetons)` : ""}</p>`)}
       ${panel("clients", `<h2>Clients</h2><div id="admin-clients">${clientList(d)}</div>`)}
@@ -3493,6 +3509,8 @@ document.addEventListener("submit", async (ev) => {
           postponeMinutes: Number(d.postponeMinutes),
           reminderHours: Number(d.reminderHours),
           prizes: { winner: Number(d.prizeWinner || 0), finalist: Number(d.prizeFinalist || 0) },
+          entryFee: Number(d.entryFee || 0),
+          houseCut: Number(d.houseCut || 15),
           rewards: { winner: f2.getAll("rw-winner"), finalist: f2.getAll("rw-finalist"), participant: f2.getAll("rw-participant") },
           publish: d.publish === "1",
         };
