@@ -434,7 +434,13 @@ function botBid(v, me) {
     const partnerBids = auction.filter((x) => x.type === "bid" && x.seat === partner).length;
     const iBid = auction.some((x) => x.type === "bid" && x.seat === me);
     if (partnerBids > 1 || iBid) return { type: "pass" };
-    const plus = response(v.hand, c);
+    // Annonce « collée » juste au-dessus de l'adversaire (80 → 90, 90 → 100…) : le partenaire
+    // cherche le Valet ou le 9, comme une ouverture à 90. Un saut (80 → 100) garde son sens : maître.
+    const bids = auction.filter((x) => x.type === "bid");
+    const at = bids.findIndex((x) => x.seat === partner);
+    const before = at > 0 ? bids[at - 1] : null;
+    const glued = before && team(before.seat) !== team(me) && c.amount === before.amount + 10;
+    const plus = response(v.hand, glued ? { ...c, amount: 90 } : c);
     const target = c.amount + plus;
     if (plus && target <= 160) return { type: "bid", amount: target, suit: c.suit };
     return { type: "pass" };
@@ -472,6 +478,30 @@ function botPlay(v, me) {
   const cheap = (c) => value(c, t) + strength(c, t) * 0.1 + (suit(c) === t ? 30 : 0);
   const byCheap = [...legal].sort((a, b) => cheap(a) - cheap(b));
   const takers = team(v.contract.seat) === team(me);
+  // Appels indirects : défausser une couleur appelle l'As de la couleur sœur (même teinte :
+  // carreau ↔ cœur, pique ↔ trèfle), jamais vers l'atout.
+  const SISTER = { S: "C", C: "S", H: "D", D: "H" };
+  const calledBy = (seat) => {
+    const out = new Set();
+    for (const tr of [...v.tricks, { cards: trick }]) {
+      const lead = tr.cards?.[0] && suit(tr.cards[0].card);
+      for (const p of tr.cards ?? [])
+        if (p.seat === seat && suit(p.card) !== lead && suit(p.card) !== t && SISTER[suit(p.card)] !== t) out.add(SISTER[suit(p.card)]);
+    }
+    return out;
+  };
+  // Carte d'appel à défausser quand on ne fournit pas : petite carte de la couleur sœur d'un As que l'on tient.
+  const signal = () => {
+    const lead = trick[0] && suit(trick[0].card);
+    if (!lead || legal.some((c) => suit(c) === lead)) return null;
+    for (const x of SUITS) {
+      const sis = SISTER[x];
+      if (x === t || sis === t || !v.hand.includes("A" + x)) continue;
+      const low = legal.filter((c) => suit(c) === sis && value(c, t) < 10 && !master(c)).sort((a, b) => cheap(a) - cheap(b));
+      if (low.length) return low[0];
+    }
+    return null;
+  };
   if (!trick.length) {
     const myTrumps = legal.filter((c) => suit(c) === t);
     // Un adversaire qui n'a pas fourni sur une entame d'atout n'en a plus.
@@ -492,6 +522,10 @@ function botPlay(v, me) {
     // Cartes maîtresses à côté de l'atout, tant que la couleur n'a pas trop circulé (risque de coupe).
     const sideMasters = pool.filter((c) => suit(c) !== t && master(c) && value(c, t) >= 10 && [...played].filter((x) => suit(x) === suit(c)).length <= 3);
     if (sideMasters.length) return sideMasters.sort((a, b) => value(b, t) - value(a, t))[0];
+    // Le partenaire a appelé une couleur (appel indirect) : on la joue pour atteindre son As.
+    const calls = calledBy(partner);
+    const toCall = byCheap.filter((c) => pool.includes(c) && suit(c) !== t && calls.has(suit(c)) && !played.has("A" + suit(c)) && !v.hand.includes("A" + suit(c)));
+    if (toCall.length) return toCall[0];
     // Sinon une petite carte d'une couleur longue, en gardant ses atouts.
     const side = byCheap.filter((c) => suit(c) !== t);
     return side[0] ?? byCheap.filter((c) => pool.includes(c))[0] ?? byCheap[0];
@@ -505,6 +539,13 @@ function botPlay(v, me) {
     const safe = last || (master(winCard) && (suit(winCard) === t || trumpsOut === 0 || suit(trick[0].card) === suit(winCard)));
     const nonTrump = legal.filter((c) => suit(c) !== t || suit(trick[0].card) === t);
     const pool = nonTrump.length ? nonTrump : legal;
+    // Partenaire qui entame atout (le Valet…) : on fournit le plus petit atout et on garde ses
+    // atouts maîtres (le 9 reste maître derrière le Valet du preneur).
+    if (suit(trick[0].card) === t) {
+      const tr = legal.filter((c) => suit(c) === t);
+      if (tr.length) return tr.sort((a, b) => strength(a, t) - strength(b, t))[0];
+    }
+    const call = signal();
     if (safe) {
       // Défausse sur le pli sûr du partenaire : l'As si l'on garde le Dix (qui devient maître),
       // le Dix si l'on n'a pas l'As. Jamais un As sans son Dix (sauf s'il ne reste rien d'autre).
@@ -512,12 +553,15 @@ function botPlay(v, me) {
       const load = (c) => {
         if (suit(c) === lead || suit(c) === t) return value(c, t);
         if (rank(c) === "A") return v.hand.includes("10" + suit(c)) ? 30 : -50; // As jeté = Dix gardé ; sinon on garde l'As
+        // Une carte maîtresse fera son propre pli plus tard : on la garde.
+        if (master(c)) return value(c, t) - 25;
         if (rank(c) === "10") return v.hand.includes("A" + suit(c)) ? 5 : 20;
         return value(c, t);
       };
-      return [...pool].sort((a, b) => load(b) - load(a) || cheap(a) - cheap(b))[0];
+      const best = [...pool].sort((a, b) => load(b) - load(a) || cheap(a) - cheap(b))[0];
+      return call && load(best) < 10 ? call : best;
     }
-    return [...pool].sort((a, b) => cheap(a) - cheap(b))[0];
+    return call ?? [...pool].sort((a, b) => cheap(a) - cheap(b))[0];
   }
   const winners = legal.filter(beats).sort((a, b) => cheap(a) - cheap(b));
   if (winners.length) {
@@ -528,8 +572,8 @@ function botPlay(v, me) {
     if (sure.length && (points >= 10 || suit(sure[0]) !== t)) return sure.sort((a, b) => cheap(a) - cheap(b))[0];
     if (points >= 10 || suit(winners[0]) !== t) return winners[0];
   }
-  // Pli perdu : ne pas donner de points aux adversaires.
-  return byCheap[0];
+  // Pli perdu : ne pas donner de points aux adversaires (et en profiter pour un appel indirect).
+  return signal() ?? byCheap[0];
 }
 // Belote classique : prendre avec une bonne main dans la couleur (5 cartes + la carte retournée).
 function classicStrength(hand, s, withUp) {
