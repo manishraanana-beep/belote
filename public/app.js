@@ -1216,6 +1216,7 @@ function tournamentPage() {
       ? `<h2 class="section orn-title">Salon d’attente</h2>
         <div class="lobby-card"><div><b>${t.ready}</b><small>équipes prêtes</small></div><div><b>${t.confirmedCount}</b><small>présences confirmées</small></div><div><b>${free}</b><small>places restantes</small></div><div><b data-countdown="${t.start}"></b><small>avant le départ</small></div></div>`
       : "";
+  const pause = t.nextRoundAt ? `<div class="notice-box">${icon("clock")} <span><b>${e(t.nextRoundName ?? "Tour suivant")}</b> dans <b data-countdown="${t.nextRoundAt}"></b> · restez connectés</span></div>` : "";
   const mine = t.next
     ? `<div class="next-match ${t.next.status}">${icon("cards")}<div><small>${e(t.next.round)}</small><b>${t.next.against ? `Contre ${e(t.next.against.name)}` : "Adversaire à venir"}</b><span>${t.next.status === "playing" ? "Votre table est prête !" : "En attente des résultats du tour"}</span></div>${t.next.status === "playing" && state.table?.id === t.next.tableId ? btn("Rejoindre", "go", "gold-btn small", 'data-page="home"') : ""}</div>`
     : "";
@@ -1232,7 +1233,7 @@ function tournamentPage() {
       ${info("check", "Présence", `de ${hm(t.confirmOpen)} à ${hm(t.confirmBy)}`)}
     </div>
     <div class="access-box">${icon("coin")}<span>${minLine(t)}</span></div>
-    ${mine}
+    ${pause}${mine}
     <div class="stack">${actions}${["soon", "open", "closed", "ready"].includes(t.stage) ? whatsappInvite(t) : ""}</div>
     ${lobby}
     ${t.rounds ? bracketView(t) : ""}
@@ -1413,7 +1414,7 @@ function contractInfo(g, t, me) {
 }
 const multLabel = (m) => (m === 4 ? "Surcontré" : m === 2 ? "Contré" : "");
 function tableLabel(t) {
-  const kind = t.tournament ? e(t.tournament.name) : t.practice ? "Entraînement" : t.vip ? "Table VIP" : "Table classique";
+  const kind = t.tournament ? `${e(t.tournament.name)}${t.tournament.roundName ? ` · ${e(t.tournament.roundName)}` : ""}` : t.practice ? "Entraînement" : t.vip ? "Table VIP" : "Table classique";
   return t.stake ? `${kind} • ${fmt(t.stake)} jetons` : kind;
 }
 // Bandeau du haut (maquette « Votre annonce ») : logo, solde, table, menu, puis le score Nous / Eux.
@@ -1623,7 +1624,13 @@ function finalResult(g, t, me) {
     ${r ? moneyLines(r) + `<div class="xp-line">✨ +${r.xp} XP${r.badges?.length ? ` · ${r.badges.map((b) => `${b.icon} ${e(b.name)}`).join(", ")}` : ""}${r.challenges?.length ? ` · 🎯 ${r.challenges.map(e).join(", ")}` : ""}</div>` : ""}
     ${
       t.tournament
-        ? `<p class="op-note">${won ? "Qualifiés ! Votre prochaine table s’ouvrira dès la fin du tour : vous serez prévenus." : "Fin du parcours dans ce tournoi. Merci d’avoir joué !"}</p>
+        ? `<p class="op-note">${
+            won
+              ? t.tournament.roundName === "Finale"
+                ? "🏆 Vous remportez le tournoi !"
+                : `${e(t.tournament.roundName ?? "Tour")} gagné ! Le tour suivant commence 2 minutes après la fin des autres tables : restez connectés.`
+              : `Éliminés en ${e((t.tournament.roundName ?? "tournoi").toLowerCase())}. Merci d’avoir joué !`
+          }</p>
       ${btn(`${icon("trophy")} Voir le tableau du tournoi`, "backToTour", "gold-btn wide")}`
         : `<div class="votes">${t.seats.map((s) => `<span class="vote ${s && votes[s.id] ? "ok" : ""}" title="${e(s?.name ?? "")}">${avatar(s?.avatar)}<i>${s && votes[s.id] ? "✓" : "…"}</i></span>`).join("")}</div>
     ${t.stake ? `<p class="op-note">${e(stakeRisk(t.stake))}</p>` : ""}
@@ -1762,6 +1769,7 @@ function gameView() {
     <main class="arena">
       <div class="felt"></div>
       ${[1, 2, 3].map((r) => seatView(g, t, me, (me + r) % 4)).join("")}
+      ${t.tournament?.roundName ? `<div class="tour-round">🏆 ${e(t.tournament.roundName)}</div>` : ""}
       <div class="center">${centerView(g, t, me)}</div>
       ${g.tricks.length && g.phase === "playing" ? btn(`${icon("cards")} Dernier pli`, "lastTrick", "last-trick-btn") : ""}
       ${myBid ? bidPanel(g, me, t) : floatingAction(g, me)}
