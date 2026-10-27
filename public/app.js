@@ -417,6 +417,11 @@ const CAT_ART = { classic: "av-04", gold: "av-or-4", crown: "av-roi-2", back: "d
 const shopItem = (id) => state.player.shop?.items.find((x) => x.id === id);
 const ownedShop = (kind) => (state.player.shop?.items ?? []).filter((x) => x.owned && (!kind || x.kind === kind));
 const favEmojis = () => (state.player.shop?.favorites ?? []).map(shopItem).filter(Boolean);
+// Équivalent en euros d'un prix en jetons (au tarif du plus petit pack), seulement quand les achats sont ouverts.
+const euroOf = (n) => {
+  const pk = shopConfig?.purchases ? [...(shopConfig.packs ?? [])].filter((x) => x.priceCents).sort((a, b) => a.credits - b.credits)[0] : null;
+  return pk ? ` <small class="euro">≈ ${((n * pk.priceCents) / pk.credits / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}</small>` : "";
+};
 const jetons = (n) => `${fmt(n).replace(/\s/g, "\u00a0")} jetons`;
 function itemStatus(it) {
   if (!it.owned) return "available";
@@ -500,7 +505,7 @@ function shopItemModal(id) {
     `<div class="shop-modal"><h2>${e(it.name)}</h2><p class="muted">${e(state.player.shop.categories.find((c) => c.id === it.cat)?.name ?? "")}</p>
       ${it.kind === "felt" ? "" : `<div class="shop-modal-art sa-${it.cat}"><img src="${it.img}" alt=""></div>`}
       ${shopPreview(it)}
-      <div class="shop-modal-meta"><span><i class="coin"></i>${jetons(it.price)}</span><span class="status ${st}">${STATUS_LABEL[st]}</span></div>
+      <div class="shop-modal-meta"><span><i class="coin"></i>${jetons(it.price)}${euroOf(it.price)}</span><span class="status ${st}">${STATUS_LABEL[st]}</span></div>
       ${action}
       ${it.kind === "felt" && state.player.progress.equipped.felt?.startsWith("tapis-") ? btn("Revenir au tapis vert d’origine", "feltDefault", "line-btn wide") : ""}
       <p class="muted small">${it.kind === "back" || it.kind === "felt" ? "Visible uniquement sur votre écran : les autres joueurs gardent leurs propres choix." : it.kind === "emoji" ? "Apparaît quelques secondes près de votre avatar, sans masquer les cartes." : "Visible par tous les joueurs à votre table."} Purement cosmétique, aucun avantage de jeu.</p></div>`,
@@ -1052,7 +1057,8 @@ function settingsPage() {
       ${p.account?.hasPassword ? menuLink("lock", "Modifier mon mot de passe", "changePassword") : ""}
       ${menuLink("users", "Amis et confidentialité", "friends", 'data-tab="settings"')}
       ${menuLink("help", "Aide & contact", "help")}
-      ${menuLink("doc", "Confidentialité", "go", 'data-page="legal"')}
+      ${menuLink("doc", "Conditions et confidentialité", "go", 'data-page="legal"')}
+      ${menuLink("shield", "Jeu équitable", "go", 'data-page="fair"')}
     </div>
     ${p.account ? `${btn(`${icon("logout")} Se déconnecter`, "logout", "line-btn wide")}${btn(`${icon("trash")} Supprimer mon compte`, "deleteAccount", "danger-line wide")}` : btn("Créer un compte", "go", "gold-btn wide", 'data-page="register"')}
     <p class="foot-link"><a class="inline-link" href="/cards-LICENSE.txt">Crédits des cartes</a></p>`,
@@ -1062,10 +1068,26 @@ function settingsPage() {
 function legalPage() {
   return shell(
     `<h1 class="page-title">Conditions et confidentialité</h1>
-    <div class="text-card"><h3>Ce que nous conservons</h3><p>Votre pseudo, votre avatar ou photo, votre adresse e-mail si vous créez un compte, vos statistiques, votre historique de parties et de crédits. Aucune donnée n’est revendue.</p>
-    <h3>Crédits de jeu</h3><p>Les crédits servent uniquement à jouer. Ils ne peuvent être ni retirés, ni transférés, ni convertis en argent. Les parties avec crédits sont réservées aux personnes majeures.</p>
+    <div class="text-card"><h3>Ce que nous conservons</h3><p>Votre pseudo, votre avatar ou photo, votre adresse e-mail si vous créez un compte, vos statistiques, votre historique de parties, de jetons et d’achats. Aucune donnée n’est revendue.</p>
+    <h3>Jetons de jeu</h3><p>Les jetons servent uniquement à jouer. Ils ne peuvent être ni retirés, ni transférés, ni offerts, ni revendus, ni convertis en argent ou en lots réels. Les parties avec jetons sont réservées aux personnes majeures.</p>
     <h3>Vos droits</h3><p>Vous pouvez modifier votre profil et supprimer votre compte à tout moment depuis les réglages : toutes vos données sont alors effacées.</p>
-    <h3>Bonne conduite</h3><p>Respect, pas de triche ni d’arrangement entre comptes. Les signalements sont examinés par la modération.</p></div>
+    <h3>Bonne conduite</h3><p>Respect, pas de triche ni d’arrangement entre comptes. Les messages injurieux sont masqués ; les signalements sont examinés par la modération.</p></div>
+    <div class="text-card"><h3>Conditions de vente des jetons</h3>
+    <p>Les prix sont indiqués en euros, toutes taxes comprises, avant chaque achat. Un achat crédite immédiatement le nombre de jetons affiché.</p>
+    <p><b>Droit de rétractation :</b> vous disposez de 14 jours après l’achat pour demander le remboursement des jetons achetés qui n’ont pas encore été utilisés, en écrivant à l’aide (Réglages › Aide & contact). Les jetons remboursés sont retirés de votre solde.</p>
+    <p>En cas de remboursement ou d’opposition bancaire, les jetons correspondants sont repris.</p>
+    <p><b>Plafond de dépenses :</b> vous pouvez fixer un plafond mensuel dans votre portefeuille. L’historique de vos achats y est consultable à tout moment.</p></div>
+    <div class="stack">${btn("⚖️ Jeu équitable", "go", "line-btn wide", 'data-page="fair"')}${btn("Fermer", "back", "gold-btn wide")}</div>`,
+  );
+}
+function fairPage() {
+  return shell(
+    `<h1 class="page-title">Jeu équitable</h1>
+    <div class="text-card"><h3>Le hasard n’est jamais réglé</h3><p>Chaque donne est mélangée par le serveur avec un générateur de hasard cryptographique (<code>crypto.randomInt</code>), le même type de hasard que celui utilisé en sécurité informatique. Personne ne peut le prévoir ni l’influencer.</p>
+    <p>Les donnes, les robots et les offres ne dépendent <b>jamais</b> de votre solde, de vos pertes ou de vos achats.</p>
+    <h3>Les robots</h3><p>Les robots sont toujours signalés par le badge <b>ROBOT</b>. Ils ne voient que ce qu’un joueur humain voit à leur place : leur main et les cartes jouées, jamais les cartes cachées.</p>
+    <p>Tous les robots, partenaires comme adversaires, suivent le même système d’annonces (100 : maître à l’atout ; 90 : je cherche le Valet ou le 9 ; 80 : deux As), expliqué dans les règles.</p>
+    <h3>Les jetons</h3><p>Les jetons n’ont aucune valeur hors du jeu : ils ne se gagnent pas contre de l’argent et ne se revendent pas.</p></div>
     ${btn("Fermer", "back", "gold-btn wide")}`,
   );
 }
@@ -1339,7 +1361,7 @@ function pageView() {
   // Visiteur non connecté : à chaque arrivée, choix « Se connecter » / « Créer un compte » / « Découvrir ».
   // Un joueur déjà connecté est reconnu (session d'un an) et arrive directement à l'accueil.
   if (!page.name) page = { name: guest && !sessionStorage.getItem("discover") ? "welcome" : "home", params: {} };
-  const views = { welcome: welcomePage, register: registerPage, login: loginPage, forgot: forgotPage, reset: resetPage, verify: verifyPage, home: homePage, tables: tablesPage, profile: profilePage, avatar: avatarPage, history: historyPage, rules: () => rulesPage(), settings: settingsPage, legal: legalPage, vip: vipPage, vipCreate: vipCreatePage, tournaments: tournamentsPage, tournament: tournamentPage, boutique: boutiquePage, classement: classementPage };
+  const views = { welcome: welcomePage, register: registerPage, login: loginPage, forgot: forgotPage, reset: resetPage, verify: verifyPage, home: homePage, tables: tablesPage, profile: profilePage, avatar: avatarPage, history: historyPage, rules: () => rulesPage(), settings: settingsPage, legal: legalPage, fair: fairPage, vip: vipPage, vipCreate: vipCreatePage, tournaments: tournamentsPage, tournament: tournamentPage, boutique: boutiquePage, classement: classementPage };
   return (views[page.name] ?? homePage)();
 }
 
@@ -2355,7 +2377,9 @@ function walletModal() {
       <div class="wallet-split"><div><small>Disponible</small><b>${fmt(w.available / 2)}</b></div><div><small>Engagé en partie</small><b>${fmt(w.reserved / 2)}</b></div></div>
       ${acc ? `<p class="daily-done">🎡 Roue du jour : un tour toutes les 24 h, gains multipliés par votre série (jusqu’à ×4) · prochain tour dans <b data-countdown="${w.loginBonus?.next ?? 0}"></b></p>` : `<div class="account-box guest"><b>Créez un compte</b><p class="muted small">Recevez vos crédits de bienvenue et le bonus quotidien, sur le site et dans l’application.</p>${btn("Créer un compte", "auth", "pill small", 'data-mode="register"')}</div>`}
       <div class="row">${btn("🪙 Boutique", "shop", "pill small")}${btn("📜 Historique", "history", "chip-btn")}${btn("🤖 Entraînement gratuit", "practice", "chip-btn")}</div>
-      <p class="muted small wallet-note">Les crédits servent uniquement à jouer : ils ne peuvent être ni retirés, ni transférés, ni convertis en argent.</p>
+      ${acc ? `<label class="cap-row">Plafond de dépenses par mois<select data-setting="spendCap">${[0, 10, 20, 50, 100].map((v) => `<option value="${v}" ${(state.player.settings.spendCap ?? 0) === v ? "selected" : ""}>${v ? `${v} €` : "Aucun"}</option>`).join("")}</select></label>` : ""}
+      ${(state.player.purchases ?? []).length ? `<h3 class="wallet-sub">Mes achats</h3><ul class="buy-list">${state.player.purchases.map((x) => `<li><span>${new Date(x.at).toLocaleDateString("fr-FR")}</span><b>${fmt(x.credits)} jetons</b><span>${x.amountCents != null ? (x.amountCents / 100).toLocaleString("fr-FR", { style: "currency", currency: (x.currency || "eur").toUpperCase() }) : ""}</span><em>${{ paid: "Payé", refunded: "Remboursé", disputed: "Contesté" }[x.status] ?? x.status}</em></li>`).join("")}</ul>` : ""}
+      <p class="muted small wallet-note">Les crédits servent uniquement à jouer : ils ne peuvent être ni retirés, ni transférés, ni convertis en argent. ${btn("Conditions de vente", "go", "inline-link", 'data-page="legal"')}</p>
     </div>`,
     "wallet-modal",
   );

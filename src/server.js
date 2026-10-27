@@ -149,6 +149,7 @@ export function createApp({
   if (ephemeral)
     console.error("ATTENTION : aucun volume Railway attaché. Les comptes et les crédits seront effacés au prochain déploiement. Ajoutez un volume au service (Settings › Volumes).");
   const economy = createEconomy(db, economyConfig(env));
+  const SPEND_CAPS = [0, 10, 20, 50, 100];
   const registry = createRegistry({ db, economy, toUnits, packs: () => economy.config.packs });
   const progression = createProgression({ db, economy, env });
   const shop = createShop({ db, economy });
@@ -299,6 +300,10 @@ export function createApp({
       persist();
     }
   }
+  // Filtre du chat : les insultes courantes sont masquées (en plus du signalement et du blocage).
+  const BAD_WORDS = new Set(["connard", "connards", "connasse", "connasses", "salope", "salopes", "salaud", "pute", "putes", "putain", "encule", "encules", "enculer", "fdp", "ntm", "nique", "niquer", "batard", "batards", "abruti", "abrutie", "debile", "pd", "tg", "fils de pute", "conne", "con", "cons", "merde", "bouffon", "tocard", "pétasse", "petasse", "chienne", "enfoire", "enfoiré"]);
+  const plain = (w) => w.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const filterChat = (text) => text.replace(/[\p{L}\p{N}]+/gu, (w) => (BAD_WORDS.has(plain(w)) ? w[0] + "*".repeat(Math.max(2, w.length - 1)) : w));
   function persist() {
     storage.save(db);
   }
@@ -532,6 +537,8 @@ export function createApp({
   }
   function playerView(p) {
     return {
+      // Historique des achats (portefeuille) : les 20 derniers.
+      purchases: registry.list(p.id).slice(0, 20).map((x) => ({ at: x.at, credits: x.credits, amountCents: x.amountCents, currency: x.currency, status: x.status })),
       id: p.id,
       name: p.name,
       avatar: p.avatar,
@@ -1387,7 +1394,7 @@ export function createApp({
       case "chat":
         check(t, "Rejoignez une table");
         {
-          const text = clean(d.text, 280);
+          const text = filterChat(clean(d.text, 280));
           check(text, "Message vide");
           // Pendant la donne, uniquement des messages prédéfinis : rien ne permet de décrire sa main.
           if (t.game && t.game.phase !== "finished")
@@ -1412,6 +1419,8 @@ export function createApp({
         if (typeof d.animations === "boolean") p.settings.animations = d.animations;
         if (typeof d.sounds === "boolean") p.settings.sounds = d.sounds;
         if (typeof d.emojis === "boolean") p.settings.emojis = d.emojis;
+        // Plafond de dépenses mensuel choisi par le joueur (en euros ; 0 = aucun).
+        if (d.spendCap !== undefined && SPEND_CAPS.includes(Number(d.spendCap))) p.settings.spendCap = Number(d.spendCap);
         break;
       case "dismissResult":
         delete p.lastResult;
@@ -1916,7 +1925,7 @@ export function createApp({
     if (url.pathname === "/api/shop/config") {
       const c = economy.config;
       return json(res, 200, {
-        packs: c.packs.map(({ id, credits, price, bonus }) => ({ id, credits, price, bonus })),
+        packs: c.packs.map(({ id, credits, price, priceCents, bonus }) => ({ id, credits, price, priceCents, bonus })),
         purchases: c.purchases,
         stripe: c.stripe,
         apple: c.apple,
@@ -1950,6 +1959,12 @@ export function createApp({
           check(cfg.stripe, "Paiement web non configuré");
           const pack = cfg.packs.find((x) => x.id === d.pack);
           check(pack, "Pack inconnu");
+          const cap = p.settings?.spendCap ?? 0;
+          if (cap) {
+            const month = new Date().toISOString().slice(0, 7);
+            const spent = registry.list(p.id).filter((x) => x.status === "paid" && new Date(x.at).toISOString().slice(0, 7) === month).reduce((n, x) => n + (x.amountCents ?? 0), 0);
+            check(spent + (pack.priceCents ?? 0) <= cap * 100, `Plafond de dépenses atteint : ${cap} € par mois (modifiable dans le portefeuille).`);
+          }
           return json(res, 200, { url: await stripeCheckout({ env, pack, player: p, origin: baseUrl(req) }) });
         } else if (action === "apple") {
           check(cfg.apple, "Achats iOS non configurés");
