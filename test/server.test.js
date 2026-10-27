@@ -847,6 +847,13 @@ test("tournoi programmé : départ automatique, vraies tables sans robots, forfa
     const [status, view] = await admin({ type: "tourCreate", data });
     assert.equal(status, 200);
     const tid = view.tournaments[0].id;
+    // Suppression réservée aux anciens tournois : refusée tant qu'il est publié.
+    assert.equal((await admin({ type: "tourDelete", id: tid }))[0], 400);
+    const [, v2] = await admin({ type: "tourCreate", data: { ...data, name: "Coupe à jeter", publish: false } });
+    const old = v2.tournaments.find((x) => x.name === "Coupe à jeter");
+    const [okDel, v3] = await admin({ type: "tourDelete", id: old.id });
+    assert.equal(okDel, 200);
+    assert.ok(!v3.tournaments.some((x) => x.id === old.id), "brouillon supprimé");
     const ps = [];
     for (let i = 0; i < 4; i++) ps.push(await member(f, `t${i}@exemple.fr`));
     await ps[0].wait((c) => c.state.tournaments?.length === 1);

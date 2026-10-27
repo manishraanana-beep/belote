@@ -2627,6 +2627,14 @@ document.addEventListener("click", async (ev) => {
     case "tourPublish":
       await adminRequest({ type: "tourPublish", id: el.dataset.id });
       break;
+    case "tourDelete": {
+      const t = adminData.tournaments.find((x) => x.id === el.dataset.id);
+      if (t && confirm(`Supprimer définitivement « ${t.name} » ? Les trophées 🏆 de ses vainqueurs sont conservés.`)) {
+        await adminRequest({ type: "tourDelete", id: t.id });
+        toast("Tournoi supprimé");
+      }
+      break;
+    }
     case "tourDuplicate":
       await adminRequest({ type: "tourDuplicate", id: el.dataset.id });
       toast("Copie créée en brouillon");
@@ -3227,7 +3235,7 @@ function tourAdmin(d) {
   return `<p class="muted small">Push navigateur ${d.push.web ? "✓ configuré" : "— clés VAPID manquantes"} · push iOS/Android ${d.push.native ? "✓ configuré" : "— Firebase non configuré"} · les rappels restent dans l’application dans tous les cas.</p>
     ${btn("＋ Nouveau tournoi", "tourNew", "pill small")}
     <div class="tour-cal">${Object.entries(byDay).map(([day, list]) => `<div class="cal-day"><b>${e(day)}</b>${list.map((t) => `<div class="admin-card"><b>${e(t.name)}</b><small>${new Date(t.start).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} (votre heure) · ${e(t.local.start.replace("T", " "))} ${e(t.timeZone)} · ${TOUR_LABELS[t.status]} · ${t.places.used}/${t.places.capacity} inscrits${t.places.waitlist ? ` · ${t.places.waitlist} en attente` : ""}</small>
-      <div class="row">${["draft", "published"].includes(t.status) && !t.rounds ? btn("Modifier", "tourEdit", "chip-btn", `data-id="${t.id}"`) : ""}${t.status === "draft" ? btn("Publier", "tourPublish", "chip-btn", `data-id="${t.id}"`) : ""}${["draft", "published"].includes(t.status) ? btn("Reporter", "tourPostpone", "chip-btn", `data-id="${t.id}"`) + btn("Annuler", "tourCancel", "chip-btn danger", `data-id="${t.id}"`) : ""}${btn("Dupliquer", "tourDuplicate", "chip-btn", `data-id="${t.id}"`)}${btn("Détails", "tourDetails", "chip-btn", `data-id="${t.id}"`)}</div></div>`).join("")}</div>`).join("") || "<p>Aucun tournoi programmé.</p>"}</div>`;
+      <div class="row">${["draft", "published"].includes(t.status) && !t.rounds ? btn("Modifier", "tourEdit", "chip-btn", `data-id="${t.id}"`) : ""}${t.status === "draft" ? btn("Publier", "tourPublish", "chip-btn", `data-id="${t.id}"`) : ""}${["draft", "published"].includes(t.status) ? btn("Reporter", "tourPostpone", "chip-btn", `data-id="${t.id}"`) + btn("Annuler", "tourCancel", "chip-btn danger", `data-id="${t.id}"`) : ""}${btn("Dupliquer", "tourDuplicate", "chip-btn", `data-id="${t.id}"`)}${["finished", "cancelled", "draft"].includes(t.status) ? btn("Supprimer", "tourDelete", "chip-btn danger", `data-id="${t.id}"`) : ""}${btn("Détails", "tourDetails", "chip-btn", `data-id="${t.id}"`)}</div></div>`).join("")}</div>`).join("") || "<p>Aucun tournoi programmé.</p>"}</div>`;
 }
 function tourForm(t) {
   const d = adminData;
