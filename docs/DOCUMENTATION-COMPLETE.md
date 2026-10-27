@@ -393,7 +393,7 @@ Un lot à la fois. Un lot peut donner plusieurs PR (une branche par sujet). Apr�
 | 4 | **Économie** : droit de table, tournois payants en jetons, indicateurs | fait (indicateur « départs pendant l’attente » à ajouter) |
 | 5 | **Premières minutes** : attente 15 s, bulle des annonces, compte après la 1re partie, carte automatique et présélection, « Jouer entre amis » + WhatsApp, accueil, Classique dans les villes, fins de partie, accessibilité | 5a fait (attente, compte, carte auto, entre amis, accueil) ; 5b fait (prochain objectif en fin de partie, amis en ligne avec défi) ; Classique dans les villes et accessibilité : écartés par Jacques |
 | 6 | **Offres** : Pack Fondateur, grille de packs, « Il te manque X jetons », écran « Plus de jetons » (achats toujours désactivés) | fait (fin de l’offre Fondateur : `BELOTE_FOUNDER_UNTIL`, 31/01/2027 par défaut) |
-| 7 | **Fidélité et revenus récurrents** : tournoi quotidien, ligues par niveau de jeu, Membre Prestige, objets visibles, badge « Vainqueur à Las Vegas » et voix d'annonce | à faire |
+| 7 | **Fidélité et revenus récurrents** : tournoi quotidien, ligues par niveau de jeu, Membre Prestige, objets visibles, badge « Vainqueur à Las Vegas » et voix d’annonce | fait : Membre Prestige (attribué depuis le back-office tant que les achats sont fermés), badge Las Vegas, voix d’annonce ; tournoi quotidien et ligues écartés par Jacques |
 | — | **Plus tard** : pass de saison, Conseil de la Maison, tirelire, vidéo récompensée (appli native, PR #64), partenaire fixe, statistiques détaillées, dernière donne, robot plus fin | — |
 
 ---

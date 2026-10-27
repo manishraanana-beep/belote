@@ -50,3 +50,20 @@ test("collection : éléments verrouillés, débloqués par défi, équipement v
   assert.equal(p.progress.equipped.back, "back-menthe");
   assert.throws(() => prog.equip(p, "felt-lagon"), /Verrouillé/);
 });
+
+test("Vainqueur à Las Vegas et objets Membre Prestige", () => {
+  const { prog } = setup();
+  const p = { id: "p", accountId: "acc" };
+  prog.record(p, game({ won: true, vegas: false }));
+  assert.ok(!p.progress.badges["vegas-winner"]);
+  prog.record(p, game({ won: false, vegas: true, lineup: "e|f|g|h" }));
+  assert.ok(!p.progress.badges["vegas-winner"], "il faut gagner");
+  prog.record(p, game({ won: true, vegas: true, lineup: "i|j|k|l" }));
+  assert.ok(p.progress.badges["vegas-winner"]);
+  assert.throws(() => prog.equip(p, "voice-sport"), /Membre Prestige/);
+  p.prestige = { until: Date.now() + 86400_000 };
+  prog.equip(p, "voice-sport");
+  assert.equal(prog.shown(p, "voice"), "voice-sport");
+  p.prestige.until = Date.now() - 1; // abonnement terminé : retour à la voix de base
+  assert.equal(prog.shown(p, "voice"), null);
+});

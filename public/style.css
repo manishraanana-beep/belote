@@ -2156,3 +2156,17 @@ table.metrics .minus { color: #ff8f8f; }
 .missing { margin: 8px 0; font-size: 14px; }
 .free-line { margin: 4px 0; font-size: 14px; }
 .frame-fondateur .seat-avatar, .pv-avatar.frame-fondateur .seat-avatar, .swatch.frame-fondateur { background: conic-gradient(#fdf3d0, #c9a24a, #1f6b55, #c9a24a, #fdf3d0); box-shadow: 0 0 16px #c9a24a; }
+/* Membre Prestige, Vainqueur à Las Vegas, voix d'annonce */
+.prestige-star { color: #f6c85f; font-style: normal; margin-right: 3px; text-shadow: 0 0 6px #f6c85f; }
+.vegas-mark { font-style: normal; margin-left: 3px; font-size: .9em; }
+.prestige-card { margin: 12px 0; padding: 12px 14px; border-radius: 16px; background: linear-gradient(160deg, rgba(246, 200, 95, .16), rgba(20, 40, 60, .4)); border: 1px solid rgba(246, 200, 95, .6); }
+.prestige-card > b { font-size: 17px; }
+.prestige-card p { margin: 4px 0; font-size: 13px; }
+.prestige-card .ok { color: #7fd48a; }
+.prestige-card ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
+.pv-voice { display: grid; place-items: center; min-height: 70px; }
+.frame-prestige .seat-avatar, .pv-avatar.frame-prestige .seat-avatar, .swatch.frame-prestige { background: conic-gradient(#fff6d8, #f6c85f, #2b2b50, #f6c85f, #fff6d8); box-shadow: 0 0 20px #f6c85f; }
+.swatch.voice-classique, .swatch.voice-sport, .swatch.voice-sud { display: grid; place-items: center; background: #2a3a48; }
+.swatch.voice-classique::after { content: "🗣️"; }
+.swatch.voice-sport::after { content: "🎙️"; }
+.swatch.voice-sud::after { content: "☀️"; }

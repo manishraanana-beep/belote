@@ -250,7 +250,7 @@ function gameEffects(prevT, nextT) {
     const c = calls.at(-1);
     const word = calls.filter((x) => x.seat === c.seat).length >= 2 ? "Rebelote" : "Belote";
     SFX.belote();
-    say(`${word} !`);
+    sayVoice(word, nextT.seats[c.seat]?.voice);
     beloteBanner(word, nextT.seats[c.seat]?.name);
   }
   if ((b.multiplier ?? 1) > (a.multiplier ?? 1)) (SFX.counter(), say((b.multiplier ?? 1) >= 4 ? "Surcontré !" : "Contré !"));
@@ -1587,7 +1587,7 @@ function seatView(g, t, me, i) {
   return `<div class="seat p${rel} ${team} ${active ? "active" : ""} ${offline ? "offline" : ""} ${s?.frame ?? ""}">
     ${g.contract?.seat === i ? '<span class="crown-top" title="Preneur">♛</span>' : ""}
     <div class="seat-avatar ${human ? "tappable" : ""} ${active && t.deadline ? "ring" : ""}" ${active && t.deadline ? `data-ring="${t.deadline}" data-ring-total="${(t.rules.turnSeconds ?? 20) * 1000}"` : ""} ${human ? `data-action="player" data-id="${s.id}" role="button" aria-label="Profil de ${e(s.name)}"` : ""}>${avatar(s?.avatar)}${g.dealer === i ? '<span class="dealer" title="Donneur">D</span>' : ""}</div>
-    <div class="name-pill"><b>${e(s?.name ?? "—")}</b></div>${takerBadge(g, i)}${s?.bot ? '<span class="robot-tag">ROBOT</span>' : ""}${status}
+    <div class="name-pill"><b>${s?.prestige ? '<i class="prestige-star" title="Membre Prestige">★</i>' : ""}${e(s?.name ?? "—")}${s?.vegas ? '<i class="vegas-mark" title="Vainqueur à Las Vegas">🎰</i>' : ""}</b></div>${takerBadge(g, i)}${s?.bot ? '<span class="robot-tag">ROBOT</span>' : ""}${status}
     ${rel !== 0 ? `<div class="backs bk${Math.min(8, g.handCounts[i])}">${Array.from({ length: Math.min(8, g.handCounts[i]) }, () => "<i></i>").join("")}</div>` : ""}
     ${seatBubble(g, i, s)}${chatBubble(t, s)}${reactionBubble(t, s)}
   </div>`;
@@ -2095,13 +2095,22 @@ function unlockVoice() {
 }
 addEventListener("pointerdown", unlockVoice, { passive: true });
 addEventListener("keydown", unlockVoice);
-function say(text) {
+// Voix d'annonce choisie par le joueur qui annonce (entendue par toute la table).
+const VOICES = {
+  "voice-sport": { text: (w) => `Et c'est la ${w.toLowerCase()} ! Incroyable !`, rate: 1.3, pitch: 1.25 },
+  "voice-sud": { text: (w) => `${w}, peuchère !`, rate: 0.92, pitch: 0.85 },
+};
+function sayVoice(word, voice) {
+  const v = VOICES[voice];
+  say(v ? v.text(word) : `${word} !`, v);
+}
+function say(text, opt = null) {
   if (!sound || !("speechSynthesis" in window)) return;
   try {
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "fr-FR";
-    u.rate = 1.05;
-    u.pitch = 1.05;
+    u.rate = opt?.rate ?? 1.05;
+    u.pitch = opt?.pitch ?? 1.05;
     u.volume = 1;
     const v = speechSynthesis.getVoices().find((x) => x.lang?.startsWith("fr"));
     if (v) u.voice = v;
@@ -2465,6 +2474,7 @@ async function shopModal() {
     <p class="muted">Solde : ${coins(state.player.wallet.balance / 2)}</p>
     <h3 class="wallet-sub">Gratuit</h3><div class="menu-list wide">${free}</div>
     ${founder && state.player.founderOffer ? `<article class="founder-card"><span class="pack-tag">Lancement · jusqu’au ${new Date(c.founderUntil).toLocaleDateString("fr-FR")}</span><b>Pack Fondateur</b><p>${fmt(founder.credits)} jetons + cadre « Fondateur », qui ne sera plus jamais vendu. Une seule fois par compte.</p>${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(founder.price)) : e(founder.price), "buy", "gold-btn small", `data-pack="${founder.id}"`, !open)}</article>` : ""}
+    ${prestigeCard()}
     <h3 class="wallet-sub">Packs de jetons</h3>
     <div class="packs">${packs.map((pk) => `<article class="pack">${pk.bonus ? `<span class="pack-tag">${e(pk.bonus)}</span>` : ""}${pk.name ? `<small class="pack-name">${e(pk.name)}</small>` : ""}<span class="pack-coins">${"<i class=\"coin\"></i>".repeat(Math.min(4, 1 + Math.round(Math.log10(pk.credits / 500))))}</span><b>${fmt(pk.credits)}</b><small>jetons</small>
       ${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(pk.price)) : e(pk.price), "buy", "pill small", `data-pack="${pk.id}"`, !open || !state.player.account)}</article>`).join("")}</div>
@@ -2486,6 +2496,13 @@ async function historyModal() {
     modal(`<div class="modal-head"><span class="modal-icon">📜</span><h2>Historique des crédits</h2></div><ul class="ledger">${rows || '<li class="empty">Aucun mouvement pour l’instant.</li>'}</ul><p class="muted small">Journal en lecture seule : chaque règlement et chaque récompense ont un identifiant unique.</p>`, "sheet-modal");
   };
   ws.send(JSON.stringify({ id, type: "wallet", data: {} }));
+}
+// Abonnement Membre Prestige : avantages et état (paiement pas encore ouvert).
+function prestigeCard() {
+  const m = state.player.prestige;
+  return `<article class="prestige-card"><b>⭐ Membre Prestige</b>${
+    m ? `<p class="ok">Vous êtes membre jusqu’au ${new Date(m.until).toLocaleDateString("fr-FR")}.</p>` : "<p><b>4,99 € / mois</b>, sans engagement · bientôt disponible</p>"
+  }<ul><li>${fmt(m?.daily ?? 500)} jetons offerts chaque jour (avec la roue)</li><li>Cadre et étoile Prestige visibles à la table</li><li>Voix d’annonce : commentateur sportif, voix du Sud</li></ul></article>`;
 }
 // « Il te manque X jetons pour … » avec le plus petit pack qui couvre le manque (prix en euros).
 function missingLine(stake) {
@@ -2565,9 +2582,9 @@ function progressModal() {
 function collectionModal(kind = "frame", preview = null) {
   const pr = state.player.progress;
   const items = pr.cosmetics.filter((c) => c.kind === kind);
-  const sel = items.find((c) => c.id === preview) ?? items.find((c) => c.id === pr.equipped[kind]);
-  const tabs = [["frame", "Cadres"], ["back", "Dos de cartes"], ["felt", "Décors"]];
-  const prev = kind === "frame" ? `<div class="pv-avatar ${sel.id}"><div class="seat-avatar">${avatar(state.player.avatar)}</div></div>` : kind === "back" ? `<div class="pv-backs ${sel.id}"><div class="backs big">${"<i></i>".repeat(5)}</div></div>` : `<div class="pv-felt ${sel.id}"><div class="felt"></div></div>`;
+  const sel = items.find((c) => c.id === preview) ?? items.find((c) => c.id === pr.equipped[kind]) ?? items[0];
+  const tabs = [["frame", "Cadres"], ["back", "Dos de cartes"], ["felt", "Décors"], ["voice", "Voix"]];
+  const prev = kind === "voice" ? `<div class="pv-voice">${btn("🔊 Écouter", "voiceTry", "pill small", `data-id="${sel.id}"`)}</div>` : kind === "frame" ? `<div class="pv-avatar ${sel.id}"><div class="seat-avatar">${avatar(state.player.avatar)}</div></div>` : kind === "back" ? `<div class="pv-backs ${sel.id}"><div class="backs big">${"<i></i>".repeat(5)}</div></div>` : `<div class="pv-felt ${sel.id}"><div class="felt"></div></div>`;
   modal(
     `<div class="modal-head"><span class="modal-icon">🎨</span><h2>Collection</h2></div>
     <div class="seg tabs">${tabs.map(([k, l]) => btn(l, "collection", k === kind ? "on" : "", `data-kind="${k}"`)).join("")}</div>
@@ -3084,6 +3101,12 @@ document.addEventListener("click", async (ev) => {
       });
       break;
     }
+    case "adminPrestige":
+      adminRequest({ type: "prestige", id: el.dataset.id, days: Number(el.dataset.days) });
+      break;
+    case "voiceTry":
+      sayVoice("Belote", el.dataset.id);
+      break;
     case "inviteFriend":
       cmd("invite", inviteSeat === null ? { id: el.dataset.id } : { id: el.dataset.id, seat: inviteSeat });
       inviteSeat = null;
@@ -3426,6 +3449,7 @@ async function openClient(id) {
       <div class="client-head">${avatar(c.avatar)}<div><b>${e(c.name)}</b><small>${e(c.tag ?? "")} · ${c.online ? "en ligne" : "hors ligne"}${c.banned ? " · <b>suspendu</b>" : ""}</small><small>${c.account ? `${e(c.account.email)} · ${c.account.verified ? "e-mail vérifié" : "e-mail non vérifié"}${c.account.providers.length ? " · " + c.account.providers.map(e).join(", ") : ""}` : "Invité sans compte"}</small></div></div>
       <div class="admin-stats"><div><b>${fmt(w.balance / 2)}</b><small>solde</small></div><div><b>${fmt(w.reserved / 2)}</b><small>engagés</small></div><div><b>${c.stats.games}</b><small>parties</small></div><div><b>${c.stats.wins ?? 0}</b><small>victoires</small></div></div>
       <h4>Créditer / débiter</h4>
+      <div class="row">${c.account ? `${c.prestige ? `<small>⭐ Prestige jusqu’au ${new Date(c.prestige.until).toLocaleDateString("fr-FR")}</small>` : ""}${btn("⭐ Prestige +30 j", "adminPrestige", "chip-btn", `data-id="${c.id}" data-days="30"`)}${c.prestige ? btn("Retirer Prestige", "adminPrestige", "chip-btn", `data-id="${c.id}" data-days="0"`) : ""}` : ""}</div>
       <form id="client-credit-form" class="form inline"><input type="hidden" name="cid" value="${c.id}"><label>Montant (crédits, négatif pour retirer)<input name="amount" type="number" step="0.5" min="-1000000" max="1000000" required></label><label>Motif<input name="reason" maxlength="120" placeholder="Geste commercial, correction…"></label><button class="pill small">Valider</button></form>
       <h4>Fiche</h4>
       <form id="client-edit-form" class="form"><input type="hidden" name="cid" value="${c.id}">

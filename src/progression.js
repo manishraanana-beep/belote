@@ -21,6 +21,7 @@ export const BADGES = [
   { id: "capot", icon: "💥", name: "Capot !", hint: "Réussir un capot" },
   { id: "contreur", icon: "⚡", name: "Contreur", hint: "Faire chuter un contrat que vous avez contré" },
   { id: "vip-host", icon: "👑", name: "Hôte VIP", hint: "Terminer une partie dans votre table VIP" },
+  { id: "vegas-winner", icon: "🎰", name: "Vainqueur à Las Vegas", hint: "Gagner une partie à la table de Las Vegas" },
   // Récompenses de tournoi : attribuées une seule fois, annoncées avant l'inscription.
   { id: "tournoi-participant", icon: "🎟️", name: "Tournoyeur", hint: "Disputer un tournoi", reward: true },
   { id: "tournoi-finaliste", icon: "🥈", name: "Finaliste", hint: "Atteindre la finale d’un tournoi", reward: true },
@@ -43,6 +44,11 @@ export const COSMETICS = [
   { id: "felt-ocean", kind: "felt", name: "Océan", unlock: { type: "level", value: 1, label: "Niveau Habitué" } },
   { id: "felt-bordeaux", kind: "felt", name: "Bordeaux", unlock: { type: "badge", value: "first-rubicon", label: "Badge Premier rubicon" } },
   { id: "felt-lagon", kind: "felt", name: "Lagon", unlock: { type: "badge", value: "games-50", label: "Badge Cinquante parties" } },
+  { id: "frame-prestige", kind: "frame", name: "Prestige", unlock: { type: "prestige", label: "Membre Prestige" } },
+  // Voix d'annonce « Belote ! », entendue par toute la table.
+  { id: "voice-classique", kind: "voice", name: "Classique", unlock: { type: "free" } },
+  { id: "voice-sport", kind: "voice", name: "Commentateur sportif", unlock: { type: "prestige", label: "Membre Prestige" } },
+  { id: "voice-sud", kind: "voice", name: "Voix du Sud", unlock: { type: "prestige", label: "Membre Prestige" } },
   { id: "frame-fondateur", kind: "frame", name: "Fondateur", unlock: { type: "founder", label: "Pack Fondateur (lancement uniquement)" } },
   { id: "frame-champion", kind: "frame", name: "Couronne de champion", unlock: { type: "tournament", label: "Exclusif tournoi" } },
   { id: "back-velours", kind: "back", name: "Velours VIP", unlock: { type: "tournament", label: "Exclusif tournoi" } },
@@ -96,6 +102,7 @@ export function createProgression({ db, economy, env = process.env, maxSameLineu
     if (u.type === "free" || g.owned[item.id]) return true; // attribué explicitement (administration, récompense)
     if (u.type === "level") return levelInfo(g.xp).index >= u.value;
     if (u.type === "badge") return !!g.badges[u.value];
+    if (u.type === "prestige") return (p.prestige?.until ?? 0) > Date.now();
     return !!g.owned[item.id]; // défi, événement : attribué explicitement
   }
   function badge(p, id, out) {
@@ -121,6 +128,12 @@ export function createProgression({ db, economy, env = process.env, maxSameLineu
         challenges: challenges.map((c) => ({ ...c, progress: Math.min(c.goal, today[c.id] ?? 0), done: !!today["done:" + c.id] })),
         nextReset: nextReset(Date.now(), economy.config.dayStartUtc),
       };
+    },
+    // Objet équipé encore valable (ex. fin d'abonnement Prestige : retour à l'objet de base).
+    shown(p, kind) {
+      const id = prog(p).equipped[kind];
+      const item = COSMETICS.find((c) => c.id === id);
+      return item && unlocked(p, item) ? id : null;
     },
     equip(p, id) {
       const item = COSMETICS.find((c) => c.id === id);
@@ -164,6 +177,7 @@ export function createProgression({ db, economy, env = process.env, maxSameLineu
       if (info.capot) badge(p, "capot", out);
       if (info.counterWin) badge(p, "contreur", out);
       if (info.vipHost) badge(p, "vip-host", out);
+      if (info.won && info.vegas) badge(p, "vegas-winner", out);
       // Défis : seules les vraies parties comptent ; la même tablée ne compte que deux fois par jour.
       const d = day();
       g.daily = { [d]: g.daily[d] ?? {} };
