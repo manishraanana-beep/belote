@@ -3423,6 +3423,7 @@ document.addEventListener("submit", async (ev) => {
         break;
       case "profile-form":
         cmd("profile", { name: d.name });
+        closeModal();
         toast("Pseudo enregistré");
         return;
       case "invite-form":
