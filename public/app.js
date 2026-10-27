@@ -2566,7 +2566,8 @@ document.addEventListener("click", async (ev) => {
     case "refShare":
     case "refCopy": {
       const link = el.dataset.link;
-      const text = `Viens jouer à la belote avec moi sur Belote Prestige ! On reçoit chacun ${fmt(Number(el.dataset.credits))} jetons après ta première partie : ${link}`;
+      const text = `Viens jouer à la belote avec moi sur Belote Prestige ! On reçoit chacun ${fmt(Number(el.dataset.credits))} jetons après ta première partie :`;
+      // Le lien est passé une seule fois (url) : le partage du téléphone l'ajoute lui-même au texte.
       if (a === "refShare" && navigator.share) navigator.share({ title: "Belote Prestige", text, url: link }).catch(() => {});
       else navigator.clipboard?.writeText(link).then(() => toast("Lien copié"), () => toast(link));
       break;
