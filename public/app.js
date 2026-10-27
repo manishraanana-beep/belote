@@ -735,7 +735,8 @@ const writeLocal = (k, v) => {
     localStorage.setItem(k, v);
   } catch {}
 };
-let skin = readLocal("beloteSkin") === "arcade" ? "arcade" : "classique";
+// Thème Arcade retiré des réglages : tout le monde est sur le thème classique (code Arcade conservé).
+let skin = "classique";
 const arcade = () => skin === "arcade";
 document.documentElement.dataset.skin = skin;
 // Accueil Arcade : mode présélectionné (contrée / classique), mémorisé localement.
@@ -1099,7 +1100,6 @@ function settingsPage() {
       ${toggle("sounds", "sound", "Sons", s.sounds)}
       ${toggle("animations", "star", "Animations", s.animations)}
       ${toggle("emojis", "smile", "Emojis des joueurs pendant les parties", s.emojis !== false)}
-      <label class="toggle-row">${icon("cards")}<span>Thème Arcade <small class="muted">(nouveau look)</small></span><input type="checkbox" data-skin-toggle ${arcade() ? "checked" : ""}><i class="sw"></i></label>
       <label class="toggle-row">${icon("bell")}<span>Notifications</span><input type="checkbox" data-local="notifications" ${localStorage.getItem("notifications") !== "off" ? "checked" : ""}><i class="sw"></i></label>
       <div class="menu-link static">${icon("globe")}<span>Langue</span><em>Français</em></div>
     </div>

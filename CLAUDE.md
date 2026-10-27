@@ -31,7 +31,7 @@ Documentation détaillée (à lire seulement si besoin) : `docs/DOCUMENTATION-CO
 - **JOUER** : partie rapide 750 pts (200 jetons si compte et solde suffisant). **Villes** en contrée 1 000 pts : Paris 500, Monaco 1 000, Dubaï 2 500, Las Vegas 10 000.
 - Appel des joueurs en ligne puis **robots** (badge ROBOT) ; système d'annonces de la maison (100 maître, 90 cherche V/9, 80 deux As ; réponses, annonces collées/sauts, appels indirects) — détail dans la doc, section 5.
 - **Tournois** (inscriptions, présence, élimination directe, pause 1 min entre tours, robots en complément, invitation WhatsApp).
-- Comptes, amis, invitations, parrainage, roue du jour, défis, niveaux, boutique, classement, thème Arcade optionnel.
+- Comptes, amis, invitations, parrainage, roue du jour, défis, niveaux, boutique, classement, thème Arcade retiré des réglages (code conservé, tout le monde en classique).
 - **Back-office** : tableau de bord + sauvegarde, clients, tournois, modération, boutique, tables, réglages.
 
 ## Décisions techniques à conserver
