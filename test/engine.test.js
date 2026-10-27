@@ -345,3 +345,32 @@ test("belote classique : 5 cartes + retourne, deux tours de prise, 8 cartes apr�
   }
   assert.equal(g3.phase, "finished");
 });
+
+test("robots : annonce collée, saut à 100, garder le 9, appels indirects, cartes maîtresses", () => {
+  const bid = (seat, amount, suit) => ({ type: "bid", seat, amount, suit });
+  const base = { phase: "bidding", turn: 3, tricks: [], trick: [], legal: [] };
+  // Adversaire (siège 0) à 80 ♥, partenaire (siège 1) colle à 90 ♠ : 3 atouts → +10.
+  let a = botAction({ ...base, contract: { seat: 1, amount: 90, suit: "S" }, auction: [bid(0, 80, "H"), bid(1, 90, "S")], hand: ["7S", "8S", "QS", "8D", "8C", "9C", "QH", "7D"] });
+  assert.deepEqual(a, { type: "bid", amount: 100, suit: "S" });
+  // Adversaire à 90, partenaire colle à 100 : c'est une recherche (Valet ou 9) et non « maître ».
+  a = botAction({ ...base, contract: { seat: 1, amount: 100, suit: "S" }, auction: [bid(0, 90, "H"), bid(1, 100, "S")], hand: ["9S", "7H", "KH", "8D", "8C", "9C", "QH", "7D"] });
+  assert.deepEqual(a, { type: "bid", amount: 110, suit: "S" });
+  // Adversaire à 80, partenaire saute à 100 : maître, on annonce ses As (+10 par As).
+  a = botAction({ ...base, contract: { seat: 1, amount: 100, suit: "S" }, auction: [bid(0, 80, "H"), bid(1, 100, "S")], hand: ["7D", "AH", "AC", "8D", "8C", "9C", "QH", "9D"] });
+  assert.deepEqual(a, { type: "bid", amount: 120, suit: "S" });
+
+  const play = { phase: "playing", auction: [], tricks: [] };
+  // Le preneur (siège 1) entame le Valet d'atout : son partenaire garde le 9 et fournit un petit atout.
+  a = botAction({ ...play, turn: 3, contract: { seat: 1, amount: 90, suit: "S" }, trick: [{ seat: 1, card: "JS" }, { seat: 2, card: "7S" }], hand: ["9S", "8S", "AH", "7D"], legal: ["9S", "8S"] });
+  assert.equal(a.card, "8S", "le 9 reste maître derrière le Valet");
+  // Appel indirect : il ne peut pas fournir, il tient l'As de cœur → il défausse un petit carreau.
+  a = botAction({ ...play, turn: 3, contract: { seat: 0, amount: 80, suit: "S" }, trick: [{ seat: 0, card: "AC" }, { seat: 1, card: "7C" }, { seat: 2, card: "8C" }], hand: ["AH", "7H", "8D"], legal: ["AH", "7H", "8D"] });
+  assert.equal(a.card, "8D", "carreau défaussé = appel à cœur");
+  // Le partenaire a appelé cœur (défausse d'un carreau) : à la main, on rejoue cœur.
+  const called = { cards: [{ seat: 0, card: "AC" }, { seat: 1, card: "7C" }, { seat: 2, card: "8C" }, { seat: 3, card: "8D" }], winner: 0 };
+  a = botAction({ ...play, turn: 1, contract: { seat: 0, amount: 80, suit: "S" }, trick: [], tricks: [called], hand: ["7H", "9C", "QD"], legal: ["7H", "9C", "QD"] });
+  assert.equal(a.card, "7H", "il joue la couleur appelée par son partenaire");
+  // Pli sûr du partenaire : on ne gaspille pas une carte maîtresse (10 de trèfle, As déjà tombé).
+  a = botAction({ ...play, turn: 3, contract: { seat: 0, amount: 80, suit: "S" }, tricks: [{ cards: [{ seat: 0, card: "AC" }, { seat: 1, card: "7C" }, { seat: 2, card: "8C" }, { seat: 3, card: "9C" }], winner: 0 }], trick: [{ seat: 0, card: "7H" }, { seat: 1, card: "AH" }, { seat: 2, card: "8H" }], hand: ["7S", "10C", "KD"], legal: ["7S", "10C", "KD"] });
+  assert.equal(a.card, "KD", "le 10 maître est gardé pour un pli plus tard");
+});
