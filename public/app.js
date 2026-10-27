@@ -897,6 +897,7 @@ function arcadeHome() {
     ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 crédits offerts ${icon("chevron", "tiny")}</button>`}
     ${invitesBlock()}
     ${playHero()}
+    ${friendsOnline()}
     ${levels.length ? `<h2 class="a-h">Tables</h2>${stakeGrid(levels)}` : ""}
     <h2 class="a-h">Tournois</h2>
     ${(() => {
@@ -930,6 +931,7 @@ function homePage() {
     ${playHero()}
     ${live ? `<p class="live-now"><i class="live-dot"></i>${live} partie${live > 1 ? "s" : ""} en cours en ce moment</p>` : ""}
     ${invitesBlock()}
+    ${friendsOnline()}
     ${stakeLevels().length ? `<h2 class="section orn-title">Tables contrée en 1000 points</h2>${stakeGrid(stakeLevels())}` : ""}
     <div class="features">
       ${featureCard("go", 'data-page="vip"', "f-vip", "Jouer entre amis", "Votre table privée", '<img src="/decor/f-vip.webp" alt="">')}
@@ -963,6 +965,20 @@ function tablesPage() {
 const STAKE_LOOK = { 500: ["paris", "Paris"], 1000: ["monaco", "Monaco"], 2500: ["dubai", "Dubaï"], 10000: ["vegas", "Las Vegas"] };
 // Tapis de chaque ville (vert, violet, bordeaux, ivoire).
 const CITY_FELT = { paris: "vert", monaco: "violet", dubai: "rouge", vegas: "ivoire" };
+// Prochain objectif après une victoire : la ville suivante que le solde ne permet pas encore.
+function nextGoal() {
+  const bal = Math.floor(state.player.wallet.available / 2);
+  const next = stakeLevels().find((k) => bal < k + feeOf(k));
+  if (!next) return "";
+  const name = STAKE_LOOK[next]?.[1] ?? `la table à ${fmt(next)}`;
+  return `<p class="next-goal">🎯 Plus que <b>${fmt(next + feeOf(next) - bal)} jetons</b> pour jouer à ${e(name)}</p>`;
+}
+// Accueil : amis connectés et disponibles, défi en un clic (table privée gratuite, l'ami est invité).
+function friendsOnline() {
+  const list = (state.player.friends ?? []).filter((f) => f.status === "available").slice(0, 6);
+  if (!list.length) return "";
+  return `<div class="friends-online"><b>Amis en ligne</b><div class="fo-list">${list.map((f) => `<div class="fo-item">${avatar(f.avatar)}<small>${e(f.name)}</small>${btn("Défier", "challengeFriend", "pill small", `data-id="${f.id}"`)}</div>`).join("")}</div></div>`;
+}
 function stakeTables() {
   const levels = [...new Set(state.tables.filter((t) => t.lobby && t.stake).map((t) => t.stake))].sort((a, b) => a - b);
   if (!levels.length) return "";
@@ -1684,6 +1700,7 @@ function finalResult(g, t, me) {
     ${won ? '<img class="art final-art-img" src="/decor/victoire.webp" alt="" draggable="false">' : `<div class="final-art">${avatar(t.seats[me]?.avatar, "xl")}${avatar(t.seats[(me + 2) % 4]?.avatar, "xl")}</div>`}
     <div class="ribbon">${won ? "Victoire !" : "Défaite…"}</div>
     ${won ? btn("📤 Partager ma victoire", "shareWin", "line-btn small share-win") : ""}
+    ${won && state.player.account && !t.tournament ? nextGoal() : ""}
     ${state.player.account || t.tournament ? "" : `<div class="guest-keep"><b>${won ? "Garde ta victoire !" : "Garde ta progression !"}</b><small>Crée ton compte : 2 000 jetons offerts, ton niveau et tes parties sont conservés.</small>${btn("Créer mon compte", "go", "gold-btn small", 'data-page="register"')}</div>`}
     <div class="final-scores"><div><small>Votre équipe</small><b>${won ? icon("crown") : ""}${fmt(g.scores[me % 2])}</b></div><i></i><div class="them"><small>Équipe adverse</small><b>${fmt(g.scores[1 - (me % 2)])}</b></div></div>
     ${r ? moneyLines(r) + `<div class="xp-line">✨ +${r.xp} XP${r.badges?.length ? ` · ${r.badges.map((b) => `${b.icon} ${e(b.name)}`).join(", ")}` : ""}${r.challenges?.length ? ` · 🎯 ${r.challenges.map(e).join(", ")}` : ""}</div>` : ""}
@@ -3037,6 +3054,14 @@ document.addEventListener("click", async (ev) => {
       cmd("favorite", { id: el.dataset.id, on: el.dataset.on === "true" });
       setTimeout(() => friendsModal("friends"), 250);
       break;
+    case "challengeFriend": {
+      const id = el.dataset.id;
+      ask("create", { name: "Défi entre amis", vip: true, rules: DEFAULT_RULES, stake: 0, fillBots: true }, () => {
+        cmd("invite", { id });
+        toast("Défi envoyé : votre ami est invité à votre table");
+      });
+      break;
+    }
     case "inviteFriend":
       cmd("invite", inviteSeat === null ? { id: el.dataset.id } : { id: el.dataset.id, seat: inviteSeat });
       inviteSeat = null;
