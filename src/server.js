@@ -699,7 +699,9 @@ export function createApp({
       db.players[r.pid].lastResult = { table: t.name, ...t.results[r.pid] };
     }
   }
-  // ———— Parrainage : 1 000 jetons pour le parrain et le filleul, à la première partie terminée du filleul.
+  // ———— Parrainage : 1 000 jetons pour le parrain et le filleul, quand le filleul a terminé 10 parties
+  // (hors entraînement) avec une adresse e-mail vérifiée.
+  const REFERRAL_GAMES = 10;
   const REFERRAL_CREDITS = Number(env.BELOTE_REFERRAL_CREDITS ?? 1000);
   const REFERRAL_MAX = 30; // filleuls récompensés au plus par parrain
   function refCode(p) {
@@ -715,6 +717,8 @@ export function createApp({
   }
   function payReferral(p) {
     if (!p.referredBy || p.referralPaid || !p.accountId || !(REFERRAL_CREDITS > 0)) return;
+    p.refGames = (p.refGames ?? 0) + 1;
+    if (p.refGames < REFERRAL_GAMES || !db.accounts?.[p.accountId]?.verified) return;
     const r = db.players[p.referredBy];
     p.referralPaid = Date.now();
     if (!r?.accountId) return;
@@ -722,8 +726,8 @@ export function createApp({
     const key = `referral:${acc?.emailHash ?? p.accountId}`; // une seule fois par adresse e-mail
     if (economy.post(p, key + ":filleul", "referral", toUnits(REFERRAL_CREDITS), { label: `Parrainage — bienvenue de la part de ${r.name}` })) {
       r.referrals = (r.referrals ?? 0) + 1;
-      if (r.referrals <= REFERRAL_MAX) economy.post(r, key + ":parrain", "referral", toUnits(REFERRAL_CREDITS), { label: `Parrainage — ${p.name} a joué sa première partie` });
-      deliver(r.id, { kind: "parrainage", title: "🎁 Parrainage réussi !", body: `${p.name} a joué sa première partie : +${REFERRAL_CREDITS} jetons pour vous deux.` });
+      if (r.referrals <= REFERRAL_MAX) economy.post(r, key + ":parrain", "referral", toUnits(REFERRAL_CREDITS), { label: `Parrainage — ${p.name} a terminé ses ${REFERRAL_GAMES} premières parties` });
+      deliver(r.id, { kind: "parrainage", title: "🎁 Parrainage réussi !", body: `${p.name} a terminé ses ${REFERRAL_GAMES} premières parties : +${REFERRAL_CREDITS} jetons pour vous deux.` });
       deliver(p.id, { kind: "parrainage", title: "🎁 Bonus de parrainage", body: `+${REFERRAL_CREDITS} jetons offerts grâce à ${r.name}.` });
     }
   }

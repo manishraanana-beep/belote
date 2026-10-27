@@ -1288,7 +1288,7 @@ test("table des villes après une partie terminée : les joueurs en ligne sont q
   }
 });
 
-test("parrainage : lien, code enregistré, 1 000 jetons chacun à la première partie, une seule fois", async () => {
+test("parrainage : lien, code enregistré, 1 000 jetons chacun après 10 parties et e-mail vérifié, une seule fois", async () => {
   const f = await fixture({ env: { BELOTE_LOGIN_BONUS: "0", BELOTE_SIGNUP_BONUS: "100" } });
   try {
     const parrain = await member(f, "parrain@exemple.fr");
@@ -1304,10 +1304,32 @@ test("parrainage : lien, code enregistré, 1 000 jetons chacun à la première p
       P = db.players[parrain.state.player.id],
       F = db.players[filleul.state.player.id];
     const before = [P.wallet.balance, F.wallet.balance];
-    f.app.payReferral(F); // fin de la première partie
+    for (let i = 0; i < 9; i++) f.app.payReferral(F); // 9 parties : pas encore
+    assert.deepEqual([P.wallet.balance, F.wallet.balance], before);
+    f.app.payReferral(F); // 10e partie, mais e-mail non vérifié
+    assert.deepEqual([P.wallet.balance, F.wallet.balance], before);
+    db.accounts[F.accountId].verified = true;
+    f.app.payReferral(F); // vérifié : versé
     f.app.payReferral(F); // une seule fois
     assert.deepEqual([P.wallet.balance - before[0], F.wallet.balance - before[1]], [2000, 2000]); // 1 000 jetons (demi-crédits)
     assert.equal((await parrain.command("refInfo")).count, 1);
+  } finally {
+    await f.close();
+  }
+});
+
+test("Gmail : une seule inscription par boîte (points et « + »), connexion à l'adresse exacte", async () => {
+  const f = await fixture({});
+  try {
+    await member(f, "jean.dupont@gmail.com");
+    for (const email of ["jeandupont@gmail.com", "Jean.Dupont+belote@googlemail.com"]) {
+      const s = await fetch(f.base + "/api/session", { method: "POST" });
+      const r = await api(f, s.headers.get("set-cookie").split(";")[0], "/api/auth/register", { email, password: "motdepasse" });
+      assert.ok(r.status >= 400, email + " refusée");
+    }
+    const s = await fetch(f.base + "/api/session", { method: "POST" });
+    const r = await api(f, s.headers.get("set-cookie").split(";")[0], "/api/auth/login", { email: "jean.dupont@gmail.com", password: "motdepasse" });
+    assert.equal(r.status, 200);
   } finally {
     await f.close();
   }

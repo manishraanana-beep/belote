@@ -182,7 +182,7 @@ Amis (amis, demandes, recherche, réglages d'invitation), invitations reçues (g
 
 ## 7. Comptes, social, invitations
 
-- Inscription par e-mail/mot de passe ou Google/Apple ; un même e-mail ne peut servir qu'une fois (insensible à la casse). Gmail : les points et « + » donnent des adresses différentes pour le jeu.
+- Inscription par e-mail/mot de passe ou Google/Apple ; un même e-mail ne peut servir qu'une fois (insensible à la casse). Gmail : les points et « + » sont ignorés (une seule inscription par boîte).
 - **Visiteurs sans compte** (« Joueur xxxx », 0 jeton) : supprimés automatiquement après **24 h** d'absence s'ils n'ont ni partie, ni ami, ni tournoi.
 - **Amis** : demandes, favoris, blocage, masquage du statut, « Qui peut m'inviter ? ».
 - **Invitations à une table** : la fenêtre Amis se ferme à l'envoi ; l'invité s'assoit sur **la place choisie** par l'hôte ; l'invité reçoit une grande fenêtre et entre directement (sans récapitulatif des règles).
@@ -288,7 +288,7 @@ Les points repris dans la section 14 (jetons, achats, fidélisation) y sont dés
 - Vibrations iPhone dans l'application native (module Haptics, PR #64).
 - Nom de domaine propre (ex. belote-prestige.fr) pour ne pas dépendre de l'adresse Railway ; plan de secours chez un autre hébergeur (Render, Fly.io, OVH/Scaleway).
 - Journal des actions d'administration + alerte e-mail à chaque connexion au back-office.
-- Bloquer les doublons d'adresses Gmail (points et « + »).
+- [fait] Bloquer les doublons d’adresses Gmail (points et « + »).
 - Idées non réalisées : ligues mensuelles, tutoriel interactif, statistiques détaillées, événements, coffre de la semaine, clubs, revoir la dernière donne, réactions animées, partenaire fixe, défi en 1 clic, mode spectateur, album de collection, niveaux VIP, cadeaux entre amis.
 
 ---
@@ -389,7 +389,7 @@ Un lot à la fois. Un lot peut donner plusieurs PR (une branche par sujet). Apr�
 |---|---|---|
 | 1 | **Données** : base dédiée, migration de `state.json` sans perte, registre des achats (plan proposé et validé avant de coder) | **fait** (PR #133 SQLite, #134 registre) |
 | 2 | **Conformité** : pages légales et « Jeu équitable », mélange `crypto.randomInt`, suppression de compte, filtre du chat, prix en euros, plafond et historique des achats | fait (textes CGV à faire relire par un avocat) |
-| 3 | **Fuites** : Gmail normalisé, parrainage après 10 parties, alertes `integrity.js` | à faire |
+| 3 | **Fuites** : Gmail normalisé, parrainage après 10 parties, alertes `integrity.js` | fait (appareil différent : quand l’identifiant d’appareil existera) |
 | 4 | **Économie** : droit de table, tournois payants en jetons, indicateurs | à faire |
 | 5 | **Premières minutes** : attente 15 s, bulle des annonces, compte après la 1re partie, carte automatique et présélection, « Jouer entre amis » + WhatsApp, accueil, Classique dans les villes, fins de partie, accessibilité | à faire |
 | 6 | **Offres** : Pack Fondateur, grille de packs, « Il te manque X jetons », écran « Plus de jetons » (achats toujours désactivés) | à faire |

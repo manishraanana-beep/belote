@@ -20,7 +20,7 @@ Documentation détaillée (à lire seulement si besoin) : `docs/DOCUMENTATION-CO
 - `src/engine.js` : moteur (donne, enchères, contre, jeu, score) et **robots** (`botBid`, `botPlay`, `botAction`).
 - `src/economy.js` jetons · `src/accounts.js` comptes/sessions · `src/tournaments.js` tournois · `src/progression.js` niveaux/badges/défis · `src/shop.js` boutique · `src/purchases.js` vérification des achats (désactivés) · `src/registry.js` registre des achats · `src/push.js` notifications · `src/integrity.js` alertes anti-triche · `src/backup.js` sauvegarde R2.
 - `public/app.js` : toute l'application (pages = fonctions `xxxPage()`, table = `gameView()`, actions = `switch` sur `data-action`, formulaires = `switch` sur l'id du formulaire). `public/style.css` : styles (thème Arcade en fin de fichier, sous `:root[data-skin="arcade"]`).
-- Tests : `test/*.test.js` (`npm test`, ~90) ; `e2e/*.spec.js` (`npx playwright test`, 22 tests, ~7 min).
+- Tests : `test/*.test.js` (`npm test`, ~94) ; `e2e/*.spec.js` (`npx playwright test`, 22 tests, ~7 min).
 - Lancer en local : `PORT=3999 BELOTE_DATA_DIR=$(mktemp -d) node src/server.js`.
 
 ## Fonctionnalités principales
