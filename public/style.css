@@ -2170,3 +2170,4 @@ table.metrics .minus { color: #ff8f8f; }
 .swatch.voice-classique::after { content: "🗣️"; }
 .swatch.voice-sport::after { content: "🎙️"; }
 .swatch.voice-sud::after { content: "☀️"; }
+.money .fee-line { display: block; opacity: .85; }

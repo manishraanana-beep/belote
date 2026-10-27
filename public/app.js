@@ -415,7 +415,7 @@ let inviteSeat = null;
 function invitePopup(i) {
   if ($("#modal").open) return toast(`📨 ${i.from} vous invite à « ${i.table} »`);
   modal(`<div class="call-pop invite-pop">${avatar(i.fromAvatar)}<h2>${e(i.from)} vous invite !</h2>
-    <p>${e(i.table)} · ${i.stake ? `mise ${fmt(i.stake)} jetons` : "partie gratuite"} · ${i.rules.target} points</p>
+    <p>${e(i.table)} · ${i.stake ? stakeLabel(i.stake, i.fee) : "partie gratuite"} · ${i.rules.target} points</p>
     <div class="row">${btn("Refuser", "inviteDecline", "line-btn", `data-id="${i.id}"`)}${btn("Rejoindre", "inviteOpen", "gold-btn", `data-id="${i.id}"`)}</div></div>`, "sheet-modal");
 }
 function invitesBlock() {
@@ -423,7 +423,7 @@ function invitesBlock() {
   if (!inv.length) return "";
   return `<section class="invites">${inv.map((i) => `<article class="invite-card ${i.vip ? "vip" : ""}">
     <span class="inv-icon">${i.vip ? "👑" : "🃏"}</span>
-    <div><b>${e(i.from)} vous invite</b><small>${e(i.table)} · ${i.stake ? `mise ${fmt(i.stake)} crédits` : "partie gratuite"} · ${i.free} place${i.free > 1 ? "s" : ""} libre${i.free > 1 ? "s" : ""} · ${i.rules.target} pts</small></div>
+    <div><b>${e(i.from)} vous invite</b><small>${e(i.table)} · ${i.stake ? stakeLabel(i.stake, i.fee) : "partie gratuite"} · ${i.free} place${i.free > 1 ? "s" : ""} libre${i.free > 1 ? "s" : ""} · ${i.rules.target} pts</small></div>
     ${btn("Voir", "inviteOpen", "pill small", `data-id="${i.id}"`)}${btn("✕", "inviteDecline", "chip-btn ghost", `data-id="${i.id}" aria-label="Refuser"`)}
   </article>`).join("")}</section>`;
 }
@@ -878,7 +878,7 @@ function playHero() {
         <button type="button" class="${classic ? "" : "on"}" data-action="arcMode" data-mode="contree" aria-pressed="${!classic}">Contrée</button>
         <button type="button" class="${classic ? "on" : ""}" data-action="arcMode" data-mode="classique" aria-pressed="${classic}">Classique</button>
       </div>
-      <button type="button" class="gold-btn a-play" data-action="${classic ? "quickClassic" : "quick"}">JOUER<small class="a-play-sub">Partie rapide en 750 points${state.player.account && state.player.wallet.available / 2 >= 200 ? " · 200 jetons" : ""}</small></button>
+      <button type="button" class="gold-btn a-play" data-action="${classic ? "quickClassic" : "quick"}">JOUER<small class="a-play-sub">Partie rapide en 750 points${state.player.account && state.player.wallet.available / 2 >= 200 + feeOf(200) ? ` · 200 jetons${feeOf(200) ? ` + droit de table ${feeOf(200)}` : ""}` : ""}</small></button>
     </section>`;
 }
 function arcadeHome() {
@@ -955,7 +955,7 @@ function tablesPage() {
   const joinable = state.tables.filter((t) => !t.lobby && !t.quick && t.available > 0 && t.status !== "Partie en cours");
   return shell(
     `<h1 class="page-title">Tables publiques</h1>
-    ${myPublic.length ? `<h2 class="section">Mes tables</h2><div class="list">${myPublic.map((t) => `<div class="row-del"><button type="button" class="vip-row pub" data-action="enterTable" data-id="${t.id}"><span class="vr-main"><b>${e(t.name)}</b><small>${t.stake ? `Mise ${fmt(t.stake)} jetons` : "Partie gratuite"}</small></span><span class="vr-count">${icon("users")} ${t.players}/4</span>${icon("chevron", "tiny")}</button>${btn(icon("trash"), "closeTableAsk", "round-btn small del-btn", `data-id="${t.id}" aria-label="Supprimer la table"`, t.playing)}</div>`).join("")}</div><h2 class="section">Toutes les tables</h2>` : ""}
+    ${myPublic.length ? `<h2 class="section">Mes tables</h2><div class="list">${myPublic.map((t) => `<div class="row-del"><button type="button" class="vip-row pub" data-action="enterTable" data-id="${t.id}"><span class="vr-main"><b>${e(t.name)}</b><small>${t.stake ? stakeLabel(t.stake, t.fee) : "Partie gratuite"}</small></span><span class="vr-count">${icon("users")} ${t.players}/4</span>${icon("chevron", "tiny")}</button>${btn(icon("trash"), "closeTableAsk", "round-btn small del-btn", `data-id="${t.id}" aria-label="Supprimer la table"`, t.playing)}</div>`).join("")}</div><h2 class="section">Toutes les tables</h2>` : ""}
     ${stakeTables()}
     ${joinable.length ? `<h2 class="section orn-title">Tables des joueurs</h2><div class="list">${joinable.map(tableCard).join("")}</div>` : ""}
     <div class="stack">${btn(`<i class="plus-dot">+</i>Créer une table publique`, "createPublic", "gold-btn wide")}${btn(`${icon("link")} Rejoindre avec un code`, "joinCode", "line-btn wide")}</div>`,
@@ -996,7 +996,7 @@ function metricsCard(m) {
     <table class="metrics"><thead><tr><th>Source</th><th>Créés</th><th>Détruits</th><th>Solde</th></tr></thead><tbody>${m.sources.map((x) => row(SOURCE_NAMES[x.type] ?? x.type, x.created, x.destroyed)).join("")}</tbody></table></div>`;
 }
 // Droit de table (fixé par le serveur), lu sur une table de même mise.
-const feeOf = (stake) => state.tables.find((t) => t.stake === stake)?.fee ?? 0;
+const feeOf = (stake) => state.tables.find((t) => t.stake === stake)?.fee ?? (stake && shopConfig?.tableFeePct ? Math.round((stake * shopConfig.tableFeePct) / 100) : 0);
 const stakeLevels = () => [...new Set(state.tables.filter((t) => t.lobby && t.stake).map((t) => t.stake))].sort((a, b) => a - b);
 function stakeGrid(levels) {
   return `<div class="stake-grid">${levels
@@ -1019,7 +1019,7 @@ function tableCard(t) {
   const busy = t.status === "Partie en cours";
   const taken = 4 - t.available;
   return `<article class="table-card ${busy ? "busy" : ""}">
-    <div class="tc-main"><b>${e(t.name)}</b><small>${t.quick ? "Partie rapide · " : ""}${t.rules.target} points · ${t.stake ? `mise ${fmt(t.stake)} jetons` : "gratuite"}</small></div>
+    <div class="tc-main"><b>${e(t.name)}</b><small>${t.quick ? "Partie rapide · " : ""}${t.rules.target} points · ${t.stake ? stakeLabel(t.stake, t.fee) : "gratuite"}</small></div>
     <span class="tc-count">${icon("users")} ${taken}/4</span>
     ${btn(busy ? "En jeu" : "Rejoindre", "join", "gold-btn small", `data-table="${t.id}"`, busy || !t.available)}
   </article>`;
@@ -1723,12 +1723,16 @@ function finalResult(g, t, me) {
     }
   </div></div>`;
 }
+// Mise affichée avec le droit de table : « Mise 1 000 + droit de table 100 ».
+const stakeLabel = (stake, fee) => `Mise ${fmt(stake)}${fee ? ` + droit de table ${fmt(fee)}` : ""} jetons`;
+// Ligne « Droit de table −100 » du décompte de fin de partie.
+const feeLine = (r) => (r.fee ? `<small class="fee-line">Droit de table −${fmt(r.fee)} · résultat net ${signed(r.delta - r.fee)}</small>` : "");
 function moneyLines(r) {
   if (!r || !r.stake) return "";
   const kind = r.rubicon ? "Rubicon" : "Victoire simple";
   if (r.delta > 0)
-    return `<div class="money win"><b>Bénéfice : <span data-countup="${r.delta}">${signed(r.delta)}</span> crédits</b><small>${fmt(r.stake + r.delta)} récupérés, dont ${fmt(r.stake)} de mise — bénéfice ${signed(r.delta)} · ${kind}</small>${r.adjusted ? '<small class="adjusted">Gain ajusté aux crédits engagés par les adversaires.</small>' : ""}<span>Nouveau solde ${coins(r.balance)}</span></div>`;
-  return `<div class="money lose"><b>Perte : ${signed(r.delta)} crédits</b><small>${kind} · ${fmt(r.engaged)} étaient engagés</small><span>Nouveau solde ${coins(r.balance)}</span></div>`;
+    return `<div class="money win"><b>Bénéfice : <span data-countup="${r.delta}">${signed(r.delta)}</span> crédits</b><small>${fmt(r.stake + r.delta)} récupérés, dont ${fmt(r.stake)} de mise — bénéfice ${signed(r.delta)} · ${kind}</small>${r.adjusted ? '<small class="adjusted">Gain ajusté aux crédits engagés par les adversaires.</small>' : ""}${feeLine(r)}<span>Nouveau solde ${coins(r.balance)}</span></div>`;
+  return `<div class="money lose"><b>Perte : ${signed(r.delta)} crédits</b><small>${kind} · ${fmt(r.engaged)} étaient engagés</small>${feeLine(r)}<span>Nouveau solde ${coins(r.balance)}</span></div>`;
 }
 // Maquette « Choisir votre contrat ».
 // Maquette « Votre annonce ».
