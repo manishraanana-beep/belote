@@ -626,7 +626,7 @@ export function createApp({
           maintenance: db.settings.maintenance,
           tournaments: tournaments.list(pid),
           online: t && !t.game ? onlinePlayers(p, t) : [],
-          onlineCount: connections.size, // joueurs réellement connectés
+          onlineCount: connections.size - (connections.has(pid) ? 1 : 0), // autres joueurs connectés (vous non compris)
         });
     }
   }
