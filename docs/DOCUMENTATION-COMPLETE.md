@@ -375,10 +375,10 @@ Grille à recalibrer après le lot Économie : aujourd'hui, le petit pack vaut c
 À faire dans le code :
 - [x] Base de données dédiée au jeu, transactionnelle (SQLite `belote.db` sur le volume ; `BELOTE_STORAGE=json` pour revenir en arrière), avec la sauvegarde nocturne vers R2 conservée.
 - [x] Registre des achats rapproché des paiements : validation côté serveur, pas de double crédit, réimport Stripe après une restauration, jetons repris en cas de remboursement ou d'opposition (Apple/Google : remboursements à brancher avec l'appli native).
-- [ ] Pages CGV, confidentialité, rétractation et « Jeu équitable » ; mélange par `crypto.randomInt`.
-- [ ] Suppression du compte par le joueur lui-même, depuis l'appli.
-- [ ] Chat : filtre de mots en plus du signalement et du blocage ; phrases rapides.
-- [ ] Prix en euros partout, plafond de dépenses réglable, historique des achats dans le portefeuille.
+- [x] Pages CGV, confidentialité, rétractation et « Jeu équitable » ; mélange par `crypto.randomInt`.
+- [x] Suppression du compte par le joueur lui-même, depuis l'appli.
+- [x] Chat : filtre de mots en plus du signalement et du blocage ; phrases rapides.
+- [x] Prix en euros partout, plafond de dépenses réglable, historique des achats dans le portefeuille.
 - [ ] Indicateurs de la section 14.3 dans le tableau de bord.
 
 ### 14.7 Lots, dans l'ordre
@@ -388,7 +388,7 @@ Un lot à la fois. Un lot peut donner plusieurs PR (une branche par sujet). Apr�
 | Lot | Contenu | Statut |
 |---|---|---|
 | 1 | **Données** : base dédiée, migration de `state.json` sans perte, registre des achats (plan proposé et validé avant de coder) | **fait** (PR #133 SQLite, #134 registre) |
-| 2 | **Conformité** : pages légales et « Jeu équitable », mélange `crypto.randomInt`, suppression de compte, filtre du chat, prix en euros, plafond et historique des achats | à faire |
+| 2 | **Conformité** : pages légales et « Jeu équitable », mélange `crypto.randomInt`, suppression de compte, filtre du chat, prix en euros, plafond et historique des achats | fait (textes CGV à faire relire par un avocat) |
 | 3 | **Fuites** : Gmail normalisé, parrainage après 10 parties, alertes `integrity.js` | à faire |
 | 4 | **Économie** : droit de table, tournois payants en jetons, indicateurs | à faire |
 | 5 | **Premières minutes** : attente 15 s, bulle des annonces, compte après la 1re partie, carte automatique et présélection, « Jouer entre amis » + WhatsApp, accueil, Classique dans les villes, fins de partie, accessibilité | à faire |

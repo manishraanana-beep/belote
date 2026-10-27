@@ -1376,3 +1376,23 @@ test("sauvegarde : téléchargement par l'administrateur et copie vers le stocka
     storage.close();
   }
 });
+
+test("conformité : chat filtré, plafond de dépenses, historique des achats", async () => {
+  const f = await fixture();
+  try {
+    const a = await member(f, `conf${Date.now()}@exemple.fr`);
+    await a.command("settings", { spendCap: 20 });
+    await a.wait((c) => c.state.player.settings.spendCap === 20);
+    await a.command("settings", { spendCap: 33 }); // valeur refusée : inchangé
+    await delay(50);
+    assert.equal(a.state.player.settings.spendCap, 20);
+    assert.deepEqual(a.state.player.purchases, []);
+    await a.command("create", { name: "Salon privé", vip: true });
+    await a.wait((c) => c.state.table);
+    await a.command("chat", { text: "Bien joué connard, belle contrée" });
+    await a.wait((c) => c.state.table.chat?.length);
+    assert.equal(a.state.table.chat.at(-1).text, "Bien joué c******, belle contrée");
+  } finally {
+    await f.close();
+  }
+});
