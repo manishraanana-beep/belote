@@ -165,8 +165,8 @@ export function createApp({
     db,
     now: clock,
     rewardIds: TOURNAMENT_REWARDS.map((r) => r.id),
-    // Pause entre deux tours de tournoi (2 min par défaut).
-    roundBreakMs: Number(env.BELOTE_ROUND_BREAK_SECONDS ?? 120) * 1000,
+    // Pause entre deux tours de tournoi (1 min par défaut).
+    roundBreakMs: Number(env.BELOTE_ROUND_BREAK_SECONDS ?? 60) * 1000,
     hooks: {
       available: (p) => toCredits(economy.available(p)),
       notify: (pid, msg) => deliver(pid, msg),

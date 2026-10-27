@@ -1628,7 +1628,7 @@ function finalResult(g, t, me) {
             won
               ? t.tournament.roundName === "Finale"
                 ? "🏆 Vous remportez le tournoi !"
-                : `${e(t.tournament.roundName ?? "Tour")} gagné ! Le tour suivant commence 2 minutes après la fin des autres tables : restez connectés.`
+                : `${e(t.tournament.roundName ?? "Tour")} gagné ! Le tour suivant commence 1 minute après la fin des autres tables : restez connectés.`
               : `Éliminés en ${e((t.tournament.roundName ?? "tournoi").toLowerCase())}. Merci d’avoir joué !`
           }</p>
       ${btn(`${icon("trophy")} Voir le tableau du tournoi`, "backToTour", "gold-btn wide")}`
