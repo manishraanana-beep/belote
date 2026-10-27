@@ -462,9 +462,14 @@ export function createApp({
     return out.sort((a, b) => a.busy - b.busy || b.friend - a.friend);
   }
   // La roue se tourne à la demande du joueur (commande « spin ») : plus de versement automatique.
+  // Membre Prestige : abonnement (achats encore fermés : attribué depuis le back-office).
+  const PRESTIGE_DAILY = Number(env.BELOTE_PRESTIGE_DAILY ?? 500);
+  const isPrestige = (p) => (p?.prestige?.until ?? 0) > Date.now();
   function loginBonus(p) {
     const e = economy.loginBonus(p);
     if (!e) return null;
+    // Jetons quotidiens des membres Prestige, versés avec le tour de roue (une fois par jour).
+    if (isPrestige(p) && PRESTIGE_DAILY > 0) economy.post(p, `prestige:${p.id}:${new Date().toISOString().slice(0, 10)}`, "prestige", toUnits(PRESTIGE_DAILY), { label: "Membre Prestige : jetons du jour" });
     persist();
     return e;
   }
@@ -499,7 +504,10 @@ export function createApp({
           avatar: s.avatar,
           bot: !!s.bot,
           replaced: s.replaced ?? null,
-          frame: s.bot ? null : (db.players[s.id]?.progress?.equipped?.frame ?? null),
+          frame: s.bot || !db.players[s.id] ? null : progression.shown(db.players[s.id], "frame"),
+          voice: s.bot || !db.players[s.id] ? null : progression.shown(db.players[s.id], "voice"),
+          prestige: !s.bot && isPrestige(db.players[s.id]),
+          vegas: !s.bot && !!db.players[s.id]?.progress?.badges?.["vegas-winner"],
           tag: s.bot ? null : db.players[s.id]?.tag,
           connected: s.bot || connections.has(s.id),
           disconnectedAt: s.disconnectedAt ?? null,
@@ -546,6 +554,7 @@ export function createApp({
     return {
       // Historique des achats (portefeuille) : les 20 derniers.
       founderOffer: founderOk(p),
+      prestige: isPrestige(p) ? { until: p.prestige.until, daily: PRESTIGE_DAILY } : null,
       purchases: registry.list(p.id).slice(0, 20).map((x) => ({ at: x.at, credits: x.credits, amountCents: x.amountCents, currency: x.currency, status: x.status })),
       id: p.id,
       name: p.name,
@@ -673,6 +682,7 @@ export function createApp({
         capot,
         counterWin,
         vipHost: t.vip && t.owner === p.id && !t.practice,
+        vegas: !!t.lobby && (t.stake ?? 0) >= 10000 && !t.practice,
         deals: g.history.length,
         durationMs: Date.now() - (t.startedAt ?? Date.now()),
         lineup,
@@ -2143,6 +2153,14 @@ export function createApp({
             check(units > 0 || economy.available(p) + units >= 0, "Solde disponible insuffisant");
             economy.post(p, `admin:${randomBytes(9).toString("base64url")}`, "admin", units, { label: clean(d.reason || (units > 0 ? "Crédit manuel" : "Débit manuel"), 120) });
             deliver(p.id, { title: units > 0 ? "Crédits ajoutés" : "Crédits retirés", body: `${Math.abs(amount)} crédits ${units > 0 ? "ajoutés à" : "retirés de"} votre compte par l’administration.`, kind: "admin" });
+          } else if (d.type === "prestige") {
+            // Attribuer (ou retirer avec 0 jour) l'abonnement Membre Prestige.
+            const p = db.players[d.id];
+            check(p?.accountId, "Joueur introuvable");
+            const days = Number(d.days);
+            check(Number.isInteger(days) && days >= 0 && days <= 366, "Durée invalide");
+            p.prestige = days ? { until: Math.max(Date.now(), p.prestige?.until ?? 0) + days * 86400_000, by: "admin" } : null;
+            if (days) deliver(p.id, { title: "⭐ Membre Prestige", body: `Votre abonnement Membre Prestige est actif pour ${days} jours.`, kind: "admin" });
           } else if (d.type === "playerUpdate") {
             const p = db.players[d.id];
             check(p, "Joueur introuvable");

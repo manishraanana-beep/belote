@@ -1445,3 +1445,21 @@ test("pack Fondateur : après 3 parties, une seule fois, cadre offert, plus rien
     await g.close();
   }
 });
+
+test("Membre Prestige : attribué par le back-office, jetons du jour avec la roue, étoile visible", async () => {
+  const f = await fixture({ adminKey: "k", env: { BELOTE_LOGIN_BONUS: "100", BELOTE_PRESTIGE_DAILY: "500" } });
+  try {
+    const m = await member(f, "prestige@exemple.fr");
+    const P = f.app.db.players[m.state.player.id];
+    const admin = (body) => fetch(f.base + "/api/admin", { method: "POST", headers: { Authorization: "Bearer k", "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    assert.equal((await admin({ type: "prestige", id: P.id, days: 30 })).status, 200);
+    assert.ok(P.prestige.until > Date.now() + 29 * 86400_000);
+    const before = P.wallet.balance;
+    const spin = await m.command("spin");
+    assert.equal(P.wallet.balance - before, (spin.amount + 500) * 2, "roue + 500 jetons Prestige");
+    await admin({ type: "prestige", id: P.id, days: 0 });
+    assert.equal(P.prestige, null, "retiré");
+  } finally {
+    await f.close();
+  }
+});
