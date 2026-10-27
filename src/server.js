@@ -19,7 +19,8 @@ import { createTournaments, validTimeZone } from "./tournaments.js";
 import { generateVapidKeys, pushConfig, sendFcm, sendWebPush } from "./push.js";
 import { createShop, isShopAvatar } from "./shop.js";
 import { createIntegrity, integrityConfig } from "./integrity.js";
-import { stripeCheckout, stripeEvent, verifyAppleTransaction, verifyGooglePurchase } from "./purchases.js";
+import { stripeCheckout, stripeEvent, stripePaidSessions, verifyAppleTransaction, verifyGooglePurchase } from "./purchases.js";
+import { createRegistry } from "./registry.js";
 import path from "node:path";
 import {
   newGame,
@@ -148,6 +149,7 @@ export function createApp({
   if (ephemeral)
     console.error("ATTENTION : aucun volume Railway attaché. Les comptes et les crédits seront effacés au prochain déploiement. Ajoutez un volume au service (Settings › Volumes).");
   const economy = createEconomy(db, economyConfig(env));
+  const registry = createRegistry({ db, economy, toUnits, packs: () => economy.config.packs });
   const progression = createProgression({ db, economy, env });
   const shop = createShop({ db, economy });
   // Mise de « Jouer maintenant » (robots compris) ; 0 pour la désactiver.
@@ -1702,17 +1704,11 @@ export function createApp({
     else if (++r.n > 20) throw Object.assign(Error("Trop de tentatives, réessayez dans une minute."), { status: 429 });
   }
   // Crédit d'un achat vérifié, une seule fois par transaction de la plateforme.
+  // L'achat (registre) et ses jetons (journal) sont enregistrés ensemble, dans la même transaction.
   function creditPurchase(p, purchase) {
-    check(p, "Joueur introuvable");
-    const pack = economy.config.packs.find((x) => x.id === purchase.packId);
-    check(pack, "Pack inconnu");
-    const e = economy.post(p, `purchase:${purchase.provider}:${purchase.transactionId}`, "purchase", toUnits(pack.credits), {
-      label: `Pack ${pack.credits} crédits`,
-      provider: purchase.provider,
-      transactionId: purchase.transactionId,
-    });
+    const { credited } = registry.record(p, purchase);
     persist();
-    return e;
+    return credited;
   }
   function json(res, status, body) {
     res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store" });
@@ -1937,7 +1933,11 @@ export function createApp({
           // Notification signée par Stripe : peut arriver plusieurs fois, créditée une seule fois.
           if (!cfg.stripe) throw Object.assign(Error("Stripe non configuré"), { status: 501 });
           const ev = stripeEvent(raw, req.headers["stripe-signature"], env);
-          if (ev) creditPurchase(db.players[ev.playerId], ev);
+          if (ev?.kind === "reverse") {
+            const row = registry.reverse(ev);
+            if (row?.owed) (db.alerts ??= []).push({ id: id(), at: Date.now(), kind: ev.reason === "dispute" ? "Opposition bancaire" : "Achat remboursé", players: [row.pid], indicators: [`${row.owed} jetons déjà dépensés n’ont pas pu être repris`] });
+            persist();
+          } else if (ev) creditPurchase(db.players[ev.playerId], ev);
           return json(res, 200, { received: true });
         }
         if (!sameOrigin(req)) throw Object.assign(Error("Origine refusée"), { status: 403 });
@@ -2021,6 +2021,15 @@ export function createApp({
             tournaments.postpone(String(d.id), d.start);
           } else if (d.type === "tourCancel") {
             tournaments.cancel(String(d.id), clean(d.reason || "Annulé par l’organisateur", 200));
+          } else if (d.type === "purchasesResync") {
+            // Après une restauration : réimporte les paiements Stripe des N derniers jours (sans doublon).
+            check(economy.config.stripe, "Stripe non configuré");
+            const days = Math.min(400, Math.max(1, Number(d.days) || 30));
+            const list = await stripePaidSessions({ env, since: Date.now() - days * 86400_000 });
+            let added = 0;
+            for (const x of list) if (db.players[x.playerId] && registry.record(db.players[x.playerId], x).credited) added++;
+            persist();
+            res.setHeader("X-Resync", String(added));
           } else if (d.type === "tourDelete") {
             // Suppression d'un ancien tournoi (terminé, annulé ou brouillon) ; les trophées restent.
             const tour = db.tournaments?.[String(d.id)];
@@ -2140,6 +2149,7 @@ export function createApp({
           alerts: db.alerts.map((a) => ({ ...a, names: a.players.map((x) => db.players[x]?.name ?? x) })),
           settings: db.settings,
           storage: { ephemeral, since: db.createdAt, kind: storage.kind, migration: db.migration ?? null },
+          purchasesSummary: registry.summary(),
           backup: { configured: backup.enabled, bucket: backup.enabled ? backup.bucket : null, last: db.backup ?? null },
           tournaments: tournaments.adminList(),
           rewards: TOURNAMENT_REWARDS,

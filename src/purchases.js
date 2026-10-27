@@ -38,10 +38,36 @@ export async function stripeCheckout({ env, pack, player, origin, fetchImpl = fe
 export function stripeEvent(raw, signature, env) {
   if (!verifyStripeSignature(raw, signature, env.STRIPE_WEBHOOK_SECRET)) fail("Signature invalide", 401);
   const ev = JSON.parse(raw);
+  const o = ev.data?.object ?? {};
+  // Remboursement ou opposition bancaire : les jetons seront repris.
+  if (ev.type === "charge.refunded") return { kind: "reverse", reason: "refund", provider: "stripe", paymentRef: o.payment_intent };
+  if (ev.type === "charge.dispute.created") return { kind: "reverse", reason: "dispute", provider: "stripe", paymentRef: o.payment_intent };
   if (ev.type !== "checkout.session.completed") return null;
-  const s = ev.data.object;
+  return stripeSession(o);
+}
+// Session de paiement Stripe payée → achat à enregistrer (null sinon).
+function stripeSession(s) {
   if (s.payment_status !== "paid") return null;
-  return { provider: "stripe", transactionId: s.id, playerId: s.client_reference_id, packId: s.metadata?.pack };
+  return { kind: "paid", provider: "stripe", transactionId: s.id, playerId: s.client_reference_id, packId: s.metadata?.pack, paymentRef: s.payment_intent ?? null, amountCents: s.amount_total ?? null, currency: s.currency ?? "eur" };
+}
+// Réimport après une restauration : toutes les sessions payées depuis une date (pages de 100).
+export async function stripePaidSessions({ env, since = 0, fetchImpl = fetch }) {
+  const out = [];
+  let after = null;
+  for (let page = 0; page < 50; page++) {
+    const q = new URLSearchParams({ status: "complete", limit: "100", "created[gte]": String(Math.floor(since / 1000)) });
+    if (after) q.set("starting_after", after);
+    const r = await fetchImpl(`https://api.stripe.com/v1/checkout/sessions?${q}`, { headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` } });
+    if (!r.ok) fail(`Stripe : erreur ${r.status}`, 502);
+    const body = await r.json();
+    for (const s of body.data ?? []) {
+      const x = stripeSession(s);
+      if (x) out.push(x);
+    }
+    if (!body.has_more || !body.data?.length) break;
+    after = body.data.at(-1).id;
+  }
+  return out;
 }
 
 // ———————————————————————— Apple (StoreKit 2)
