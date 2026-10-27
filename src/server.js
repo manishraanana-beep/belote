@@ -15,7 +15,7 @@ import { createBackup } from "./backup.js";
 import { createEconomy, economyConfig, STAKES, toCredits, toUnits } from "./economy.js";
 import { createProgression, TOURNAMENT_REWARDS } from "./progression.js";
 import { createTournaments, validTimeZone } from "./tournaments.js";
-import { pushConfig, sendFcm, sendWebPush } from "./push.js";
+import { generateVapidKeys, pushConfig, sendFcm, sendWebPush } from "./push.js";
 import { createShop, isShopAvatar } from "./shop.js";
 import { createIntegrity, integrityConfig } from "./integrity.js";
 import { stripeCheckout, stripeEvent, verifyAppleTransaction, verifyGooglePurchase } from "./purchases.js";
@@ -154,10 +154,19 @@ export function createApp({
   const avatarOk = (v, p) => validAvatar(v, p) || (isShopAvatar(v) && !!p && shop.owns(p, v));
   const integrity = createIntegrity(db, integrityConfig(env));
   const pushCfg = pushConfig(env);
+  // Sans clés dans les variables d'environnement, le serveur crée sa propre paire une fois et la
+  // conserve dans ses données : les notifications fonctionnent sans réglage.
+  if (!pushCfg.vapidPublic || !pushCfg.vapidPrivate) {
+    db.vapid ??= generateVapidKeys();
+    pushCfg.vapidPublic = db.vapid.publicKey;
+    pushCfg.vapidPrivate = db.vapid.privateKey;
+  }
   const tournaments = createTournaments({
     db,
     now: clock,
     rewardIds: TOURNAMENT_REWARDS.map((r) => r.id),
+    // Pause entre deux tours de tournoi (2 min par défaut).
+    roundBreakMs: Number(env.BELOTE_ROUND_BREAK_SECONDS ?? 120) * 1000,
     hooks: {
       available: (p) => toCredits(economy.available(p)),
       notify: (pid, msg) => deliver(pid, msg),
@@ -398,7 +407,7 @@ export function createApp({
     t.invite = null;
     t.code = null;
     t.host = null;
-    t.tournament = { id: tour.id, match: m.id, name: tour.name, round: m.round, forfeitSeconds: tour.forfeitSeconds };
+    t.tournament = { id: tour.id, match: m.id, name: tour.name, round: m.round, roundName: m.roundName ?? null, forfeitSeconds: tour.forfeitSeconds };
     const order = [a.pids[0], b.pids[0], a.pids[1], b.pids[1]];
     order.forEach((pid, seat) => {
       // Place sans joueur (option « compléter avec des robots ») : un robot s'assoit.
@@ -515,7 +524,7 @@ export function createApp({
       rematch: t.rematch ? { votes: t.rematch.votes, blocked: t.rematch.blocked ?? [] } : null,
       reactions: t.reactions.filter((r) => Date.now() - r.at < 6000),
       result: t.results?.[pid] ?? null,
-      tournament: t.tournament ? { id: t.tournament.id, name: t.tournament.name } : null,
+      tournament: t.tournament ? { id: t.tournament.id, name: t.tournament.name, roundName: t.tournament.roundName ?? null } : null,
       nextAt: t.game?.phase === "summary" ? (t.nextAt ?? Date.now() + summaryMs) : null,
     };
   }

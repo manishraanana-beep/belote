@@ -306,3 +306,34 @@ test("équipes insuffisantes : tableau complété avec des robots", () => {
   s2.tours.tick();
   assert.equal(t2.status, "cancelled");
 });
+
+test("pause entre deux tours, annonce du tour suivant et nom du tour sur la rencontre", () => {
+  let t = Date.UTC(2026, 10, 14, 12, 0);
+  const db = { players: {} };
+  for (let i = 0; i < 8; i++) db.players["p" + i] = { id: "p" + i, name: "J" + i, accountId: "a" + i, balance: 0 };
+  const sent = [], tables = {};
+  let n = 0;
+  const tours = createTournaments({ db, now: () => t, rewardIds: REWARDS, roundBreakMs: 2 * MIN, hooks: { available: () => 0, notify: (pid, m) => sent.push({ pid, ...m }), launchMatch: (tour, m) => ((tables["t" + ++n] = m), "t" + n), endTable: () => {}, award: () => {}, prize: () => {} } });
+  const local = (ms) => utcToZoned(ms, "Europe/Paris");
+  const tour = tours.create({ name: "Coupe test", timeZone: "Europe/Paris", teams: 8, minTeams: 2, rules: { target: 1000, turnSeconds: 20 }, regOpen: local(t + HOUR), regClose: local(t + 5 * HOUR), confirmBy: local(t + 6 * HOUR - 5 * MIN), start: local(t + 6 * HOUR), publish: true });
+  t += HOUR;
+  for (let i = 0; i < 8; i++) tours.register(tour.id, "p" + i);
+  t = tour.start - 10 * MIN;
+  for (let i = 0; i < 8; i++) tours.confirm(tour.id, "p" + i);
+  t = tour.confirmBy;
+  tours.tick();
+  t = tour.start;
+  tours.tick();
+  assert.equal(Object.keys(tables).length, 2, "demi-finales : deux tables");
+  assert.equal(tables.t1.roundName, "Demi-finales");
+  tours.matchFinished("t1", 0, [1000, 500]);
+  tours.matchFinished("t2", 0, [1000, 500]);
+  assert.equal(Object.keys(tables).length, 2, "la finale attend la pause");
+  assert.ok(tour.nextRoundAt);
+  assert.ok(sent.some((m) => m.kind === "pause" && /Finale dans 2 minutes/.test(m.title)));
+  t += 2 * MIN;
+  tours.tick();
+  assert.equal(Object.keys(tables).length, 3, "la finale démarre après la pause");
+  assert.equal(tables.t3.roundName, "Finale");
+  assert.equal(tour.nextRoundAt, undefined);
+});

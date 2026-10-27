@@ -125,7 +125,7 @@ export function normalize(input, rewardIds) {
   };
 }
 
-export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds = [] }) {
+export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds = [], roundBreakMs = 0 }) {
   db.tournaments ??= {};
   const all = () => Object.values(db.tournaments);
   const log = (tour, kind, detail = {}, by = "système") => tour.log.push({ at: now(), kind, by, ...detail });
@@ -453,6 +453,7 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
       } else if (m.a && m.b) {
         m.status = "playing";
         m.startedAt = now();
+        m.roundName = roundName(tour, r);
         try {
           m.tableId = hooks.launchMatch(tour, m, team(tour, m.a), team(tour, m.b));
         } catch (e) {
@@ -484,7 +485,12 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
     for (let i = 0; i < round.length; i += 2) next.push(match(r + 1, round[i].winner, round[i + 1].winner));
     tour.rounds.push(next);
     log(tour, "tour-suivant", { round: r + 1 });
-    launchRound(tour, r + 1);
+    if (!roundBreakMs) return launchRound(tour, r + 1);
+    // Pause entre deux tours : les équipes qualifiées sont prévenues du tour suivant.
+    tour.nextRoundAt = now() + roundBreakMs;
+    const minutes = Math.max(1, Math.round(roundBreakMs / MIN));
+    const pids = next.flatMap((m) => [m.a, m.b]).filter(Boolean).flatMap((x) => team(tour, x)?.pids ?? []);
+    notify(tour, pids, "pause", `${tour.name} : ${roundName(tour, r + 1)} dans ${minutes} minute${minutes > 1 ? "s" : ""}`, "Restez connectés : votre prochaine table s’ouvrira automatiquement.", { url: `/?tournoi=${tour.id}`, match: `tour-${r + 1}` });
   }
   function findMatch(tableId) {
     for (const tour of all()) {
@@ -568,6 +574,10 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
   function tick() {
     const t = now();
     for (const tour of all()) {
+      if (tour.status === "running" && tour.nextRoundAt && t >= tour.nextRoundAt) {
+        delete tour.nextRoundAt;
+        launchRound(tour, tour.rounds.length - 1);
+      }
       if (tour.status !== "published") continue;
       const rh = tour.reminderHours ?? 3;
       if (rh > 1 && t >= tour.start - rh * HOUR && t < tour.start - HOUR)
@@ -635,6 +645,8 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
         matches: round.map((m) => ({ id: m.id, status: m.status, a: teamView(tour, m.a, pid), b: teamView(tour, m.b, pid), winner: m.winner, score: m.score, forfeit: m.forfeit ?? null, tableId: m.tableId })),
       })),
       cancelReason: tour.cancelReason ?? null,
+      nextRoundAt: tour.nextRoundAt ?? null,
+      nextRoundName: tour.nextRoundAt ? roundName(tour, tour.rounds.length - 1) : null,
       ...(admin
         ? {
             local: Object.fromEntries(["start", "regOpen", "regClose", "confirmBy"].map((k) => [k, utcToZoned(tour[k], tour.timeZone)])),
