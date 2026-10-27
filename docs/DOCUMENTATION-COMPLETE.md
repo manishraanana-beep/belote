@@ -166,8 +166,8 @@ Points de main (Valet 4, 9 = 3, As d'atout 1,5, Dix d'atout 1, chaque atout 1,2,
 - **Barre du bas** : Boutique ♣ · Tournois ♦ · **Jouer ♠** (gros bouton doré central) · Amis ♥ · Profil.
 - La page « Tables publiques » n'est plus liée depuis l'accueil (décision de l'utilisateur) ; **la création de table se fait uniquement par le Club VIP** (« Créer une table privée », « Rejoindre avec un code »).
 
-### 6.2 Thème « Arcade » (optionnel)
-- Activable dans **Compte → Réglages → « Thème Arcade (nouveau look) »**, mémorisé sur l'appareil (`localStorage.beloteSkin`), réversible en décochant.
+### 6.2 Thème « Arcade » (retiré)
+- **Retiré des réglages** (PR #145) : tous les joueurs sont en thème classique. Le code Arcade reste dans le projet pour un retour éventuel (ancienne option : Réglages → « Thème Arcade », `localStorage.beloteSkin`).
 - Police **Baloo 2**, boutons « en relief », accueil réorganisé, table avec pastille de scores NOUS/EUX, barre des points de la donne, enchères avec − / +, résultat de donne façon jeu mobile.
 - Référence : `design_handoff_belote_arcade_lagon/README.md` (fourni par l'utilisateur).
 - Choix de l'utilisateur : garder l'**ancien style** par défaut ; seuls la carte JOUER, les tables des villes et la barre du bas ont été repris dans le thème classique.
@@ -196,8 +196,11 @@ Amis (amis, demandes, recherche, réglages d'invitation), invitations reçues (g
 - **Bonus d'inscription 2 000** (`BELOTE_SIGNUP_BONUS`).
 - **Roue du jour** : un tour toutes les 24 h, bonus de base réglable dans le back-office (défaut 200, `BELOTE_LOGIN_BONUS`), multiplié par la **série de jours** (×1 à ×4).
 - Mise réservée au départ ; gagnant = mise × 2 récupérée (bénéfice = mise) ; perdant = mise perdue ; quitter = mise perdue.
-- Packs d'achat prévus (0,99 € à 9,99 €) mais **achats désactivés** (`BELOTE_PURCHASES` ≠ `on`). **Pas de Stripe configuré.**
-- **Évolutions décidées** (droit de table, parrainage après 10 parties, nouvelle grille de packs, abonnement) : voir la section 14.
+- **Droit de table** 10 % de la mise (`BELOTE_TABLE_FEE_PCT`), payé au lancement, retiré de la circulation, rendu si la partie est annulée. Affiché partout avant de s'asseoir (bouton JOUER, villes, liste des tables, invitations : « Mise 1 000 + droit de table 100 ») et en fin de partie (« Droit de table −100 · résultat net … »).
+- Packs (Petit 4 000 à 1,99 € → Prestige 52 000 à 19,99 €) et **Pack Fondateur** (10 000 + cadre, 1,99 €, après 3 parties, jusqu'à `BELOTE_FOUNDER_UNTIL`) ; écran « Plus de jetons » ; **achats désactivés** (`BELOTE_PURCHASES` ≠ `on`). **Pas de Stripe configuré.**
+- **Membre Prestige** : attribué depuis la fiche client du back-office tant que les achats sont fermés (500 jetons/jour avec la roue, cadre et étoile, voix d'annonce).
+- Accueil : « X en ligne » = autres joueurs connectés, masqué quand il n'y a personne.
+- Détail des décisions économie / monétisation : section 14.
 
 ---
 
@@ -277,6 +280,16 @@ Onglets :
 | #128 | Profil : la fenêtre « Modifier mon pseudo » se ferme après l'enregistrement |
 | #129 | Parrainage : lien en double dans le message partagé |
 | #130 | Back-office : supprimer les anciens tournois |
+| #133–#135 | Lot 1 : SQLite, registre des achats |
+| #136 | Lot 2 : conformité (CGV, Jeu équitable, filtre du chat, plafond, historique) |
+| #137 | Lot 3 : fuites (Gmail, parrainage 10 parties, alertes) |
+| #138 | Lot 4 : droit de table, tournois payants, indicateurs |
+| #139–#140 | Lot 5 : attente 15 s, compte en fin de partie, carte auto, entre amis, amis en ligne, prochain objectif |
+| #141 | Lot 6 : offres (Fondateur, grille, Plus de jetons) |
+| #142 | Lot 7 : Membre Prestige, badge Las Vegas, voix d'annonce |
+| #143 | « en ligne » masqué à 0 |
+| #144 | CLAUDE.md optimisé |
+| #145 | Thème Arcade retiré ; droit de table visible partout |
 
 ---
 
@@ -349,7 +362,7 @@ Contexte (ce n'est pas un avis juridique ; CGV et rétractation à faire relire 
 Grille à recalibrer après le lot Économie : aujourd'hui, le petit pack vaut cinq jours de roue pour un joueur fidèle, ce qui ne fait envie à personne.
 
 - **Offres au bon moment.** « Il te manque X jetons pour Dubaï » avec le plus petit pack qui couvre le manque ; écran « Plus de jetons » qui montre d'abord le gratuit (prochaine roue dans X h, parties rapides gratuites, vidéo récompensée dans l'appli native), puis les packs.
-- **Abonnement « Membre Prestige »** (environ 4,99 €/mois) : jetons chaque jour, deuxième tour de roue, cadre et badge visibles à la table, statistiques détaillées, options avancées des tables privées, sans pub.
+- **Abonnement « Membre Prestige »** (environ 4,99 €/mois ; en attendant les achats, attribué depuis le back-office ; fait : jetons du jour, cadre/étoile, voix — reste : deuxième tour de roue, statistiques, options avancées) : jetons chaque jour, deuxième tour de roue, cadre et badge visibles à la table, statistiques détaillées, options avancées des tables privées, sans pub.
 - **Objets visibles par la table** : cadres animés, titres (« Roi du Capot », « Roi de Monaco de la semaine »), effets de victoire, emotes animées, **voix d'annonce** au choix (commentateur sportif, voix du Sud…) entendues par toute la table quand on crie « Belote ! » ; séries limitées pour Noël, la Fête des pères et les grands événements sportifs.
 - **Vidéo récompensée** (appli native) : volontaire, 200 à 300 jetons, 5 par jour au maximum, jamais pendant une partie.
 - **Plus tard** : pass de saison (4 à 6 semaines, piste gratuite et piste premium) ; tirelire (une part des gains s'y accumule, on la casse pour 2,99 €) ; offrir un mois Membre Prestige à un ami ; « Conseil de la Maison » (après la partie, montrer où les annonces du joueur s'écartent du système des robots ; une analyse gratuite par jour, illimitée pour les membres).
