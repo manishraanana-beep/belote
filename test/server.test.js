@@ -13,7 +13,7 @@ const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 async function fixture(opts = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), "belote-test-"));
   // Les tests utilisent aussi une table permanente gratuite (absente en production).
-  const app = createApp({ dataDir: dir, tickMs: 10, botDelay: 1, matchWaitMs: 0, ...opts, env: { ...process.env, BELOTE_LOBBY_STAKES: "0,200,500,1000", ...(opts.env ?? {}) } });
+  const app = createApp({ dataDir: dir, tickMs: 10, botDelay: 1, matchWaitMs: 0, ...opts, env: { ...process.env, BELOTE_LOBBY_STAKES: "0,200,500,1000", BELOTE_TABLE_FEE_PCT: "0", ...(opts.env ?? {}) } });
   await new Promise((r) => app.server.listen(0, "127.0.0.1", r));
   const base = `http://127.0.0.1:${app.server.address().port}`;
   const clients = [];

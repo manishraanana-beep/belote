@@ -30,6 +30,7 @@ function setup({ players = 40, balance = 60000 } = {}) {
       endTable: (id) => delete tables[id],
       award: (p, r) => awards.push([p.id, r]),
       prize: (p, credits, key) => awards.push([p.id, "prize", credits, key]),
+      entry: (p, credits, key) => (awards.push([p.id, "entry", credits, key]), credits),
     },
   });
   const local = (ms) => utcToZoned(ms, "Europe/Paris");
@@ -209,6 +210,29 @@ test("équipes insuffisantes : report puis annulation selon la règle choisie", 
   s2.at(t2.confirmBy);
   s2.tours.tick();
   assert.equal(t2.status, "cancelled");
+});
+
+test("tournoi payant : droit d'entrée prélevé au départ sur les seuls joueurs, cagnotte 70 / 30 moins la part de la Maison", () => {
+  const s = setup();
+  assert.throws(() => s.tours.create(s.base({ entryFee: 100, houseCut: 30 })), /Part de la Maison/);
+  const tour = s.tours.create(s.base({ minTeams: 4, teams: 8, entryFee: 1000, houseCut: 15 }));
+  s.advance(HOUR);
+  for (let i = 0; i < 9; i++) s.tours.register(tour.id, "p" + i); // p8 : inscrit mais absent
+  s.at(tour.start - 10 * MIN);
+  for (let i = 0; i < 8; i++) s.tours.confirm(tour.id, "p" + i);
+  s.at(tour.confirmBy);
+  s.tours.tick();
+  s.at(tour.start);
+  s.tours.tick();
+  const entries = s.awards.filter(([, r]) => r === "entry");
+  assert.equal(entries.length, 8, "seuls les 8 joueurs présents paient, une fois");
+  assert.ok(!entries.some(([p]) => p === "p8"));
+  assert.equal(tour.pot, 6800); // 8 000 − 15 %
+  playOut(s, tour);
+  const champ = tour.teamsList.find((t) => t.id === tour.champion);
+  const pot = s.awards.filter(([, r, , k]) => r === "prize" && k.includes(":cagnotte:"));
+  assert.deepEqual(pot.filter((x) => x[2] === 2380).map(([p]) => p).sort(), [...champ.pids].sort()); // 70 % / 2
+  assert.equal(pot.filter((x) => x[2] === 1020).length, 2); // 30 % / 2
 });
 
 test("départ automatique sans administrateur, exemptions, progression jusqu’à la finale et récompenses uniques", () => {

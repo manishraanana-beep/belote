@@ -22,7 +22,7 @@ test("rubicon : signalé, mais la perte reste limitée à la mise", () => {
 });
 test("réservation : seulement la mise ; règlement unique et équilibré", () => {
   const db = { players: {} };
-  const eco = createEconomy(db, { ...economyConfig({}), dayStartUtc: 3 });
+  const eco = createEconomy(db, { ...economyConfig({ BELOTE_TABLE_FEE_PCT: "0" }), dayStartUtc: 3 });
   const players = [200, 350, 1000, 5000].map((c, i) => {
     const p = { id: "p" + i, name: "J" + i, accountId: "a" + i };
     eco.post(p, "seed:" + i, "seed", toUnits(c));
@@ -42,7 +42,7 @@ test("réservation : seulement la mise ; règlement unique et équilibré", () =
 });
 test("abandon : la mise est perdue tout de suite, même si l'équipe gagne ensuite", () => {
   const db = { players: {} };
-  const eco = createEconomy(db, economyConfig({}));
+  const eco = createEconomy(db, economyConfig({ BELOTE_TABLE_FEE_PCT: "0" }));
   const players = [1000, 1000, 1000, 1000].map((c, i) => {
     const p = { id: "p" + i, name: "J" + i };
     eco.post(p, "seed:" + i, "seed", toUnits(c));
@@ -59,7 +59,7 @@ test("abandon : la mise est perdue tout de suite, même si l'équipe gagne ensui
 });
 test("annulation technique : réservations libérées sans gain ni perte", () => {
   const db = { players: {} };
-  const eco = createEconomy(db, economyConfig({}));
+  const eco = createEconomy(db, economyConfig({ BELOTE_TABLE_FEE_PCT: "0" }));
   const players = [1000, 1000, 1000, 1000].map((c, i) => {
     const p = { id: "p" + i, name: "J" + i };
     eco.post(p, "seed:" + i, "seed", toUnits(c));
@@ -73,7 +73,7 @@ test("annulation technique : réservations libérées sans gain ni perte", () =>
 });
 test("roue du jour : un tour par 24 h, case tirée par le serveur, série de jours", () => {
   const db = { players: {} };
-  const eco = createEconomy(db, economyConfig({}));
+  const eco = createEconomy(db, economyConfig({ BELOTE_TABLE_FEE_PCT: "0" }));
   const p = { id: "p", accountId: "a" };
   const H = 3600_000,
     t0 = Date.UTC(2026, 2, 28, 22);
@@ -125,4 +125,28 @@ test("règlement avec les robots de la Maison : le joueur gagne ou perd contre l
   assert.ok(r);
   assert.equal(p.wallet.reserved, 0);
   assert.ok(p.wallet.balance > toUnits(1000), "victoire : crédits versés par la Maison");
+});
+
+test("droit de table : 10 % de la mise payé à l'entrée, retiré de la circulation, rendu si la partie est annulée", () => {
+  const db = { players: {} };
+  const eco = createEconomy(db, economyConfig({}));
+  assert.equal(eco.tableFee(1000), 100);
+  assert.equal(eco.tableFee(0), 0);
+  const players = [1100, 1100, 1100, 1099].map((c, i) => {
+    const p = { id: "p" + i, name: "J" + i };
+    eco.post(p, "seed:" + i, "seed", toUnits(c));
+    db.players[p.id] = p;
+    return p;
+  });
+  assert.throws(() => eco.reserve({ stake: 1000, gameId: "g0" }, players), /pas assez/); // 1 099 < 1 000 + 100
+  eco.post(players[3], "seed:plus", "seed", toUnits(1));
+  const m = eco.reserve({ stake: 1000, gameId: "g1" }, players);
+  assert.deepEqual(players.map((p) => toCredits(p.wallet.balance)), [1000, 1000, 1000, 1000]);
+  eco.settle(db.players, m, [1100, 300], "g1");
+  const total = players.reduce((a, p) => a + toCredits(p.wallet.balance), 0);
+  assert.equal(total, 4400 - 400, "les 4 droits de table sont sortis de la circulation");
+  players.forEach((p, i) => eco.post(p, "seed2:" + i, "seed", toUnits(1000)));
+  const m2 = eco.reserve({ stake: 200, gameId: "g2" }, players);
+  eco.release(db.players, m2);
+  assert.equal(players.reduce((a, p) => a + toCredits(p.wallet.balance), 0), 8000, "annulation : droit rendu");
 });
