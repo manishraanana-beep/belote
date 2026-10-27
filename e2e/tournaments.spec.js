@@ -55,6 +55,10 @@ test("tournoi : liste, fiche, solde insuffisant, inscription, présence, départ
   await phone.locator('.tour-card:has-text("Grand Prix du Club")').click();
   await expect(phone.locator(".access-box")).toContainText("Solde minimum requis : 50 000 jetons. Inscription gratuite, aucun jeton prélevé.");
   await phone.screenshot({ path: `${shots}tournoi-fiche.png`, fullPage: true });
+  // Invitation WhatsApp : lien wa.me avec le message et le lien direct vers le tournoi.
+  const wa = await phone.locator(".wa-btn").getAttribute("href");
+  expect(wa).toMatch(/^https:\/\/wa\.me\/\?text=/);
+  expect(decodeURIComponent(wa)).toContain("/?tournoi=");
   await phone.locator('[data-action="tourRegister"]').click();
   await expect(phone.locator("#modal")).toContainText("Il manque");
   await expect(phone.locator("#modal [data-action='shop']")).toBeVisible();

@@ -1184,6 +1184,12 @@ function tournamentsPage() {
     { vip: true, tabs: true, sub: "Tournois", right: btn(`${icon("bell")}${unread ? `<i class="badge-n">${unread}</i>` : ""}`, "inbox", "round-btn", 'aria-label="Notifications"') },
   );
 }
+// Invitation par WhatsApp : message prêt à envoyer, avec le lien direct vers le tournoi.
+function whatsappInvite(t) {
+  const link = `${location.origin}/?tournoi=${encodeURIComponent(t.id)}`;
+  const text = `Viens jouer au tournoi « ${t.name} » sur Belote Prestige ! Départ ${dt(t.start)}. Inscris-toi ici : ${link}`;
+  return `<a class="line-btn wide wa-btn" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener"><span class="wa-ico" aria-hidden="true"></span>Inviter par WhatsApp</a>`;
+}
 function tournamentPage() {
   const t = (state.tournaments ?? []).find((x) => x.id === page.params.id);
   if (!t) return shell('<p class="empty">Ce tournoi n’est plus disponible.</p>', { vip: true });
@@ -1227,7 +1233,7 @@ function tournamentPage() {
     </div>
     <div class="access-box">${icon("coin")}<span>${minLine(t)}</span></div>
     ${mine}
-    <div class="stack">${actions}</div>
+    <div class="stack">${actions}${["soon", "open", "closed", "ready"].includes(t.stage) ? whatsappInvite(t) : ""}</div>
     ${lobby}
     ${t.rounds ? bracketView(t) : ""}
     <h2 class="section orn-title">Récompenses</h2>
