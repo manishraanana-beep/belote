@@ -133,7 +133,7 @@ export function createApp({
   inviteWaitMs = (Number(process.env.BELOTE_INVITE_WAIT_SECONDS) || 60) * 1000, // délai laissé aux invités avant les robots
   // Parties rapides et tables des villes : les joueurs en ligne sont appelés, et on les attend ce temps-là
   // avant les robots (le joueur peut demander les robots plus tôt). 0 : pas d'appel (ancien fonctionnement).
-  matchWaitMs = (process.env.BELOTE_MATCH_WAIT_SECONDS !== undefined ? Number(process.env.BELOTE_MATCH_WAIT_SECONDS) : 45) * 1000,
+  matchWaitMs = (process.env.BELOTE_MATCH_WAIT_SECONDS !== undefined ? Number(process.env.BELOTE_MATCH_WAIT_SECONDS) : 15) * 1000,
 } = {}) {
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   // Données dans SQLite (belote.db) ; l'ancien state.json est importé une fois puis conservé.
@@ -616,6 +616,7 @@ export function createApp({
           maintenance: db.settings.maintenance,
           tournaments: tournaments.list(pid),
           online: t && !t.game ? onlinePlayers(p, t) : [],
+          onlineCount: connections.size, // joueurs réellement connectés
         });
     }
   }

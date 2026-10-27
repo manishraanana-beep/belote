@@ -105,7 +105,7 @@
 | **Entraînement** (contre robots) | 1 000 | gratuit (retiré de l'accueil, accessible par script de test) |
 
 ### 4.4 Déroulement d'une partie
-- **Appel des joueurs en ligne** avant les robots (« Voulez-vous jouer avec … ? »), attente **45 s** (`BELOTE_MATCH_WAIT_SECONDS`), bouton « Jouer avec des robots ».
+- **Appel des joueurs en ligne** avant les robots (« Voulez-vous jouer avec … ? »), attente **15 s** (compteur visible) (`BELOTE_MATCH_WAIT_SECONDS`), bouton « Jouer avec des robots ».
 - Les places vides sont complétées par des **robots** (badge ROBOT).
 - Un joueur absent est remplacé par un robot « en relais » jusqu'à son retour.
 - **Quitter une partie = mise perdue.** Seule la mise est engagée (pas de double « Rubicon »).
@@ -391,7 +391,7 @@ Un lot à la fois. Un lot peut donner plusieurs PR (une branche par sujet). Apr�
 | 2 | **Conformité** : pages légales et « Jeu équitable », mélange `crypto.randomInt`, suppression de compte, filtre du chat, prix en euros, plafond et historique des achats | fait (textes CGV à faire relire par un avocat) |
 | 3 | **Fuites** : Gmail normalisé, parrainage après 10 parties, alertes `integrity.js` | fait (appareil différent : quand l’identifiant d’appareil existera) |
 | 4 | **Économie** : droit de table, tournois payants en jetons, indicateurs | fait (indicateur « départs pendant l’attente » à ajouter) |
-| 5 | **Premières minutes** : attente 15 s, bulle des annonces, compte après la 1re partie, carte automatique et présélection, « Jouer entre amis » + WhatsApp, accueil, Classique dans les villes, fins de partie, accessibilité | à faire |
+| 5 | **Premières minutes** : attente 15 s, bulle des annonces, compte après la 1re partie, carte automatique et présélection, « Jouer entre amis » + WhatsApp, accueil, Classique dans les villes, fins de partie, accessibilité | 5a fait (attente, compte, carte auto, entre amis, accueil) ; 5b à faire (Classique dans les villes, fins de partie, accessibilité, amis en ligne) |
 | 6 | **Offres** : Pack Fondateur, grille de packs, « Il te manque X jetons », écran « Plus de jetons » (achats toujours désactivés) | à faire |
 | 7 | **Fidélité et revenus récurrents** : tournoi quotidien, ligues par niveau de jeu, Membre Prestige, objets visibles, badge « Vainqueur à Las Vegas » et voix d'annonce | à faire |
 | — | **Plus tard** : pass de saison, Conseil de la Maison, tirelire, vidéo récompensée (appli native, PR #64), partenaire fixe, statistiques détaillées, dernière donne, robot plus fin | — |
