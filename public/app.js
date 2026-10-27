@@ -1541,36 +1541,13 @@ function reactionBubble(t, s) {
   const def = r && REACTIONS.find((x) => x.id === r.reaction);
   return def ? `<span class="reaction-pop"><b>${def.emoji}</b>${def.text ? `<small>${e(def.text)}</small>` : ""}</span>` : "";
 }
-// Sens d'une annonce de robot, d'après le système de la maison (doc, section 5).
-function bidMeaning(g, a) {
-  if (a.type === "counter") return "Je pense que vous allez chuter";
-  if (a.type !== "bid") return "";
-  const list = g.auction ?? [];
-  const before = list.slice(0, list.indexOf(a)).filter((x) => x.type === "bid");
-  const partner = before.filter((x) => x.seat % 2 === a.seat % 2 && x.seat !== a.seat).at(-1);
-  const opp = before.filter((x) => x.seat % 2 !== a.seat % 2).at(-1);
-  const mine = before.some((x) => x.seat === a.seat);
-  if (partner && partner.suit === a.suit && !mine) {
-    const up = a.amount - partner.amount;
-    if (partner.amount >= 100 && partner.amount !== 110) return `${up / 10} As à côté`;
-    if (partner.amount === 80) return "J’ai 3 atouts";
-    return up >= 20 ? "Valet, 9 ou 3 atouts, et un As" : "J’ai le Valet, le 9 ou 3 atouts";
-  }
-  if (opp && a.amount === opp.amount + 10) return "Je cherche le Valet ou le 9 : réponds-moi";
-  if (opp && a.amount === 100 && a.amount - opp.amount >= 20) return "Je suis maître : annonce tes As";
-  if (a.amount === 80) return "J’ai deux As";
-  if (a.amount === 90) return "J’ai le Valet ou le 9, je cherche l’autre";
-  if (a.amount === 100) return "Maître à l’atout : Valet et 9";
-  return "";
-}
 function seatBubble(g, i, s) {
   // Annonce de chaque joueur affichée à côté de son avatar (enchères et délai de surcontre).
   if (!["bidding", "counter"].includes(g.phase)) return "";
   const a = (g.auction ?? []).filter((x) => x.seat === i).at(-1);
   if (!a) return "";
   const text = a.type === "bid" ? `${amountLabel(a.amount)} ${suitHtml(a.suit)}` : a.type === "pass" ? "Passe" : a.type === "counter" ? "Contre !" : "Surcontre !";
-  const why = s?.bot ? bidMeaning(g, a) : "";
-  return `<span class="bubble ${a.type}">${text}${why ? `<small class="bid-why">${e(why)}</small>` : ""}</span>`;
+  return `<span class="bubble ${a.type}">${text}</span>`;
 }
 function chatBubble(t, s) {
   const m = t.chat.at(-1);
