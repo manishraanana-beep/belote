@@ -601,7 +601,7 @@ export function createApp({
         .filter((i) => db.tables[i.tableId] && Date.now() - i.at < 30 * 60_000)
         .map((i) => {
           const t = db.tables[i.tableId];
-          return { id: i.id, from: i.fromName, fromAvatar: db.players[i.from]?.avatar, tableId: t.id, table: t.name, vip: t.vip, stake: t.stake ?? 0, rules: t.rules, free: t.seats.filter((s) => !s).length, started: !!t.game && t.game.phase !== "finished" };
+          return { id: i.id, from: i.fromName, fromAvatar: db.players[i.from]?.avatar, tableId: t.id, table: t.name, vip: t.vip, stake: t.stake ?? 0, fee: economy.tableFee(t.stake ?? 0), rules: t.rules, free: t.seats.filter((s) => !s).length, started: !!t.game && t.game.phase !== "finished" };
         }),
     };
   }
@@ -703,6 +703,7 @@ export function createApp({
         won,
         rubicon,
         stake: t.stake ?? 0,
+        fee: toCredits(t.money?.seats.find((x) => x.pid === p.id)?.fee ?? 0), // droit de table payé au lancement
         engaged: row ? toCredits(row.engaged) : 0,
         delta: row ? toCredits(row.delta) : 0,
         adjusted: !!row?.adjusted,
@@ -1994,6 +1995,7 @@ export function createApp({
       return json(res, 200, {
         packs: c.packs.map(({ id, name, credits, price, priceCents, bonus, founder }) => ({ id, name, credits, price, priceCents, bonus, founder })),
         founderUntil: c.founderUntil,
+        tableFeePct: c.tableFeePct ?? 0,
         purchases: c.purchases,
         stripe: c.stripe,
         apple: c.apple,
