@@ -373,8 +373,8 @@ Grille à recalibrer après le lot Économie : aujourd'hui, le petit pack vaut c
 À faire par Jacques : nom de domaine (ex. belote-prestige.fr) branché sur Railway ; comptes Stripe, Apple et Google prêts ; CGV et rétractation relues par un avocat ; **accord explicite** pour activer.
 
 À faire dans le code :
-- [ ] Base de données dédiée au jeu, transactionnelle (pas le Postgres existant, qui appartient au jardin), avec la sauvegarde nocturne vers R2 conservée.
-- [ ] Registre des achats rapproché des paiements : validation côté serveur, pas de double crédit, achats ré-importables depuis Stripe, Apple et Google après une restauration, jetons repris en cas de remboursement.
+- [x] Base de données dédiée au jeu, transactionnelle (SQLite `belote.db` sur le volume ; `BELOTE_STORAGE=json` pour revenir en arrière), avec la sauvegarde nocturne vers R2 conservée.
+- [x] Registre des achats rapproché des paiements : validation côté serveur, pas de double crédit, réimport Stripe après une restauration, jetons repris en cas de remboursement ou d'opposition (Apple/Google : remboursements à brancher avec l'appli native).
 - [ ] Pages CGV, confidentialité, rétractation et « Jeu équitable » ; mélange par `crypto.randomInt`.
 - [ ] Suppression du compte par le joueur lui-même, depuis l'appli.
 - [ ] Chat : filtre de mots en plus du signalement et du blocage ; phrases rapides.
@@ -387,7 +387,7 @@ Un lot à la fois. Un lot peut donner plusieurs PR (une branche par sujet). Apr�
 
 | Lot | Contenu | Statut |
 |---|---|---|
-| 1 | **Données** : base dédiée, migration de `state.json` sans perte, registre des achats (plan proposé et validé avant de coder) | à faire |
+| 1 | **Données** : base dédiée, migration de `state.json` sans perte, registre des achats (plan proposé et validé avant de coder) | **fait** (PR #133 SQLite, #134 registre) |
 | 2 | **Conformité** : pages légales et « Jeu équitable », mélange `crypto.randomInt`, suppression de compte, filtre du chat, prix en euros, plafond et historique des achats | à faire |
 | 3 | **Fuites** : Gmail normalisé, parrainage après 10 parties, alertes `integrity.js` | à faire |
 | 4 | **Économie** : droit de table, tournois payants en jetons, indicateurs | à faire |

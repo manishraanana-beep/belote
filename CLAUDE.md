@@ -15,10 +15,10 @@ Documentation détaillée (à lire seulement si besoin) : `docs/DOCUMENTATION-CO
 
 ## Architecture
 
-- **Node 22**, une seule dépendance (`ws`), **aucune étape de build**. Données : un fichier `state.json` (volume Railway).
+- **Node 22**, une seule dépendance (`ws`), **aucune étape de build**. Données : base **SQLite** `belote.db` sur le volume Railway (`src/storage.js`, `node:sqlite`), même objet `db` en mémoire ; ancien `state.json` importé puis conservé ; `BELOTE_STORAGE=json` = retour arrière.
 - `src/server.js` : HTTP + WebSocket, tables, salons, robots, commandes des joueurs (`switch` sur `msg.type`), back-office `/api/admin`, minuteries (tours, tournois, nettoyages, sauvegarde).
 - `src/engine.js` : moteur (donne, enchères, contre, jeu, score) et **robots** (`botBid`, `botPlay`, `botAction`).
-- `src/economy.js` jetons · `src/accounts.js` comptes/sessions · `src/tournaments.js` tournois · `src/progression.js` niveaux/badges/défis · `src/shop.js` boutique · `src/purchases.js` achats (désactivés) · `src/push.js` notifications · `src/integrity.js` alertes anti-triche · `src/backup.js` sauvegarde R2.
+- `src/economy.js` jetons · `src/accounts.js` comptes/sessions · `src/tournaments.js` tournois · `src/progression.js` niveaux/badges/défis · `src/shop.js` boutique · `src/purchases.js` vérification des achats (désactivés) · `src/registry.js` registre des achats · `src/push.js` notifications · `src/integrity.js` alertes anti-triche · `src/backup.js` sauvegarde R2.
 - `public/app.js` : toute l'application (pages = fonctions `xxxPage()`, table = `gameView()`, actions = `switch` sur `data-action`, formulaires = `switch` sur l'id du formulaire). `public/style.css` : styles (thème Arcade en fin de fichier, sous `:root[data-skin="arcade"]`).
 - Tests : `test/*.test.js` (`npm test`, ~81) ; `e2e/*.spec.js` (`npx playwright test`, 22 tests, ~7 min).
 - Lancer en local : `PORT=3999 BELOTE_DATA_DIR=$(mktemp -d) node src/server.js`.
