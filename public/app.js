@@ -2627,6 +2627,10 @@ document.addEventListener("click", async (ev) => {
     case "tourPublish":
       await adminRequest({ type: "tourPublish", id: el.dataset.id });
       break;
+    case "purchasesResync":
+      await adminRequest({ type: "purchasesResync", days: 30 });
+      toast("Paiements Stripe réimportés (sans doublon)");
+      break;
     case "tourDelete": {
       const t = adminData.tournaments.find((x) => x.id === el.dataset.id);
       if (t && confirm(`Supprimer définitivement « ${t.name} » ? Les trophées 🏆 de ses vainqueurs sont conservés.`)) {
@@ -3366,6 +3370,7 @@ async function adminRequest(data) {
         <div class="admin-stats"><div><b>${d.players.length}</b><small>clients</small></div><div><b>${online}</b><small>en ligne</small></div><div><b>${d.tables.length}</b><small>tables</small></div><div><b>${upcoming.length}</b><small>tournois à venir</small></div><div><b>${fmt(d.economy.circulating)}</b><small>crédits en circulation</small></div><div><b>${fmt(d.economy.reserved)}</b><small>crédits engagés</small></div><div><b>${open.length}</b><small>signalements</small></div><div><b>${alerts.length}</b><small>alertes</small></div></div>
         <p class="muted small">Achats ${d.economy.purchases ? "ouverts" : "fermés"} (web ${d.economy.stripe ? "✓" : "—"}, iOS ${d.economy.apple ? "✓" : "—"}, Android ${d.economy.google ? "✓" : "—"}) · Push navigateur ${d.push.web ? "✓" : "—"} · Push natif ${d.push.native ? "✓" : "—"} · Entrées ${d.settings.maintenance ? "suspendues" : "ouvertes"}</p>
         ${backupCard(d.backup)}
+        ${d.purchasesSummary ? `<div class="admin-card"><b>🧾 Registre des achats</b><p class="muted small">${d.purchasesSummary.paid} payé${d.purchasesSummary.paid > 1 ? "s" : ""} · ${d.purchasesSummary.reversed} remboursé${d.purchasesSummary.reversed > 1 ? "s" : ""} ou contesté${d.purchasesSummary.reversed > 1 ? "s" : ""} · ${(d.purchasesSummary.revenueCents / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}${d.purchasesSummary.owed ? ` · ${fmt(d.purchasesSummary.owed)} jetons non repris` : ""} · achats ${d.economy.purchases ? "ouverts" : "fermés"}</p>${d.economy.stripe ? btn("Réimporter les paiements Stripe (30 jours)", "purchasesResync", "chip-btn") : ""}</div>` : ""}
         <p class="muted small">Stockage : ${d.storage.kind === "sqlite" ? "base SQLite" : "fichier JSON"}${d.storage.migration ? ` · migration du ${new Date(d.storage.migration.at).toLocaleString("fr-FR")} ${d.storage.migration.ok ? "✅" : "❌"} (${d.storage.migration.players} joueurs, ${d.storage.migration.ledger} mouvements, ${fmt(d.storage.migration.balance / 2)} jetons)` : ""}</p>`)}
       ${panel("clients", `<h2>Clients</h2><div id="admin-clients">${clientList(d)}</div>`)}
       ${panel("tours", `<h2>Tournois</h2><div id="admin-tours">${tourAdmin(d)}</div>`)}
