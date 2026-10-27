@@ -2008,7 +2008,7 @@ function referralModal(r) {
   const link = `${location.origin}/?ref=${r.code}`;
   modal(
     `<div class="ref-box"><div class="cp-icon">🎁</div><h2>Parrainez vos amis</h2>
-    <p>Invitez un ami : dès qu’il a joué sa première partie, vous recevez <b>chacun ${fmt(r.credits)} jetons</b>.</p>
+    <p>Invitez un ami : dès qu’il a terminé ses 10 premières parties (adresse e-mail vérifiée), vous recevez <b>chacun ${fmt(r.credits)} jetons</b>.</p>
     <div class="ref-link"><code>${e(link)}</code></div>
     <div class="row">${btn(`${icon("link")} Copier`, "refCopy", "line-btn", `data-link="${e(link)}" data-credits="${r.credits}"`)}${btn("📤 Partager", "refShare", "gold-btn", `data-link="${e(link)}" data-credits="${r.credits}"`)}</div>
     <p class="muted small">${r.count ? `${r.count} ami${r.count > 1 ? "s" : ""} parrainé${r.count > 1 ? "s" : ""} · ${fmt(r.count * r.credits)} jetons gagnés` : "Aucun ami parrainé pour l’instant."}</p></div>`,
@@ -2590,7 +2590,7 @@ document.addEventListener("click", async (ev) => {
     case "refShare":
     case "refCopy": {
       const link = el.dataset.link;
-      const text = `Viens jouer à la belote avec moi sur Belote Prestige ! On reçoit chacun ${fmt(Number(el.dataset.credits))} jetons après ta première partie :`;
+      const text = `Viens jouer à la belote avec moi sur Belote Prestige ! On reçoit chacun ${fmt(Number(el.dataset.credits))} jetons après tes 10 premières parties :`;
       // Le lien est passé une seule fois (url) : le partage du téléphone l'ajoute lui-même au texte.
       if (a === "refShare" && navigator.share) navigator.share({ title: "Belote Prestige", text, url: link }).catch(() => {});
       else navigator.clipboard?.writeText(link).then(() => toast("Lien copié"), () => toast(link));
@@ -3670,7 +3670,7 @@ async function connect() {
           try {
             localStorage.removeItem("beloteRef");
           } catch {}
-          ask("referral", { code: refPending }, (r) => toast(`🎁 Parrainé par ${r.referrer} : 1 000 jetons chacun après votre première partie !`));
+          ask("referral", { code: refPending }, (r) => toast(`🎁 Parrainé par ${r.referrer} : 1 000 jetons chacun après vos 10 premières parties !`));
         }
         if (!wheelShown && wheelReady() && !state.table && !$("#modal").open) {
           wheelShown = true;

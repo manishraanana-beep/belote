@@ -37,6 +37,13 @@ export function normalizeEmail(v) {
   return email;
 }
 
+// Clé d'unicité d'une adresse : pour Gmail, les points et tout ce qui suit « + » mènent à la même boîte.
+export function mailKey(email) {
+  const [user = "", domain = ""] = String(email ?? "").toLowerCase().split("@");
+  if (domain === "gmail.com" || domain === "googlemail.com") return `${user.split("+")[0].replace(/\./g, "")}@gmail.com`;
+  return `${user}@${domain}`;
+}
+
 // Envoi des e-mails : Resend si configuré (RESEND_API_KEY + BELOTE_MAIL_FROM),
 // sinon le message est gardé dans une boîte d'envoi locale et journalisé (développement).
 export function createMailer(db, env = process.env) {
@@ -116,7 +123,11 @@ export function createAccounts({ db, mail, baseUrl, newPlayer, retirePlayer, onA
   db.accounts ??= {};
   db.sessions ??= {};
   db.tokens ??= {};
-  const byEmail = (email) => Object.values(db.accounts).find((a) => a.email === email);
+  // Adresse exacte d'abord (comptes en double créés avant la normalisation), puis même boîte Gmail.
+  const byEmail = (email) => {
+    const all = Object.values(db.accounts);
+    return all.find((a) => a.email === email) ?? all.find((a) => a.email && mailKey(a.email) === mailKey(email));
+  };
   function session(player) {
     const t = token();
     db.sessions[sha(t)] = { playerId: player.id, at: Date.now() };
@@ -194,7 +205,7 @@ export function createAccounts({ db, mail, baseUrl, newPlayer, retirePlayer, onA
       };
       db.accounts[acc.id] = acc;
       p.accountId = acc.id;
-      acc.emailHash = sha(email);
+      acc.emailHash = sha(mailKey(email));
       onAccount(p, acc);
       await sendVerification(acc, req);
       return p;
@@ -226,7 +237,7 @@ export function createAccounts({ db, mail, baseUrl, newPlayer, retirePlayer, onA
         };
         db.accounts[acc.id] = acc;
         p.accountId = acc.id;
-        acc.emailHash = sha(info.email ?? `${d.provider}:${info.sub}`);
+        acc.emailHash = sha(info.email ? mailKey(info.email) : `${d.provider}:${info.sub}`);
         onAccount(p, acc);
       }
       acc.providers = { ...acc.providers, [d.provider]: info.sub };

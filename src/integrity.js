@@ -33,13 +33,33 @@ export function createIntegrity(db, config = integrityConfig()) {
     db.alerts = db.alerts.slice(-500);
     return a;
   }
+  // Deux comptes qui se retrouvent souvent face à face (même avec des partenaires différents),
+  // et c'est presque toujours le même qui gagne : jetons « donnés » d'un compte à l'autre.
+  function pairs(winners, losers) {
+    let found = null;
+    for (const w of winners.split("|").filter(Boolean))
+      for (const l of losers.split("|").filter(Boolean)) {
+        const has = (list, id) => (list ?? "").split("|").includes(id);
+        const games = db.flows.filter((f) => (has(f.winners, w) && has(f.losers, l)) || (has(f.winners, l) && has(f.losers, w)));
+        const wins = games.filter((f) => has(f.winners, w));
+        const sum = (list) => list.reduce((a, f) => a + f.total, 0) / 2;
+        const flow = sum(wins) - sum(games.filter((f) => has(f.winners, l)));
+        const indicators = [];
+        if (games.length >= config.sameLineupGames) indicators.push(`${games.length} parties face à face entre les deux comptes`);
+        if (games.length >= 3 && wins.length / games.length >= config.sameWinnersShare) indicators.push(`le même compte gagne ${Math.round((100 * wins.length) / games.length)} % de ces parties`);
+        if (flow >= config.flowCredits) indicators.push(`${flow} crédits passés d'un compte à l'autre`);
+        if (indicators.length >= 2) found = alert(`pair:${[w, l].sort().join("|")}`, "Jetons transférés à sens unique entre deux comptes", [w, l], indicators, { winner: w, loser: l, games: games.length });
+      }
+    return found;
+  }
   return {
     config,
     // Après chaque règlement : même tablée, mêmes gagnants, flux de crédits.
     settlement(gameId, result) {
       const lineup = result.rows.map((r) => r.pid).sort().join("|");
       const winners = result.rows.filter((r) => r.delta > 0).map((r) => r.pid).sort().join("|");
-      db.flows.push({ at: Date.now(), gameId, lineup, winners, total: result.total });
+      const losers = result.rows.filter((r) => r.delta < 0).map((r) => r.pid).sort().join("|");
+      db.flows.push({ at: Date.now(), gameId, lineup, winners, losers, total: result.total });
       db.flows = db.flows.filter((f) => f.at > window()).slice(-20000);
       const games = db.flows.filter((f) => f.lineup === lineup);
       const counts = {};
@@ -51,8 +71,8 @@ export function createIntegrity(db, config = integrityConfig()) {
       if (games.length >= 3 && topCount / games.length >= config.sameWinnersShare)
         indicators.push(`les mêmes gagnants dans ${Math.round((100 * topCount) / games.length)} % des parties`);
       if (flow >= config.flowCredits) indicators.push(`${flow} crédits gagnés par la même paire dans ce groupe`);
-      if (indicators.length >= 2)
-        return alert(`collusion:${lineup}`, "Possible arrangement entre comptes", lineup.split("|"), indicators, { winners: topWinners.split("|"), games: games.length });
+      if (indicators.length < 2) return pairs(winners, losers);
+      return alert(`collusion:${lineup}`, "Possible arrangement entre comptes", lineup.split("|"), indicators, { winners: topWinners.split("|"), games: games.length });
       return null;
     },
     // Abandon volontaire d'une partie avec crédits engagés.
