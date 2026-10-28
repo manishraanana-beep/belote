@@ -1,4 +1,4 @@
-# Maison Belote — Belote contrée
+# Belote Prestige — Belote contrée
 
 Application française jouable à quatre en temps réel ou contre trois robots, sur ordinateur, tablette et mobile. Serveur autoritaire, moteur indépendant. Interface « Club Pop » (tapis émeraude) pour les parties classiques et « Night VIP » (violet et or) pour les tables privées, sans défilement pendant la partie. Aucun service tiers ni secret n’est nécessaire pour jouer.
 
