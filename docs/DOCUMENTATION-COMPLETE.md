@@ -11,9 +11,10 @@
 | | |
 |---|---|
 | Nom | **Belote Prestige** — belote contrée et belote classique en ligne, en français |
-| Site | https://appi-belote.up.railway.app |
-| Version en ligne | https://appi-belote.up.railway.app/api/health (champ `version` = début du commit de `main`) |
-| Back-office | https://appi-belote.up.railway.app/admin (clé `BELOTE_ADMIN_KEY`) |
+| Site | https://www.beloteprestige.com (`beloteprestige.com` redirigé en 301 vers `www` ; ancienne adresse https://appi-belote.up.railway.app toujours active) |
+| Domaine | Géré chez **LWS** : CNAME `www` → `3g5yogzf.up.railway.app.` + TXT `_railway-verify.www`. Ne pas toucher aux lignes A, AAAA, MX, mail, NS, TXT `@`, `dkim`, `_dmarc` |
+| Version en ligne | https://www.beloteprestige.com/api/health (champ `version` = début du commit de `main`) |
+| Back-office | https://www.beloteprestige.com/admin (clé `BELOTE_ADMIN_KEY`) |
 | Dépôt GitHub | `manishraanana-beep/belote`, branche principale `main` |
 | Hébergement | **Railway**, projet « fearless-adaptation », environnement **belote**, service **@belote/api** (offre Hobby) |
 | Données | un seul fichier `state.json` sur le volume Railway (`@belote/api-volume`) |
@@ -314,7 +315,7 @@ Les points repris dans la section 14 (jetons, achats, fidélisation) y sont dés
 
 - **Économie trop généreuse.** La roue donne jusqu'à 800 jetons par jour (200 × 4), les parties entre humains sont à somme nulle, les tournois et le parrainage créent des jetons, et presque rien n'en retire. Les soldes ne font que monter : personne n'a besoin d'acheter.
 - **Fuites de jetons gratuits.** Doublons Gmail (points, « + ») qui touchent chacun le bonus d'inscription ; parrainage versé après une seule partie contre des robots ; table privée à grosse mise où un compte perd exprès pour « donner » ses jetons à un autre. Résultat : des jetons gratuits à l'infini, et une revente possible.
-- **Confiance.** Adresse en `up.railway.app` ; un seul `state.json` (restaurer la copie de la nuit effacerait les achats du jour, avec des oppositions bancaires à la clé) ; soupçon de robots « réglés pour faire perdre ».
+- **Confiance.** Adresse en `up.railway.app` (réglé le 28/10/2026 : www.beloteprestige.com) ; un seul `state.json` (restaurer la copie de la nuit effacerait les achats du jour, avec des oppositions bancaires à la clé) ; soupçon de robots « réglés pour faire perdre ».
 - **Premières minutes.** Jusqu'à 45 s d'attente ; annonces du robot partenaire incomprises (« 90 » = Valet ou 9 d'atout) ; compte pas proposé au meilleur moment ; villes uniquement en contrée ; « 0 en attente » partout, qui donne l'impression d'une appli vide ; « Club VIP » qui laisse croire que c'est payant.
 - **Ce qui fait payer un joueur de belote** : jouer avec ses potes, montrer qu'il est bon, et ne jamais avoir l'impression qu'on l'arnaque.
 
