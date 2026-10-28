@@ -152,8 +152,8 @@ export function createAccounts({ db, mail, baseUrl, newPlayer, retirePlayer, onA
     const t = issue("verify", acc.id, 48 * 3600_000);
     await mail(
       acc.email,
-      "Confirmez votre adresse — Maison Belote",
-      `Bienvenue à la Maison Belote !\n\nConfirmez votre adresse en ouvrant ce lien :\n${baseUrl(req)}/api/auth/verify?token=${t}\n\nCe lien est valable 48 heures.`,
+      "Confirmez votre adresse — Belote Prestige",
+      `Bienvenue sur Belote Prestige !\n\nConfirmez votre adresse en ouvrant ce lien :\n${baseUrl(req)}/api/auth/verify?token=${t}\n\nCe lien est valable 48 heures.`,
     );
   }
   // Fusion douce : un invité qui se connecte à un compte existant lui apporte ses parties.
@@ -259,7 +259,7 @@ export function createAccounts({ db, mail, baseUrl, newPlayer, retirePlayer, onA
       const t = issue("reset", acc.id, 3600_000);
       await mail(
         acc.email,
-        "Nouveau mot de passe — Maison Belote",
+        "Nouveau mot de passe — Belote Prestige",
         `Pour choisir un nouveau mot de passe, ouvrez ce lien :\n${baseUrl(req)}/#reset=${t}\n\nCe lien est valable une heure. Ignorez ce message si vous n’êtes pas à l’origine de la demande.`,
       );
     },
