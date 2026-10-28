@@ -2171,3 +2171,8 @@ table.metrics .minus { color: #ff8f8f; }
 .swatch.voice-sport::after { content: "🎙️"; }
 .swatch.voice-sud::after { content: "☀️"; }
 .money .fee-line { display: block; opacity: .85; }
+/* Portrait : rien ne se pose sur les cartes jouées — « Dernier pli » compact à droite, « Au tour de… » masqué (l'anneau du joueur suffit) */
+@media (max-aspect-ratio: 4/5) {
+  .screen.game .last-trick-btn { top: auto; bottom: calc(var(--dock-h, 0px) + 8px); left: auto; right: 8px; translate: none; flex-direction: column; gap: 2px; padding: 6px 8px; font-size: 12px; line-height: 1.1; border-radius: 14px; }
+  .screen.game .turn-pill.waiting { visibility: hidden; }
+}
