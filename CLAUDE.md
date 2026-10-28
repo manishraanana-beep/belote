@@ -1,7 +1,7 @@
 # CLAUDE.md — Belote Prestige
 
 Belote contrée et belote classique en ligne, **en français**.
-Site : https://appi-belote.up.railway.app · version en ligne : `/api/health` (champ `version`) · back-office : `/admin`.
+Site : https://www.beloteprestige.com (ancienne adresse https://appi-belote.up.railway.app toujours active) · version en ligne : `/api/health` (champ `version`) · back-office : `/admin`.
 Documentation détaillée (à lire seulement si besoin) : `docs/DOCUMENTATION-COMPLETE.md` (le plan économie/monétisation est dans sa section 14).
 
 ## Économie de tokens — règles obligatoires
