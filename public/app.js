@@ -601,7 +601,7 @@ function tipLine(key) {
 // Joueurs connectés à proposer : une touche les invite ; sans réponse, un robot prend la place.
 function onlineBlock(t, me, free) {
   const list = state.online ?? [];
-  if (t.quick || me < 0 || !free) return "";
+  if (t.quick || me < 0 || !free || !list.length) return ""; // personne d'autre en ligne : rien d'affiché
   return `<h2 class="section">Joueurs en ligne <small class="muted">(${list.length})</small></h2>
     <div class="list online-list">${
       list

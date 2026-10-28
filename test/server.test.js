@@ -1463,3 +1463,28 @@ test("Membre Prestige : attribué par le back-office, jetons du jour avec la rou
     await f.close();
   }
 });
+
+test("une table cassée (joueur retiré) ne bloque jamais les robots des autres tables", async () => {
+  const f = await fixture();
+  try {
+    // Table en attente avec un visiteur déjà retiré de la base, déconnecté depuis longtemps.
+    f.app.db.tables.casse = { id: "casse", name: "Cassée", seats: [{ id: "fantome", name: "Fantôme", disconnectedAt: 1 }, null, null, null], pending: [], rules: { reconnectSeconds: 60, turnSeconds: 20 }, revision: 0 };
+    const p = await f.client();
+    await p.command("practice", { rules: { target: 100 } });
+    // On joue quelques coups : les robots doivent répondre malgré la table cassée.
+    let botMoves = 0;
+    for (let i = 0; i < 200 && botMoves < 3; i++) {
+      const g = p.state.table.game;
+      if (g.turn === 0 && ["bidding", "playing"].includes(g.phase)) {
+        await p.command("action", { version: g.version, action: g.phase === "bidding" ? { type: "pass" } : { type: "play", card: g.legal[0] } });
+        const v = p.state.table.game.version;
+        await delay(200);
+        if (p.state.table.game.version > v) botMoves++;
+      } else await delay(30);
+    }
+    assert.ok(botMoves >= 1, "les robots ont continué à jouer");
+    assert.equal(f.app.db.tables.casse?.seats[0] ?? null, null, "place du fantôme libérée sans erreur");
+  } finally {
+    await f.close();
+  }
+});

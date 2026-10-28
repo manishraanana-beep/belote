@@ -2387,6 +2387,8 @@ export function createApp({
       lastTourSig = sig;
     }
     for (const t of Object.values(db.tables)) {
+      // Chaque table est traitée à part : une erreur sur une table ne bloque jamais les autres.
+      try {
       if (waitingForPlayers(t)) {
         if (callPlayers(t, now)) dirty = true;
       } else if (t.calls) endCalls(t);
@@ -2449,7 +2451,7 @@ export function createApp({
             now - s.disconnectedAt > t.rules.reconnectSeconds * 1000
           ) {
             t.seats[i] = null;
-            db.players[s.id].tableId = null;
+            if (db.players[s.id]) db.players[s.id].tableId = null; // le visiteur a pu être retiré entre-temps
             if (t.owner === s.id)
               t.owner = t.seats.find((s) => s && !s.bot)?.id ?? null;
             t.revision++;
@@ -2501,7 +2503,9 @@ export function createApp({
           ((s?.bot || absent || lastCard) && now >= Math.max(t.botAt, lastCard ? t.lastCardAt ?? 0 : 0)) ||
           (t.deadline && now >= t.deadline)
         ) {
-          const a = lastCard
+          let a;
+          try {
+            a = lastCard
             ? { type: "play", card: g.hands[g.turn][0] }
             : s?.bot || absent
               ? botAction(view(g, g.turn))
@@ -2509,15 +2513,25 @@ export function createApp({
                 ? { type: "pass" }
                 : // Temps écoulé : la carte la plus forte autorisée est jouée.
                   { type: "play", card: strongestCard(view(g, g.turn).legal, g.contract.suit) };
-          try {
-            act(g, g.turn, a);
-            finishStats(t);
-            update(t);
-            dirty = true;
           } catch (e) {
-            console.error("Automatisme impossible:", e.message);
+            a = null; // le robot n'a pas su décider : solution de repli ci-dessous
           }
+          try {
+            if (!a) throw Error("aucune action");
+            act(g, g.turn, a);
+          } catch (e) {
+            // Action refusée : solution de repli (passer aux enchères, première carte autorisée au jeu).
+            console.error("Automatisme impossible:", e.message, JSON.stringify(a));
+            const v = view(g, g.turn);
+            act(g, g.turn, g.phase === "bidding" ? { type: "pass" } : { type: "play", card: v.legal[0] });
+          }
+          finishStats(t);
+          update(t);
+          dirty = true;
         }
+      }
+      } catch (e) {
+        console.error(`Table ${t.id} :`, e.message);
       }
     }
     if (dirty) broadcast();
