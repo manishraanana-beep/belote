@@ -22,7 +22,7 @@ export async function stripeCheckout({ env, pack, player, origin, fetchImpl = fe
     "line_items[0][quantity]": "1",
     "line_items[0][price_data][currency]": env.STRIPE_CURRENCY || "eur",
     "line_items[0][price_data][unit_amount]": String(pack.priceCents),
-    "line_items[0][price_data][product_data][name]": `${pack.credits} crédits Maison Belote`,
+    "line_items[0][price_data][product_data][name]": `${pack.credits} crédits Belote Prestige`,
     success_url: `${origin}/#shop-ok`,
     cancel_url: `${origin}/#shop-cancel`,
   });
