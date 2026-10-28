@@ -1830,7 +1830,7 @@ function handView(g, me, t) {
       : g.phase === "bidding"
         ? `<span class="turn-pill">À ${e(t.seats[g.turn]?.name)} d’annoncer</span>`
         : g.phase === "playing"
-          ? `<span class="turn-pill">Au tour de ${e(t.seats[g.turn]?.name)}</span>`
+          ? `<span class="turn-pill waiting">Au tour de ${e(t.seats[g.turn]?.name)}</span>`
         : "";
   const mine = t.money?.seats.find((x) => x.seat === me);
   return `<div class="hand n${hand.length} ${dealing ? "dealing" : ""} ${glow ? "glow" : ""} ${myTurn ? "my-turn" : ""}" aria-label="Votre main">
