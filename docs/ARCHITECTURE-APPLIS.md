@@ -43,7 +43,7 @@ et vérifient l’origine.
 
 | Variable | Rôle |
 |---|---|
-| `BELOTE_PUBLIC_URL` | Adresse publique utilisée dans les e-mails (ex. `https://appi-belote.up.railway.app`) |
+| `BELOTE_PUBLIC_URL` | Adresse publique utilisée dans les e-mails (`https://www.beloteprestige.com`) |
 | `RESEND_API_KEY`, `BELOTE_MAIL_FROM` | Envoi réel des e-mails (vérification, mot de passe oublié) |
 | `GOOGLE_CLIENT_ID` | Identifiant(s) OAuth Google, séparés par des virgules (web, iOS, Android) |
 | `APPLE_CLIENT_ID` | Service ID (web) et/ou Bundle ID (iOS), séparés par des virgules |
