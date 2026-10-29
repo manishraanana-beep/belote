@@ -3759,6 +3759,9 @@ async function connect() {
         lastMultiplier = m;
         if (msg.table?.game?.trick.length > (state?.table?.game?.trick.length ?? 0)) tone([300], 0.05, 0.05);
         const prevTable = state?.table;
+        // Roue : échéance recalculée sur l'horloge du serveur (changer l'heure du téléphone n'y change rien).
+        const lb = msg.player?.wallet?.loginBonus;
+        if (lb && typeof lb.wait === "number") lb.next = Date.now() + lb.wait;
         state = msg;
         gameEffects(prevTable, msg.table);
         render();

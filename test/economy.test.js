@@ -150,3 +150,17 @@ test("droit de table : 10 % de la mise payé à l'entrée, retiré de la circula
   eco.release(db.players, m2);
   assert.equal(players.reduce((a, p) => a + toCredits(p.wallet.balance), 0), 8000, "annulation : droit rendu");
 });
+test("roue du jour : 10 jours d'affilée, et jamais bloquée si le compteur a pris du retard", () => {
+  const db = { players: {} };
+  const eco = createEconomy(db, economyConfig({ BELOTE_TABLE_FEE_PCT: "0" }));
+  const p = { id: "p", accountId: "a" };
+  const H = 3600_000,
+    t0 = Date.UTC(2026, 9, 1, 10);
+  for (let d = 0; d < 10; d++) assert.ok(eco.loginBonus(p, t0 + d * 25 * H, () => 0), `jour ${d + 1}`);
+  // Joueur restauré d'une ancienne sauvegarde alors que le registre contient déjà les tours suivants.
+  p.loginBonusSeq = 6;
+  const e = eco.loginBonus(p, t0 + 10 * 25 * H, () => 0);
+  assert.ok(e);
+  assert.equal(p.loginBonusSeq, 11);
+  assert.equal(typeof eco.view(p).loginBonus.wait, "number");
+});
