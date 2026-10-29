@@ -47,8 +47,8 @@ export function mailKey(email) {
 // Envoi des e-mails : Resend si configuré (RESEND_API_KEY + BELOTE_MAIL_FROM),
 // sinon le message est gardé dans une boîte d'envoi locale et journalisé (développement).
 export function createMailer(db, env = process.env) {
-  return async function mail(to, subject, text) {
-    db.outbox = [...(db.outbox ?? []), { to, subject, text, at: Date.now() }].slice(-50);
+  return async function mail(to, subject, text, html) {
+    db.outbox = [...(db.outbox ?? []), { to, subject, text, html, at: Date.now() }].slice(-50);
     if (env.RESEND_API_KEY && env.BELOTE_MAIL_FROM) {
       try {
         const r = await fetch("https://api.resend.com/emails", {
@@ -57,7 +57,7 @@ export function createMailer(db, env = process.env) {
             Authorization: `Bearer ${env.RESEND_API_KEY}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ from: env.BELOTE_MAIL_FROM, to, subject, text }),
+          body: JSON.stringify({ from: env.BELOTE_MAIL_FROM, to, subject, text, ...(html ? { html } : {}) }),
         });
         if (!r.ok) console.error("Envoi d’e-mail refusé :", r.status);
       } catch (e) {
@@ -65,6 +65,27 @@ export function createMailer(db, env = process.env) {
       }
     } else console.log(`[e-mail non configuré] ${to} · ${subject}\n${text}`);
   };
+}
+
+// Mise en page des e-mails : logo, tapis vert, bouton doré (tableaux et styles en ligne, lus par toutes les messageries).
+const escHtml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+export function mailHtml(base, { title, intro, button, url, note }) {
+  const p = (t, css) => `<p style="margin:0 0 16px;${css}">${escHtml(t)}</p>`;
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escHtml(title)}</title></head>
+<body style="margin:0;padding:0;background:#0b2a26;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b2a26;"><tr><td align="center" style="padding:28px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#123d36;border:2px solid #d9a93f;border-radius:18px;font-family:Georgia,'Times New Roman',serif;color:#fdf3dc;">
+<tr><td align="center" style="padding:26px 24px 8px;"><a href="${base}"><img src="${base}/decor/logo-mail.png" width="180" alt="Belote Prestige" style="display:block;width:180px;max-width:60%;height:auto;border:0;"></a></td></tr>
+<tr><td style="padding:8px 32px 28px;font-size:16px;line-height:1.55;">
+<h1 style="margin:8px 0 18px;font-size:24px;font-weight:bold;color:#f6c85f;text-align:center;">${escHtml(title)}</h1>
+${[].concat(intro).map((t) => p(t, "")).join("")}
+<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:22px auto;"><tr><td align="center" bgcolor="#f2bd3c" style="border-radius:999px;background:linear-gradient(180deg,#ffe48a,#f2bd3c);">
+<a href="${url}" style="display:inline-block;padding:14px 34px;font-size:17px;font-weight:bold;color:#2a1a00;text-decoration:none;border-radius:999px;">${escHtml(button)}</a></td></tr></table>
+${note ? p(note, "font-size:14px;color:#cfe3dc;text-align:center;") : ""}
+<p style="margin:18px 0 0;font-size:12px;color:#9fbfb5;text-align:center;">Si le bouton ne fonctionne pas, copiez ce lien :<br><a href="${url}" style="color:#f6c85f;word-break:break-all;">${escHtml(url)}</a></p>
+</td></tr></table>
+<p style="margin:16px 0 0;font-family:Arial,sans-serif;font-size:12px;color:#7fa69b;">Belote Prestige · <a href="${base}" style="color:#7fa69b;">beloteprestige.com</a> · Jeu réservé aux adultes (18+).</p>
+</td></tr></table></body></html>`;
 }
 
 // Vérification des jetons d'identité Apple / Google (OpenID Connect, RS256).
@@ -154,6 +175,13 @@ export function createAccounts({ db, mail, baseUrl, newPlayer, retirePlayer, onA
       acc.email,
       "Confirmez votre adresse — Belote Prestige",
       `Bienvenue sur Belote Prestige !\n\nConfirmez votre adresse en ouvrant ce lien :\n${baseUrl(req)}/api/auth/verify?token=${t}\n\nCe lien est valable 48 heures.`,
+      mailHtml(baseUrl(req), {
+        title: "Bienvenue à la table !",
+        intro: ["Merci d’avoir rejoint Belote Prestige.", "Confirmez votre adresse e-mail pour sécuriser votre compte et profiter de tous les avantages."],
+        button: "Confirmer mon adresse",
+        url: `${baseUrl(req)}/api/auth/verify?token=${t}`,
+        note: "Ce lien est valable 48 heures.",
+      }),
     );
   }
   // Fusion douce : un invité qui se connecte à un compte existant lui apporte ses parties.
@@ -261,6 +289,13 @@ export function createAccounts({ db, mail, baseUrl, newPlayer, retirePlayer, onA
         acc.email,
         "Nouveau mot de passe — Belote Prestige",
         `Pour choisir un nouveau mot de passe, ouvrez ce lien :\n${baseUrl(req)}/#reset=${t}\n\nCe lien est valable une heure. Ignorez ce message si vous n’êtes pas à l’origine de la demande.`,
+        mailHtml(baseUrl(req), {
+          title: "Nouveau mot de passe",
+          intro: "Vous avez demandé à changer votre mot de passe. Cliquez sur le bouton ci-dessous pour en choisir un nouveau.",
+          button: "Choisir un nouveau mot de passe",
+          url: `${baseUrl(req)}/#reset=${t}`,
+          note: "Ce lien est valable une heure. Ignorez ce message si vous n’êtes pas à l’origine de la demande.",
+        }),
       );
     },
     reset(d) {
