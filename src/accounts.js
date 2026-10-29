@@ -14,7 +14,7 @@ const token = () => randomBytes(24).toString("base64url");
 const sha = (v) => createHash("sha256").update(v).digest("hex");
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,24}$/;
 
-function hash(password, salt = token()) {
+export function hash(password, salt = token()) {
   return { salt, hash: scryptSync(password, salt, 32).toString("hex") };
 }
 function same(password, stored) {

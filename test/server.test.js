@@ -1491,3 +1491,21 @@ test("une table cassée (joueur retiré) ne bloque jamais les robots des autres 
     await f.close();
   }
 });
+
+test("back-office : nouveau mot de passe saisi par l'administration, connexion avec celui-ci", async () => {
+  const f = await fixture({ adminKey: "k" });
+  try {
+    const m = await member(f, "oubli@gmail.com");
+    const admin = (body) => fetch(f.base + "/api/admin", { method: "POST", headers: { Authorization: "Bearer k", "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    assert.equal((await admin({ type: "playerUpdate", id: m.state.player.id, password: "court" })).status, 400);
+    assert.equal((await admin({ type: "playerUpdate", id: m.state.player.id, password: "nouveau-secret" })).status, 200);
+    const s = await fetch(f.base + "/api/session", { method: "POST" });
+    const c = s.headers.get("set-cookie").split(";")[0];
+    const ok = await fetch(f.base + "/api/auth/login", { method: "POST", headers: { Cookie: c, "Content-Type": "application/json" }, body: JSON.stringify({ email: "oubli@gmail.com", password: "nouveau-secret" }) });
+    assert.equal(ok.status, 200);
+    const bad = await fetch(f.base + "/api/auth/login", { method: "POST", headers: { Cookie: c, "Content-Type": "application/json" }, body: JSON.stringify({ email: "oubli@gmail.com", password: "motdepasse" }) });
+    assert.equal(bad.status, 401);
+  } finally {
+    await f.close();
+  }
+});

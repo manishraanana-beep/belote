@@ -1029,7 +1029,7 @@ function profilePage() {
   const rate = p.stats.games ? Math.round((100 * p.stats.wins) / p.stats.games) : 0;
   return shell(
     `<div class="profile-hero"><div class="ph-avatar">${avatar(p.avatar, "xxl ring")}<label class="cam" aria-label="Ajouter une photo">${icon("camera")}<input type="file" accept="image/*" id="photo-input" hidden></label></div>
-      <h1>${e(p.name)}</h1><small>${levelTitle()} · ${e(p.tag)}</small></div>
+      <h1>${e(p.name)}</h1><small>${levelTitle()} · ${e(p.tag)}</small>${p.account?.email ? `<small class="ph-mail">✉️ ${e(p.account.email)}${p.account.verified ? "" : " · non vérifiée"}</small>` : ""}</div>
     <div class="stack tight">${btn(`${icon("pen")} Modifier mon pseudo`, "editName", "line-btn wide")}${btn(`${icon("users")} Choisir un avatar`, "go", "line-btn wide", 'data-page="avatar"')}<label class="line-btn wide">${icon("camera")} Ajouter une photo<input type="file" accept="image/*" id="photo-input-2" hidden></label></div>
     <div class="stat-card"><div>${icon("trophy")}<b>${p.stats.games}</b><small>Parties</small></div><div>${icon("crown")}<b>${p.stats.wins}</b><small>Victoires</small></div><div>${icon("chart")}<b>${rate} %</b><small>Réussite</small></div></div>
     ${levelBar(p.progress.level)}
@@ -3458,7 +3458,7 @@ async function openClient(id) {
       <h4>Fiche</h4>
       <form id="client-edit-form" class="form"><input type="hidden" name="cid" value="${c.id}">
         <div class="form-grid"><label>Pseudo<input name="name" value="${e(c.name)}" minlength="2" maxlength="24" required></label><label>Avatar<input name="avatar" value="${e(c.avatar)}" maxlength="8"></label>
-        ${c.account ? `<label>E-mail<input name="email" type="email" value="${e(c.account.email)}" required></label><label class="check-line"><input type="checkbox" name="verified" ${c.account.verified ? "checked" : ""}>E-mail vérifié</label>` : ""}</div>
+        ${c.account ? `<label>E-mail<input name="email" type="email" value="${e(c.account.email)}" required></label><label class="check-line"><input type="checkbox" name="verified" ${c.account.verified ? "checked" : ""}>E-mail vérifié</label><label>Nouveau mot de passe <small class="muted">(laisser vide pour ne pas changer)</small><input name="password" type="text" minlength="8" maxlength="128" autocomplete="off"></label>` : ""}</div>
         <button class="pill small">Enregistrer la fiche</button></form>
       <div class="row">${btn(c.banned ? "Réactiver le compte" : "Suspendre le compte", "clientSuspend", "chip-btn", `data-id="${c.id}" data-enabled="${!c.banned}"`)}${btn("Supprimer le client", "clientDelete", "chip-btn danger", `data-id="${c.id}" data-name="${e(c.name)}"`)}</div>
       <h4>Journal des crédits</h4>
@@ -3643,7 +3643,7 @@ document.addEventListener("submit", async (ev) => {
           toast("Solde mis à jour");
         return;
       case "client-edit-form":
-        if (await adminRequest({ type: "playerUpdate", id: d.cid, name: d.name, avatar: d.avatar, ...(d.email !== undefined ? { email: d.email, verified: d.verified === "on" } : {}) }))
+        if (await adminRequest({ type: "playerUpdate", id: d.cid, name: d.name, avatar: d.avatar, ...(d.email !== undefined ? { email: d.email, verified: d.verified === "on" } : {}), ...(d.password ? { password: d.password } : {}) }))
           toast("Fiche enregistrée");
         return;
       case "bonus-form":
