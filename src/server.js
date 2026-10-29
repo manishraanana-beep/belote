@@ -10,7 +10,7 @@ import {
   unlinkSync,
 } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { createAccounts, createMailer, normalizeEmail } from "./accounts.js";
+import { createAccounts, createMailer, normalizeEmail, checkPassword, hash as hashAccount } from "./accounts.js";
 import { createBackup } from "./backup.js";
 import { openStorage } from "./storage.js";
 import { createEconomy, economyConfig, STAKES, toCredits, toUnits } from "./economy.js";
@@ -2180,6 +2180,12 @@ export function createApp({
               acc.email = email;
             }
             if (acc && typeof d.verified === "boolean") acc.verified = d.verified;
+            // Nouveau mot de passe saisi par l'administration (jamais affiché : seule son empreinte est gardée).
+            if (acc && d.password) {
+              checkPassword(d.password);
+              acc.password = hashAccount(d.password);
+              for (const [k, v] of Object.entries(db.tokens ?? {})) if (v.accountId === acc.id && v.kind === "reset") delete db.tokens[k];
+            }
           } else if (d.type === "playerDelete") {
             const p = db.players[d.id];
             check(p, "Joueur introuvable");
