@@ -2184,3 +2184,4 @@ table.metrics .minus { color: #ff8f8f; }
   .screen.game .hcard { bottom: 6px; }
   .screen.game .side-seats, .screen.game .seat.p1, .screen.game .seat.p3 { top: 34%; }
 }
+.profile-hero .ph-mail { display: block; margin-top: 4px; opacity: 0.85; word-break: break-all; }

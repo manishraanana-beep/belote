@@ -1029,7 +1029,7 @@ function profilePage() {
   const rate = p.stats.games ? Math.round((100 * p.stats.wins) / p.stats.games) : 0;
   return shell(
     `<div class="profile-hero"><div class="ph-avatar">${avatar(p.avatar, "xxl ring")}<label class="cam" aria-label="Ajouter une photo">${icon("camera")}<input type="file" accept="image/*" id="photo-input" hidden></label></div>
-      <h1>${e(p.name)}</h1><small>${levelTitle()} · ${e(p.tag)}</small></div>
+      <h1>${e(p.name)}</h1><small>${levelTitle()} · ${e(p.tag)}</small>${p.account?.email ? `<small class="ph-mail">✉️ ${e(p.account.email)}${p.account.verified ? "" : " · non vérifiée"}</small>` : ""}</div>
     <div class="stack tight">${btn(`${icon("pen")} Modifier mon pseudo`, "editName", "line-btn wide")}${btn(`${icon("users")} Choisir un avatar`, "go", "line-btn wide", 'data-page="avatar"')}<label class="line-btn wide">${icon("camera")} Ajouter une photo<input type="file" accept="image/*" id="photo-input-2" hidden></label></div>
     <div class="stat-card"><div>${icon("trophy")}<b>${p.stats.games}</b><small>Parties</small></div><div>${icon("crown")}<b>${p.stats.wins}</b><small>Victoires</small></div><div>${icon("chart")}<b>${rate} %</b><small>Réussite</small></div></div>
     ${levelBar(p.progress.level)}
