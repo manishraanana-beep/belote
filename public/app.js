@@ -342,7 +342,7 @@ function animateTrick() {
       dy = from.top + from.height / 2 - (to.top + to.height / 2);
     const start = rel === 0 ? Math.min(1.25, (from.width || to.width) / to.width) : 0.45;
     el.style.animation = "none";
-    el.animate(
+    const anim = el.animate(
       [
         { transform: `translate(${dx}px, ${dy}px) rotate(${rel === 0 ? -8 : rel === 1 ? -25 : 25}deg) scale(${start})`, opacity: rel === 0 ? 1 : 0.4 },
         { transform: "translate(0, -6px) rotate(0deg) scale(1.04)", opacity: 1, offset: 0.82 },
@@ -350,6 +350,7 @@ function animateTrick() {
       ],
       { duration: rel === 0 ? 360 : 420, easing: "cubic-bezier(.2,.75,.25,1)" },
     );
+    anim.onfinish = anim.oncancel = () => el.style.removeProperty("animation"); // l'élément est gardé : le ramassage doit pouvoir s'animer
     cardSound(rel === 0 ? 1 : 0.55);
   }
 }
@@ -1918,7 +1919,8 @@ let lastShape = "",
   lastShapeNode = null;
 // Mise à jour ciblée : garde les éléments identiques, met à jour les attributs, remplace le reste.
 function patchNode(a, b, depth) {
-  for (const { name } of [...a.attributes]) if (!b.hasAttribute(name)) a.removeAttribute(name);
+  // « style » n'existe jamais dans le HTML (CSP) : seuls les réglages posés en JS (trajectoire du ramassage…) y sont, on les garde.
+  for (const { name } of [...a.attributes]) if (name !== "style" && !b.hasAttribute(name)) a.removeAttribute(name);
   for (const { name, value } of [...b.attributes]) if (a.getAttribute(name) !== value) a.setAttribute(name, value);
   const ac = [...a.childNodes],
     bc = [...b.childNodes];
@@ -1930,7 +1932,7 @@ function patchNode(a, b, depth) {
     const x = ac[i],
       y = bc[i];
     if (x.nodeType === 1 && y.nodeType === 1) {
-      if (x.outerHTML === y.outerHTML) continue;
+      if (x.outerHTML === y.outerHTML || (x.hasAttribute("style") && x.cloneNode(true).outerHTML.replace(/ style="[^"]*"/g, "") === y.outerHTML)) continue;
       if (x.tagName === y.tagName && !["IMG", "INPUT", "TEXTAREA", "SELECT", "SVG"].includes(x.tagName.toUpperCase())) patchNode(x, y, depth + 1);
       else x.replaceWith(y);
     } else if (x.nodeType === y.nodeType && x.nodeType === 3) {
@@ -2015,6 +2017,7 @@ function render() {
     const rel = (collection.winner - (state.table.seats.findIndex((x) => x?.id === state.player.id) + 4)) % 4;
     const target = $(rel === 0 ? ".me-seat .avatar, .me-mini .avatar" : `.seat.p${(rel + 4) % 4} .seat-avatar`)?.getBoundingClientRect();
     if (target) for (const c of pile.querySelectorAll(".tcard")) {
+      if (c.style.getPropertyValue("--to")) continue; // trajectoire calculée une seule fois, avant que la carte ne bouge
       const r = c.getBoundingClientRect();
       c.style.setProperty("--to", `${Math.round(target.left + target.width / 2 - (r.left + r.width / 2))}px ${Math.round(target.top + target.height / 2 - (r.top + r.height / 2))}px`);
     }

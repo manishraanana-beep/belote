@@ -2185,6 +2185,7 @@ table.metrics .minus { color: #ff8f8f; }
   .screen.game { --av: clamp(64px, 10.5vh, 96px); }
   .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: 48%; bottom: auto; translate: 0 -50%; }
   /* Annonces : bloc plus grand, au centre du tapis */
-  .screen.game .bid-zone, .screen.game .bid-zone.watching { width: 520px; top: calc(var(--av) + 70px); scale: 1.2; }
+  .screen.game .bid-zone, .screen.game .bid-zone.watching { width: 520px; top: max(calc(var(--av) + 60px), calc(48vh - 120px)); scale: 1.2; }
+  .screen.game .bid-zone .bid-amounts { grid-template-columns: repeat(6, 1fr); }
 }
 .profile-hero .ph-mail { display: block; margin-top: 4px; opacity: 0.85; word-break: break-all; }
