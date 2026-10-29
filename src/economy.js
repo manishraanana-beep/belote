@@ -32,7 +32,7 @@ export function economyConfig(env = process.env) {
   return {
     signupBonus: num("BELOTE_SIGNUP_BONUS", 2000),
     // Droit de table : % de la mise payé à l'entrée par chaque joueur, retiré de la circulation.
-    tableFeePct: num("BELOTE_TABLE_FEE_PCT", 10),
+    tableFeePct: num("BELOTE_TABLE_FEE_PCT", 0), // supprimé par défaut (décision de Jacques)
     // Bonus de connexion : montant par défaut, modifiable depuis l'administration.
     loginBonus: num("BELOTE_LOGIN_BONUS", 200),
     dayStartUtc: num("BELOTE_DAY_START_UTC", 3), // heure commune de renouvellement

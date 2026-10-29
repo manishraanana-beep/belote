@@ -2182,6 +2182,9 @@ table.metrics .minus { color: #ff8f8f; }
   .screen.game { --tc: clamp(74px, 13.5vh, 112px); }
   .screen.game .center, .screen.game.phase-playing .center { top: max(calc(2% + var(--av) + 24px), calc(44% - var(--tc) * 1.05)); }
   .screen.game .hcard { bottom: 6px; }
-  .screen.game .side-seats, .screen.game .seat.p1, .screen.game .seat.p3 { top: 34%; }
+  .screen.game { --av: clamp(64px, 10.5vh, 96px); }
+  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: 48%; bottom: auto; translate: 0 -50%; }
+  /* Annonces : bloc plus grand, au centre du tapis */
+  .screen.game .bid-zone, .screen.game .bid-zone.watching { width: 520px; top: calc(var(--av) + 70px); scale: 1.2; }
 }
 .profile-hero .ph-mail { display: block; margin-top: 4px; opacity: 0.85; word-break: break-all; }

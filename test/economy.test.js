@@ -127,9 +127,9 @@ test("règlement avec les robots de la Maison : le joueur gagne ou perd contre l
   assert.ok(p.wallet.balance > toUnits(1000), "victoire : crédits versés par la Maison");
 });
 
-test("droit de table : 10 % de la mise payé à l'entrée, retiré de la circulation, rendu si la partie est annulée", () => {
+test("droit de table (si activé) : 10 % de la mise payé à l'entrée, retiré de la circulation, rendu si la partie est annulée", () => {
   const db = { players: {} };
-  const eco = createEconomy(db, economyConfig({}));
+  const eco = createEconomy(db, economyConfig({ BELOTE_TABLE_FEE_PCT: "10" }));
   assert.equal(eco.tableFee(1000), 100);
   assert.equal(eco.tableFee(0), 0);
   const players = [1100, 1100, 1100, 1099].map((c, i) => {
@@ -163,4 +163,8 @@ test("roue du jour : 10 jours d'affilée, et jamais bloquée si le compteur a pr
   assert.ok(e);
   assert.equal(p.loginBonusSeq, 11);
   assert.equal(typeof eco.view(p).loginBonus.wait, "number");
+});
+test("droit de table : aucun par défaut", () => {
+  const eco = createEconomy({ players: {} }, economyConfig({}));
+  assert.equal(eco.tableFee(500), 0);
 });
