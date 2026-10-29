@@ -14,6 +14,9 @@ Documentation détaillée (à lire seulement si besoin) : `docs/DOCUMENTATION-CO
 6. **Ne pas afficher de code** dans les réponses sauf demande explicite.
 7. **Conserver les décisions techniques** (section ci-dessous) ; les mettre à jour ici quand une nouvelle décision importante est prise.
 8. **Vérifier après chaque modification** : `node --check public/app.js` pour le client ; test ciblé (ex. `node --test test/engine.test.js`) ; suite complète (`npm test` + `npx playwright test`) avant la mise en ligne ; capture si changement visuel.
+9. **Jamais modifier ce qui fonctionne déjà sans l'accord de Jacques** : proposer d'abord, attendre son « oui » avant de changer un comportement existant.
+10. **Pas d'analyse répétée ou inutile** : ne pas réexaminer ce qui est déjà établi dans ce fichier ou dans la conversation ; aller droit à la cause.
+11. **Documentation courte et à jour** : après chaque décision ou règle importante, mettre à jour ce fichier en une ligne (pas de long texte) ; la doc détaillée reste dans `docs/`.
 
 ## Architecture
 
