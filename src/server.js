@@ -2279,7 +2279,7 @@ export function createApp({
       (/^avatars\/[a-z-]+\.webp$/.test(rel) && AVATARS.includes(rel.slice(8, -5))) ||
       (/^avatars\/[a-z-]+\.svg$/.test(rel) && BOT_AVATARS.includes(rel.slice(8, -4))) ||
       /^fonts\/[a-z0-9-]+\.woff2$/.test(rel) && existsSync(path.join(root, "public", rel)) ||
-      /^decor\/[a-z0-9-]+\.(?:svg|webp)$/.test(rel) ||
+      /^decor\/[a-z0-9-]+\.(?:svg|webp)$/.test(rel) || rel === "decor/logo-mail.png" ||
       /^shop\/(?:avatars|emoji|backs|felts|frames)\/[a-z0-9-]+\.webp$/.test(rel) ||
       /^icons\/icon-(?:192|512|maskable)\.png$/.test(rel);
     if ((!allowed.includes(rel) && !cardFile) || !existsSync(path.join(root, "public", rel))) {
