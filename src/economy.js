@@ -127,6 +127,8 @@ export function createEconomy(db, config = economyConfig()) {
           ? {
               amount: loginAmount(),
               next: p.loginBonusAt ? p.loginBonusAt + LOGIN_PERIOD : Date.now(),
+              // Temps restant selon l'horloge du serveur : l'heure du téléphone ne compte pas.
+              wait: p.loginBonusAt ? Math.max(0, p.loginBonusAt + LOGIN_PERIOD - Date.now()) : 0,
               // Série en cours (0 si elle est perdue) et multiplicateur du prochain tour.
               streak: p.loginBonusAt && Date.now() - p.loginBonusAt < STREAK_GRACE ? (p.loginStreak ?? 1) : 0,
               nextMult: STREAK[Math.min(p.loginBonusAt && Date.now() - p.loginBonusAt < STREAK_GRACE ? (p.loginStreak ?? 1) + 1 : 1, STREAK.length) - 1],
@@ -154,7 +156,10 @@ export function createEconomy(db, config = economyConfig()) {
       while (r >= WHEEL[segment].w && segment < WHEEL.length - 1) r -= WHEEL[segment++].w;
       const mult = STREAK[Math.min(streak, STREAK.length) - 1];
       const credits = Math.max(1, Math.round(loginAmount() * WHEEL[segment].x * mult));
-      const seq = (p.loginBonusSeq ?? 0) + 1;
+      // Compteur en retard sur le registre (sauvegarde restaurée, redémarrage) : on saute les tours déjà versés,
+      // sinon la clé existe déjà et la roue reste bloquée pour toujours.
+      let seq = (p.loginBonusSeq ?? 0) + 1;
+      while (db.ledgerKeys[`login:${p.accountId}:${seq}`]) seq++;
       const e = post(p, `login:${p.accountId}:${seq}`, "login", toUnits(credits), { label: `Roue du jour · série ${streak} j` });
       if (!e) return null;
       p.loginBonusAt = now;
