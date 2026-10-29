@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { card, cardImage } from "../public/cards.js";
 const svg = (c) =>
-  readFileSync(new URL(`../public${cardImage(c).split("?")[0]}`, import.meta.url), "utf8");
+  readFileSync(new URL(`../public${cardImage(c).split("?")[0].replace(".webp", ".svg")}`, import.meta.url), "utf8"); // dessin source (le WebP en est tiré)
 const suitIds = { S: "spade", H: "heart", C: "club", D: "diamond" };
 // Symboles centraux des cartes épurées (scale 1.42 ; 3.1 pour l'As).
 const big = (c) => (svg(c).match(/scale\((?:1\.42|3\.1)\)/g) ?? []).length;
@@ -24,7 +24,7 @@ test("32 illustrations autonomes, compatibles CSP, index français", () => {
   assert.equal(big("AH"), 1);
 });
 test("rendu HTML sans suggestion de carte", () => {
-  assert.match(card("QS"), /src="\/cards\/QS\.svg(\?v=[\w-]+)?"/);
+  assert.match(card("QS"), /src="\/cards\/QS\.webp(\?v=[\w-]+)?"/);
   assert.match(card("QS"), /aria-label="Dame de pique"/);
   assert.doesNotMatch(card("7H", { play: true }), /playable/);
   assert.match(card("7H", { play: true }), /data-action="play"/);
