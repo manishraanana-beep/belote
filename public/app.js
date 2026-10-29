@@ -2044,10 +2044,13 @@ setInterval(clock, 250);
   for (const el of document.querySelectorAll("[data-ring]")) {
     const total = Number(el.dataset.ringTotal) || 20000;
     const f = Math.max(0, Math.min(1, (Number(el.dataset.ring) - Date.now()) / total));
-    el.style.setProperty("--ring", `${(f * 360).toFixed(1)}deg`);
-    el.style.setProperty("--ring-c", f > 0.5 ? "#4fe0b0" : f > 0.25 ? "#ffb23d" : "#ff4d4d");
+    const deg = `${Math.round(f * 360)}deg`;
+    if (el.style.getPropertyValue("--ring") !== deg) el.style.setProperty("--ring", deg);
+    const c = f > 0.5 ? "#4fe0b0" : f > 0.25 ? "#ffb23d" : "#ff4d4d";
+    if (el.style.getPropertyValue("--ring-c") !== c) el.style.setProperty("--ring-c", c);
   }
-  requestAnimationFrame(ringLoop);
+  // 10 mises à jour par seconde suffisent à l'œil : le redessin à chaque image faisait saccader les cartes (Safari).
+  setTimeout(ringLoop, 100);
 })();
 setInterval(() => {
   // Les bulles de discussion s'effacent toutes seules.
