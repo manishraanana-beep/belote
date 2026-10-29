@@ -1933,7 +1933,9 @@ function patchNode(a, b, depth) {
       y = bc[i];
     if (x.nodeType === 1 && y.nodeType === 1) {
       if (x.outerHTML === y.outerHTML || (x.hasAttribute("style") && x.cloneNode(true).outerHTML.replace(/ style="[^"]*"/g, "") === y.outerHTML)) continue;
-      if (x.tagName === y.tagName && !["IMG", "INPUT", "TEXTAREA", "SELECT", "SVG"].includes(x.tagName.toUpperCase())) patchNode(x, y, depth + 1);
+      // Pli qui passe au ramassage (ou en sort) : on le recrée, pour que l'animation parte avec la bonne trajectoire.
+      const swapTrick = x.classList?.contains("trick") && x.classList.contains("collecting") !== y.classList.contains("collecting");
+      if (!swapTrick && x.tagName === y.tagName && !["IMG", "INPUT", "TEXTAREA", "SELECT", "SVG"].includes(x.tagName.toUpperCase())) patchNode(x, y, depth + 1);
       else x.replaceWith(y);
     } else if (x.nodeType === y.nodeType && x.nodeType === 3) {
       if (x.data !== y.data) x.data = y.data;
