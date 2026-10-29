@@ -810,9 +810,11 @@ test("roue du jour : rien d'automatique, un seul tour par 24 h sur tous les appa
   try {
     const phone = await member(f, "bonus@exemple.fr");
     const id = phone.state.player.id;
-    // Plus de bonus versé à la connexion : la roue attend le joueur.
+    // Pas de roue le jour de l'inscription : premier tour 24 h plus tard.
     assert.equal(phone.state.player.wallet.balance, 2000);
-    assert.ok(phone.state.player.wallet.loginBonus.next <= Date.now());
+    assert.ok(phone.state.player.wallet.loginBonus.next > Date.now() + 23 * 3600_000);
+    await phone.command("spin", {}, "error");
+    f.app.db.players[id].loginBonusAt -= 24 * 3600_000;
     const s = await fetch(f.base + "/api/session", { method: "POST" });
     const login = await api(f, s.headers.get("set-cookie").split(";")[0], "/api/auth/login", { email: "bonus@exemple.fr", password: "motdepasse" });
     const desk = await f.client(login.cookie);
@@ -1454,6 +1456,7 @@ test("Membre Prestige : attribué par le back-office, jetons du jour avec la rou
     const admin = (body) => fetch(f.base + "/api/admin", { method: "POST", headers: { Authorization: "Bearer k", "Content-Type": "application/json" }, body: JSON.stringify(body) });
     assert.equal((await admin({ type: "prestige", id: P.id, days: 30 })).status, 200);
     assert.ok(P.prestige.until > Date.now() + 29 * 86400_000);
+    P.loginBonusAt -= 24 * 3600_000; // pas de roue le jour de l'inscription
     const before = P.wallet.balance;
     const spin = await m.command("spin");
     assert.equal(P.wallet.balance - before, (spin.amount + 500) * 2, "roue + 500 jetons Prestige");

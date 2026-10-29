@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 const shots = "test-results/screens/";
 const setBonus = (page, amount) => page.evaluate((amount) => fetch("/api/admin", { method: "POST", headers: { Authorization: "Bearer cle-e2e", "Content-Type": "application/json" }, body: JSON.stringify({ type: "loginBonus", amount }) }), amount);
-test("roue du jour : ouverture automatique, tirage, solde synchronisé, un seul tour", async ({ browser }) => {
+test("roue du jour : pas de tour le jour de l'inscription, compte à rebours de 24 h", async ({ browser }) => {
   const email = `bonus${Date.now()}@exemple.fr`;
   const phone = await (await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })).newPage();
   await phone.addInitScript(() => sessionStorage.setItem("discover", "1"));
@@ -11,21 +11,12 @@ test("roue du jour : ouverture automatique, tirage, solde synchronisé, un seul 
   try {
     expect(await phone.evaluate(async (email) => (await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "motdepasse" }) })).ok, email)).toBe(true);
     await phone.reload();
-    await expect(phone.locator(".wheel-modal")).toBeVisible();
-    await phone.locator('button[data-action="spin"]').click();
-    await expect(phone.locator(".wheel-win")).toContainText("crédits !", { timeout: 8000 });
-    await phone.screenshot({ path: `${shots}roue-du-jour.png` });
-    const won = Number((await phone.locator(".wheel-win b").textContent()).replace(/[^0-9]/g, ""));
-    expect(won).toBeGreaterThan(0);
-    // Même compte sur ordinateur : même solde, la roue ne s'ouvre pas une seconde fois.
-    const desk = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
-    await desk.addInitScript(() => sessionStorage.setItem("discover", "1"));
-    await desk.goto("/");
-    expect(await desk.evaluate(async (email) => (await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "motdepasse" }) })).ok, email)).toBe(true);
-    await desk.reload();
-    await expect.poll(async () => (await desk.locator(".shop-balance").first().textContent()).replace(/[^0-9]/g, "")).toContain(String(600 + won));
-    await desk.waitForTimeout(1200);
-    await expect(desk.locator(".wheel-modal")).toHaveCount(0);
+    await phone.waitForTimeout(1200);
+    // Les crédits de bienvenue suffisent : la roue ne s'ouvre pas, prochain tour dans environ 24 h.
+    await expect(phone.locator(".wheel-modal")).toHaveCount(0);
+    await phone.evaluate(() => { const b = document.createElement("button"); b.dataset.action = "wheel"; document.body.append(b); b.click(); b.remove(); });
+    await expect(phone.locator(".wheel-modal .wheel-next")).toContainText(/2[34] h/);
+    await expect(phone.locator('.wheel-modal button[data-action="spin"]')).toHaveCount(0);
   } finally {
     await setBonus(phone, 0);
   }

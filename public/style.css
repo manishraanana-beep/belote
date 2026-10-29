@@ -833,7 +833,7 @@ body.in-game #toast.visible { transform: translate(-50%, 0); }
 .splash-logo { font-family: var(--logo); font-size: 40px; color: var(--gold); }
 
 /* ———————————————————————————— adaptations d'écran */
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   .screen.game { --cw: clamp(50px, 20vh, 84px); --av: clamp(40px, 12vh, 56px); --tc: clamp(40px, 15vh, 62px); --step: min(calc(var(--cw) * 0.66), calc((100vw - var(--cw) * 1.6 - 24px) / 7)); grid-template-rows: auto minmax(0, 1fr) auto; }
   .gt-center .logo { display: none; }
   .contract-row { position: absolute; top: calc(8px + var(--safe-t)); left: 64px; padding: 0; }
@@ -1117,7 +1117,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .bidding-me .seat.p1, .bidding-me .seat.p3 { top: 2%; }
   .bidding-me .seat .robot-tag { display: none; }
 }
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   .scoreboard { position: absolute; top: calc(6px + var(--safe-t)); left: 50%; translate: -50% 0; margin: 0; }
   .scoreboard > div { min-width: 70px; padding: 0 12px 2px; }
   .scoreboard b { font-size: 18px; } .scoreboard small { font-size: 11px; }
@@ -1196,7 +1196,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 /* Centre de la table ancré sous le partenaire : les grandes cartes jouées ne couvrent plus son avatar */
 .screen.game .center { top: calc(var(--av) + 30px); translate: -50% 0; }
 .screen.game .last-trick-btn { top: min(calc(var(--av) + 36px + var(--tc) * 2.9), calc(100% - 46px)); }
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   .screen.game .center { top: 50%; translate: -50% -50%; }
   .screen.game .last-trick-btn { top: auto; }
 }
@@ -1213,7 +1213,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .page-welcome .logo-img { width: clamp(220px, 70vw, 340px); }
 .gt-logo .logo-img { width: clamp(84px, 24vw, 150px); }
 .splash-img { width: min(70vw, 320px); height: auto; }
-@media (orientation: landscape) and (max-height: 520px) { .gt-logo .logo-img { width: 90px; } }
+@media (orientation: landscape) and (max-height: 720px) { .gt-logo .logo-img { width: 90px; } }
 @media (min-width: 900px) and (min-height: 600px) { .gt-logo .logo-img { width: 170px; } }
 /* Couleur du tapis choisie dans la Collection, aussi sur l'arrière-plan des téléphones */
 @media (max-aspect-ratio: 4/5) {
@@ -1474,14 +1474,14 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .tip-line span { display: block; margin-bottom: 2px; color: var(--gold); font-weight: 700; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
 /* Le pli commence sous le nom et l'étiquette du joueur d'en face : sa carte n'est jamais cachée */
 .screen.game.phase-playing .center { top: calc(var(--av) + 64px); }
-@media (orientation: landscape) and (max-height: 520px) { .screen.game.phase-playing .center { top: 50%; } }
+@media (orientation: landscape) and (max-height: 720px) { .screen.game.phase-playing .center { top: 50%; } }
 .quick-btn { flex-wrap: wrap; } .quick-btn .quick-stake { flex-basis: 100%; display: block; font: 600 13px var(--ui, sans-serif); opacity: 0.85; margin-top: 2px; }
 /* Avatars de la boutique : cadre intégré à l'image, sans anneau ni fond doré autour */
 .avatar.framed { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; object-fit: contain; outline: 0 !important; }
 .seat-avatar:has(> .avatar.framed), .slot-ring:has(> .avatar.framed), .me-seat:has(> .avatar.framed) { background: none !important; box-shadow: none !important; padding: 0 !important; border: 0 !important; }
 .seat-avatar:has(> .avatar.framed) { border-radius: 0; }
 /* Téléphone à l'horizontale : mêmes repères qu'en portrait (décor, solde, partenaire), sans chevauchement */
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   /* Le tapis couvre tout l'écran : une seule table, sans ovale ni photo de salle derrière */
   .screen.game { isolation: isolate; background: #0b2a26; }
   .screen.game > .ambient { display: none; }
@@ -1500,11 +1500,11 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .bid-zone .amount { min-height: 0; height: 28px; padding: 0; }
   .bid-zone .bid-actions button { min-height: 0; height: 36px; font-size: 14px; line-height: 1.05; padding: 2px 6px; }
 }
-@media (orientation: landscape) and (max-height: 520px) and (max-width: 760px) {
+@media (orientation: landscape) and (max-height: 720px) and (max-width: 760px) {
   .gt-chip.table { display: none; }
 }
 /* Paysage : le pli en croix comme en portrait, resserré entre le joueur d'en face et la main */
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   .screen.game { --tc: clamp(38px, 12.5vh, 56px); }
   .screen.game .seat.p2 .robot-tag { display: none; }
   .screen.game .center, .screen.game.phase-playing .center { top: calc(2% + var(--av) + 24px); translate: -50% 0; }
@@ -1515,7 +1515,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .screen.game .last-trick-btn { top: auto; bottom: 6px; left: auto; right: 12px; translate: none; padding: 4px 12px; font-size: 14px; }
 }
 /* Paysage : main un peu plus basse, cartes du pli plus grandes et lisibles */
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   .screen.game { --tc: clamp(46px, 17vh, 74px); }
   .hcard { bottom: calc(var(--cw) * -0.34); }
   /* Avatar et boutons posés dans les coins : la main descend tout en bas */
@@ -1551,7 +1551,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .gt-chip.wallet { flex: none; }
 .gt-chip.table { flex: 0 1 auto; }
 /* Tapis achetés : même mise en page que le tapis vert (uni, plein écran), seule la couleur change */
-@media (max-aspect-ratio: 4/5), (orientation: landscape) and (max-height: 520px) {
+@media (max-aspect-ratio: 4/5), (orientation: landscape) and (max-height: 720px) {
   .screen.game.tapis .felt { display: block; position: fixed; inset: 0; z-index: -1; width: auto; translate: none; top: 0; bottom: 0; left: 0; right: 0; border-radius: 0; filter: none;
     background: radial-gradient(ellipse at 50% 35%, #ffffff14 0, transparent 40%), radial-gradient(ellipse at 50% 45%, var(--tf1), var(--tf2) 62%, var(--tf3));
     box-shadow: inset 0 0 0 clamp(5px, 1.4vmin, 9px) var(--rim-1), inset 0 0 0 clamp(7px, 1.9vmin, 12px) var(--rim-2), inset 0 0 90px #000a; }
@@ -1568,7 +1568,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 @media (max-aspect-ratio: 4/5) { .screen.game .turn-pill::before, .screen.game .turn-pill::after { display: none; } }
 /* Paysage : pendant votre annonce, le joueur d'en face reste à sa place en haut ;
    le panneau, plus carré (montants sur deux rangées), se place juste en dessous */
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   .screen.game.bidding-me .seat.p2 { display: grid; }
   .screen.game.bidding-me .seat.p2 .robot-tag, .screen.game.bidding-me .seat.p2 .seat-timer { display: none; }
   .screen.game .bid-zone { top: calc(2% + var(--av) + 22px); width: min(54vw, 420px); gap: 3px; }
@@ -1594,12 +1594,12 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 /* Pendant la partie, l'écran est figé : rien ne peut faire défiler la page (cartes ramassées, animations) */
 html:has(body.in-game) { overflow: hidden; overscroll-behavior: none; }
 body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: 18%; translate: none; }
 }
 /* Le pli garde la même place jusqu'à la dernière carte (résultat de la donne compris) */
 .screen.game .center, .screen.game.phase-summary .center, .screen.game.phase-finished .center { top: calc(var(--av) + 64px); }
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   .screen.game .center, .screen.game.phase-playing .center, .screen.game.phase-summary .center, .screen.game.phase-finished .center { top: calc(2% + var(--av) + 24px); translate: -50% 0; }
 }
 /* Annonce du preneur en face : fixée à hauteur de l'avatar, elle ne bouge plus quand le minuteur apparaît */
@@ -1618,7 +1618,7 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 }
 /* Paysage : le haut de l'écran prend le moins de place possible pour laisser la table aux cartes jouées.
    Score à gauche à côté du logo, joueur d'en face tout en haut au centre ; rien sous l'encoche de l'iPhone. */
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   body.in-game .screen.game { left: env(safe-area-inset-left, 0px); right: env(safe-area-inset-right, 0px); }
   .screen.game .game-top { position: absolute; top: 0; left: 0; right: 0; padding: calc(4px + var(--safe-t)) 10px 0; pointer-events: none; }
   .screen.game .game-top > * { pointer-events: auto; }
@@ -1634,17 +1634,17 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 /* Points de la donne en cours sous le score de chaque équipe */
 .scoreboard .deal-pts { margin-top: 2px; padding: 0 8px; border-radius: 999px; background: #00000040; color: #ffe7a6; font-size: 11px; font-weight: 700; line-height: 1.5; white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* Paysage : cartes plus grandes (main et pli), joueurs de côté à mi-hauteur de la table */
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   .screen.game { --cw: clamp(56px, 25vh, 108px); --tc: clamp(50px, 21vh, 92px); --step: min(calc(var(--cw) * 0.62), calc((100vw - var(--cw) * 1.6 - 270px) / 7)); }
   .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: calc(40px + var(--tc) * 1.05 + var(--av) * 0.4); }
   .screen.game .scoreboard .deal-pts { font-size: 10px; margin-top: 1px; }
 }
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   .screen.game .seat.p1 .seat-timer, .screen.game .seat.p3 .seat-timer { display: none; }
 }
 /* Points de la donne : pastille dorée bien lisible */
 .scoreboard .deal-pts, .screen.game .scoreboard .deal-pts { margin-top: 3px; padding: 1px 10px; border-radius: 999px; background: linear-gradient(180deg, #ffe48a, #f2bd3c); color: #2a1a00; font-size: 15px; font-weight: 800; line-height: 1.35; box-shadow: 0 2px 6px #0007; text-shadow: none; }
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   .screen.game .scoreboard .deal-pts { font-size: 14px; padding: 0 9px; }
 }
 /* Score divisé : partie en haut, donne en cours en bas */
@@ -1653,7 +1653,7 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .scoreboard.split .sb-deal { display: grid; justify-items: center; padding: 1px 16px 3px; border-top: 1.5px solid var(--gold); background: #0000003a; }
 .scoreboard.split .sb-deal small { font-size: 10px; }
 .scoreboard.split .sb-deal em { font-style: normal; font-weight: 800; font-size: 18px; line-height: 1.05; color: #ffe48a; font-variant-numeric: tabular-nums; }
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   .screen.game .scoreboard.split .sb-top { padding: 1px 12px 2px; }
   .screen.game .scoreboard.split .sb-deal { padding: 0 12px 2px; }
   .screen.game .scoreboard.split .sb-deal small { font-size: 9px; }
@@ -1697,13 +1697,13 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 @keyframes faceOff { 0%, 18.9% { opacity: 1; } 19%, 100% { opacity: 0; } }
 @keyframes backOn { 0%, 18.9% { opacity: 0; } 19%, 100% { opacity: 1; } }
 /* Paysage : la main reste entre la colonne de gauche (avatar, tour) et les boutons de droite */
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   .screen.game { --side: 150px; --step: min(calc(var(--cw) * 0.62), calc((100vw - 2 * var(--side) - var(--cw) * 1.1) / 7)); }
   .screen.game .turn-pill, .screen.game .turn-pill.on { max-width: calc(var(--side) - 14px); padding: 4px 8px; font-size: 13px; }
   .screen.game .status-row .me-mini .bubble, .screen.game .me-seat .bubble { max-width: calc(var(--side) - 14px); }
 }
 /* Paysage : marge latérale élargie, la première carte (inclinée) ne passe plus sous le bandeau du tour */
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   .screen.game { --side: 185px; }
 }
 /* ———————— Tables des villes : couleur du tapis et dessin en filigrane */
@@ -1855,13 +1855,13 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .turnup.in-panel { margin: 6px 0 2px; } .turnup.in-panel img { width: 64px; }
 /* Surcontrer : sous le bandeau du contrat, jamais par-dessus */
 .float-action.center-act .danger-btn { white-space: nowrap; }
-@media (orientation: landscape) and (max-height: 500px) { .float-action.center-act { top: 50%; translate: -50% 52px; } .float-action.center-act .danger-btn { font-size: 18px; padding: 8px 22px; } }
+@media (orientation: landscape) and (max-height: 700px) { .float-action.center-act { top: 50%; translate: -50% 52px; } .float-action.center-act .danger-btn { font-size: 18px; padding: 8px 22px; } }
 .turnup.in-panel { margin: 6px 0 2px; } .turnup.in-panel img { width: 64px; }
 /* Avatar à cadre (salle d'attente) : le nom passe sous l'ornement, jamais derrière */
 .slot-ring:has(> .avatar.framed) + b { margin-top: 10px; position: relative; z-index: 2; }
 /* Ma bulle d'annonce : à côté de mon avatar en paysage (et non au-dessus du bandeau du tour) */
 .me-bub { display: none; }
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   .screen.game .me-seat { position: relative; }
   .screen.game .me-bub { display: block; position: absolute; left: 70px; top: 50%; translate: 0 -50%; z-index: 16; }
   .screen.game .me-bub .bubble { position: static; translate: none; }
@@ -1871,7 +1871,7 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 /* Belote classique : carte retournée bien visible ; en paysage, carte à gauche et boutons à droite */
 .classic-panel .turnup.in-panel img { width: 104px; transform: rotate(-3deg); }
 .classic-panel .cp-body { display: grid; gap: 4px; }
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 720px) {
   .screen.game .classic-panel { padding: 10px 14px; }
   .screen.game .classic-panel .bp-title { margin-bottom: 2px; }
   .screen.game .classic-panel .cp-body { grid-template-columns: auto 1fr; align-items: center; gap: 16px; }
@@ -2174,5 +2174,6 @@ table.metrics .minus { color: #ff8f8f; }
 /* Portrait : rien ne se pose sur les cartes jouées — « Dernier pli » compact à droite, « Au tour de… » masqué (l'anneau du joueur suffit) */
 @media (max-aspect-ratio: 4/5) {
   .screen.game .last-trick-btn { top: auto; bottom: calc(var(--dock-h, 0px) + 8px); left: auto; right: 8px; translate: none; flex-direction: column; gap: 2px; padding: 6px 8px; font-size: 12px; line-height: 1.1; border-radius: 14px; }
-  .screen.game .turn-pill.waiting { visibility: hidden; }
 }
+/* « Au tour de… » masqué pendant le jeu : l'anneau du joueur suffit, et le bandeau couvrait la carte jouée */
+.screen.game .turn-pill.waiting { visibility: hidden; }

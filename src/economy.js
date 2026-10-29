@@ -139,6 +139,11 @@ export function createEconomy(db, config = economyConfig()) {
     signupBonus(p, account) {
       // Une seule fois par adresse : supprimer puis recréer un compte ne redonne rien.
       const k = `signup:${account.emailHash ?? account.id}`;
+      // Pas de roue le jour de l'inscription (les crédits de bienvenue suffisent) : premier tour 24 h plus tard, série à 1.
+      if (!p.loginBonusAt) {
+        p.loginBonusAt = Date.now();
+        p.loginStreak = 0;
+      }
       return post(p, k, "signup", toUnits(config.signupBonus), { label: "Bienvenue à la Maison" });
     },
     loginAmount,
