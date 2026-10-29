@@ -481,7 +481,7 @@ body.in-game { overflow: hidden; overscroll-behavior: none; }
 .seat.p3 { right: max(10px, 2.5vw); top: 30%; }
 .seat-avatar { position: relative; width: var(--av); height: var(--av); border-radius: 50%; padding: 3px; background: var(--gold); box-shadow: 0 6px 16px #0008; transition: scale 0.2s; }
 .seat-avatar .avatar { width: 100%; height: 100%; }
-.seat.active .seat-avatar { scale: 1.07; animation: turnGlow 1.2s ease-in-out infinite alternate; }
+.seat.active .seat-avatar { scale: 1.07; } /* plus de lueur animée en boucle (redessin permanent, saccades) : l anneau chrono suffit */
 @keyframes turnGlow { from { box-shadow: 0 0 0 0 #f6c85fcc, 0 6px 16px #0008; } to { box-shadow: 0 0 0 10px #f6c85f00, 0 6px 16px #0008; } }
 .seat.offline .avatar { filter: grayscale(1) opacity(0.6); }
 .seat .tappable { pointer-events: auto; cursor: pointer; }
