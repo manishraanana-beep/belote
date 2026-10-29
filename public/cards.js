@@ -7,7 +7,7 @@ export function cardImage(c) {
   const s = c.slice(-1),
     r = c.slice(0, -1);
   if (!names[s] || !ranks.includes(r)) throw Error("Carte inconnue");
-  return `/cards/${r}${s}.svg?v=epure1`; // version : force le rechargement des nouvelles cartes
+  return `/cards/${r}${s}.webp?v=epure1`; // image déjà dessinée (WebP) : affichage léger, sans redessin du dessin vectoriel
 }
 export function card(c, { disabled = false, play = false } = {}) {
   const src = cardImage(c),

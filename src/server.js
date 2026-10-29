@@ -2285,7 +2285,7 @@ export function createApp({
       "manifest.webmanifest",
     ];
     const cardFile =
-      /^cards\/(?:[789]|10|[JQKA])[SHCD]\.svg$/.test(rel) ||
+      /^cards\/(?:[789]|10|[JQKA])[SHCD]\.(?:svg|webp)$/.test(rel) ||
       (/^avatars\/[a-z-]+\.webp$/.test(rel) && AVATARS.includes(rel.slice(8, -5))) ||
       (/^avatars\/[a-z-]+\.svg$/.test(rel) && BOT_AVATARS.includes(rel.slice(8, -4))) ||
       /^fonts\/[a-z0-9-]+\.woff2$/.test(rel) && existsSync(path.join(root, "public", rel)) ||
