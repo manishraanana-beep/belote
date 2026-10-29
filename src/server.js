@@ -969,8 +969,12 @@ export function createApp({
     check(p.accountId, "Créez un compte pour jouer avec des crédits");
     const fee = economy.tableFee(stake);
     if (economy.available(p) < toUnits(stake + fee)) {
-      const e = Error(`Solde insuffisant : il faut ${stake + fee} crédits disponibles pour cette table (mise ${stake} + droit de table ${fee}).`);
+      const e = Error(`Solde insuffisant : il faut ${stake + fee} crédits disponibles pour cette table${fee ? ` (mise ${stake} + droit de table ${fee})` : ""}.`);
       e.code = "funds";
+      e.required = stake + fee;
+      e.balance = toCredits(economy.available(p));
+      e.missing = Math.max(0, e.required - e.balance);
+      e.table = true;
       throw e;
     }
   }
@@ -2340,7 +2344,7 @@ export function createApp({
         const result = command(p.id, msg);
         send(ws, { type: "ack", id: msg.id, ...result });
       } catch (e) {
-        send(ws, { type: "error", id: msg?.id, message: e.message, ...(e.code ? { code: e.code, balance: e.balance, missing: e.missing, required: e.required, price: e.price } : {}) });
+        send(ws, { type: "error", id: msg?.id, message: e.message, ...(e.code ? { code: e.code, balance: e.balance, missing: e.missing, required: e.required, price: e.price, table: e.table } : {}) });
         broadcast();
       }
     });

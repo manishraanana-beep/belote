@@ -1359,7 +1359,7 @@ function inboxModal() {
 function fundsTourModal(m) {
   modal(
     `<div class="confirm"><span class="confirm-icon">🪙</span><h2>Solde insuffisant</h2>
-    <p>Solde minimum requis : <b>${fmt(m.required)}</b> jetons. Inscription gratuite, aucun jeton prélevé.</p>
+    <p>${m.table ? `Il faut <b>${fmt(m.required)}</b> jetons disponibles pour cette table.` : `Solde minimum requis : <b>${fmt(m.required)}</b> jetons. Inscription gratuite, aucun jeton prélevé.`}</p>
     <div class="duo small"><div><small>Votre solde</small><b>${fmt(m.balance)}</b></div><div><small>Il manque</small><b>${fmt(m.missing)}</b></div></div>
     <div class="row">${btn("Boutique", "shop", "gold-btn")}${btn("Fermer", "close", "line-btn")}</div></div>`,
     "confirm-modal",
@@ -1916,6 +1916,28 @@ document.addEventListener("pointerup", release, true);
 document.addEventListener("pointercancel", release, true);
 let lastShape = "",
   lastShapeNode = null;
+// Mise à jour ciblée : garde les éléments identiques, met à jour les attributs, remplace le reste.
+function patchNode(a, b, depth) {
+  for (const { name } of [...a.attributes]) if (!b.hasAttribute(name)) a.removeAttribute(name);
+  for (const { name, value } of [...b.attributes]) if (a.getAttribute(name) !== value) a.setAttribute(name, value);
+  const ac = [...a.childNodes],
+    bc = [...b.childNodes];
+  if (depth > 6 || ac.length !== bc.length) {
+    a.replaceChildren(...bc);
+    return;
+  }
+  for (let i = 0; i < ac.length; i++) {
+    const x = ac[i],
+      y = bc[i];
+    if (x.nodeType === 1 && y.nodeType === 1) {
+      if (x.outerHTML === y.outerHTML) continue;
+      if (x.tagName === y.tagName && !["IMG", "INPUT", "TEXTAREA", "SELECT", "SVG"].includes(x.tagName.toUpperCase())) patchNode(x, y, depth + 1);
+      else x.replaceWith(y);
+    } else if (x.nodeType === y.nodeType && x.nodeType === 3) {
+      if (x.data !== y.data) x.data = y.data;
+    } else x.replaceWith(y);
+  }
+}
 function render() {
   if (!state) return;
   if (pressing) {
@@ -1967,7 +1989,14 @@ function render() {
   const shape = html.replace(/(data-(?:deadline|countdown)="[^"]*">)[^<]*/g, "$1");
   const app = $("#app");
   if (shape !== lastShape || !app.firstElementChild || app.firstElementChild !== lastShapeNode) {
-    app.innerHTML = html;
+    // Même écran de jeu : on ne remplace que les parties qui ont changé (tapis, avatars et cartes déjà
+    // affichés restent en place, sans être redessinés : plus d'à-coup à chaque carte jouée).
+    const old = app.firstElementChild;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = html;
+    const next = tpl.content.firstElementChild;
+    if (g && old && next && tpl.content.childElementCount === 1 && app.childElementCount === 1 && old.tagName === next.tagName && old.classList.contains("game") && next.classList.contains("game")) patchNode(old, next, 0);
+    else app.innerHTML = html;
     lastShape = shape;
     lastShapeNode = app.firstElementChild;
   }
