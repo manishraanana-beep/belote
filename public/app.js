@@ -2023,16 +2023,22 @@ function render() {
   const log = $(".chat-log");
   if (log) log.scrollTop = log.scrollHeight;
   // Ramassage : chaque carte se retourne puis file jusqu'à l'avatar du gagnant (l'animation reprend où elle en était).
-  const pile = $(".collecting");
-  if (collection && pile) {
-    const rel = (collection.winner - (state.table.seats.findIndex((x) => x?.id === state.player.id) + 4)) % 4;
-    const target = $(rel === 0 ? ".me-seat .avatar, .me-mini .avatar" : `.seat.p${(rel + 4) % 4} .seat-avatar`)?.getBoundingClientRect();
-    if (target) for (const c of pile.querySelectorAll(".tcard")) {
-      if (c.style.getPropertyValue("--to")) continue; // trajectoire calculée une seule fois, avant que la carte ne bouge
-      const r = c.getBoundingClientRect();
-      c.style.setProperty("--to", `${Math.round(target.left + target.width / 2 - (r.left + r.width / 2))}px ${Math.round(target.top + target.height / 2 - (r.top + r.height / 2))}px`);
-    }
-    pile.getAnimations({ subtree: true }).forEach((a) => (a.currentTime = performance.now() - (collection.collectAt ?? performance.now())));
+  // Mesure reportée à la frame suivante, comme pour la carte jouée : sinon le calcul de mise en page
+  // (getBoundingClientRect) juste après le remplacement du HTML fait saccader sur iPhone.
+  if (collection) {
+    const snapshot = collection;
+    requestAnimationFrame(() => {
+      const pile = $(".collecting");
+      if (snapshot !== collection || !pile) return;
+      const rel = (collection.winner - (state.table.seats.findIndex((x) => x?.id === state.player.id) + 4)) % 4;
+      const target = $(rel === 0 ? ".me-seat .avatar, .me-mini .avatar" : `.seat.p${(rel + 4) % 4} .seat-avatar`)?.getBoundingClientRect();
+      if (target) for (const c of pile.querySelectorAll(".tcard")) {
+        if (c.style.getPropertyValue("--to")) continue; // trajectoire calculée une seule fois, avant que la carte ne bouge
+        const r = c.getBoundingClientRect();
+        c.style.setProperty("--to", `${Math.round(target.left + target.width / 2 - (r.left + r.width / 2))}px ${Math.round(target.top + target.height / 2 - (r.top + r.height / 2))}px`);
+      }
+      pile.getAnimations({ subtree: true }).forEach((a) => (a.currentTime = performance.now() - (collection.collectAt ?? performance.now())));
+    });
   }
   clock();
   fitBidZone();
