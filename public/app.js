@@ -536,11 +536,19 @@ function shopItemModal(id) {
   );
 }
 function shopFundsModal(it, missing) {
+  const w = state.player.wallet;
+  const free = [
+    w.loginBonus && (wheelReady() || w.loginBonus.next <= Date.now()) ? btn("🎡 Roue du jour : un tour vous attend", "wheel", "menu-item") : "",
+    btn("🎯 Défis du jour", "challenges", "menu-item"),
+  ].join("");
   modal(
     `<div class="confirm"><span class="confirm-icon">🪙</span><h2>Solde insuffisant</h2>
     <p>${e(it.name)} coûte <b>${jetons(it.price)}</b>. Il vous manque <b>${jetons(missing)}</b>.</p>
     <p class="muted small">Les jetons engagés dans une partie en cours ne peuvent pas être dépensés.</p>
-    <div class="stack">${btn("Acheter des jetons", "shop", "gold-btn wide")}${btn("Plus tard", "close", "line-btn wide")}</div></div>`,
+    <h3 class="wallet-sub">Gratuit d’abord</h3>
+    <div class="menu-list wide">${free}</div>
+    ${packSuggest(missing)}
+    ${btn("Plus tard", "close", "line-btn wide")}</div>`,
     "confirm-modal",
   );
 }
@@ -1007,12 +1015,15 @@ function stakeGrid(levels) {
       const playing = state.tables.filter((t) => t.lobby && t.stake === stake && t.status === "Partie en cours").length;
       const [cls, title] = STAKE_LOOK[stake] ?? ["royale", `Table à ${fmt(stake)}`];
       const gain = state.tables.find((t) => t.stake === stake)?.gain ?? stake;
-      return `<button type="button" class="stake-card ${cls}" data-action="playLobby" data-stake="${stake}">
+      // Ville trop chère : cadenas, « Il te manque X jetons », bouton qui ouvre directement la boutique.
+      const bal = Math.floor((state.player.wallet?.available ?? 0) / 2);
+      const locked = !!state.player.account && bal < stake;
+      return `<button type="button" class="stake-card ${cls} ${locked ? "locked" : ""}" data-action="${locked ? "shop" : "playLobby"}" ${locked ? "" : `data-stake="${stake}"`}>
         <span class="sc-photo" aria-hidden="true"></span>
-        <span class="sc-chip"><b>${fmt(stake)}</b><small>jetons</small></span>
-        <span class="sc-main"><b>${title}<i class="sc-flag" aria-hidden="true"></i></b><small>Mise ${fmt(stake)} · gain +${fmt(gain)}</small>
+        <span class="sc-chip">${locked ? icon("lock") : `<b>${fmt(stake)}</b><small>jetons</small>`}</span>
+        <span class="sc-main"><b>${title}<i class="sc-flag" aria-hidden="true"></i></b><small>${locked ? `Il te manque <b>${fmt(stake - bal)}</b> jetons` : `Mise ${fmt(stake)} · gain +${fmt(gain)}`}</small>
         <span class="sc-meta"><span class="sc-seats">${[0, 1, 2, 3].map((i) => `<i class="${i < waiting ? "on" : ""}"></i>`).join("")}</span>${waiting ? `${waiting}/4 joueurs` : "Table libre"}${playing ? ` · ${playing} en jeu` : ""}</span></span>
-        <span class="sc-go">Jouer</span>
+        <span class="sc-go">${locked ? "Débloquer" : "Jouer"}</span>
       </button>`;
     })
     .join("")}</div>`;
@@ -2535,25 +2546,36 @@ function prestigeCard() {
     m ? `<p class="ok">Vous êtes membre jusqu’au ${new Date(m.until).toLocaleDateString("fr-FR")}.</p>` : "<p><b>4,99 € / mois</b>, sans engagement · bientôt disponible</p>"
   }<ul><li>${fmt(m?.daily ?? 500)} jetons offerts chaque jour (avec la roue)</li><li>Cadre et étoile Prestige visibles à la table</li><li>Voix d’annonce : commentateur sportif, voix du Sud</li></ul></article>`;
 }
-// « Il te manque X jetons pour … » avec le plus petit pack qui couvre le manque (prix en euros).
+// Le plus petit pack qui couvre un manque donné, en bouton direct avec le solde après achat.
+function packSuggest(miss) {
+  const pk = [...(shopConfig?.packs ?? [])].filter((x) => !x.founder && x.credits >= miss).sort((a, b) => a.credits - b.credits)[0];
+  if (!pk) return "";
+  const after = Math.floor(state.player.wallet.available / 2) + pk.credits;
+  return btn(`<span class="pb-main">${e(pk.name ?? "")} · ${fmt(pk.credits)} jetons · ${e(pk.price)}</span><small class="pb-note">Solde après achat : ${fmt(after)}</small>`, "buy", "gold-btn wide pack-btn", `data-pack="${pk.id}"`);
+}
+// « Il te manque X jetons pour … » : le plus petit pack qui suffit, en bouton direct, solde après achat.
 function missingLine(stake) {
   const miss = Math.ceil(stake + feeOf(stake) - state.player.wallet.available / 2);
   if (miss <= 0) return "";
   const city = STAKE_LOOK[stake]?.[1];
-  const pk = [...(shopConfig?.packs ?? [])].filter((x) => !x.founder && x.credits >= miss).sort((a, b) => a.credits - b.credits)[0];
-  return `<p class="missing">Il te manque <b>${fmt(miss)} jetons</b>${city ? ` pour ${e(city)}` : ""}.${pk ? ` Le pack ${e(pk.name ?? "")} (${fmt(pk.credits)} jetons, ${e(pk.price)}) suffit.` : ""}</p>`;
+  return `<p class="missing">Il te manque <b>${fmt(miss)} jetons</b>${city ? ` pour ${e(city)}` : ""}.</p>${packSuggest(miss)}`;
 }
+// Écran « Il te manque » : le gratuit d'abord (roue, défis, tables moins chères), puis le pack qui suffit.
 function fundsModal(stake) {
+  const w = state.player.wallet;
   const cheaper = state.tables.filter((t) => t.stake < stake && t.available && t.status !== "Partie en cours");
+  const free = [
+    w.loginBonus && (wheelReady() || w.loginBonus.next <= Date.now()) ? btn("🎡 Roue du jour : un tour vous attend", "wheel", "menu-item") : "",
+    btn("🎯 Défis du jour", "challenges", "menu-item"),
+    ...cheaper.slice(0, 2).map((t) => btn(t.stake ? `🏆 Gagner à ${e(t.name)} +${fmt(t.gain ?? t.stake)}` : `⚡ ${e(t.name)}`, "join", "menu-item", `data-table="${t.id}"`)),
+  ].join("");
   modal(
     `<div class="confirm"><span class="confirm-icon">🪙</span><h2>Solde insuffisant</h2>
     <p>Il faut ${coins(stake + feeOf(stake))} disponibles pour cette table${feeOf(stake) ? " (droit de table compris)" : ""}. Vous avez ${coins(state.player.wallet.available / 2)}.</p>
+    <h3 class="wallet-sub">Gratuit d’abord</h3>
+    <div class="menu-list wide">${free}</div>
     ${missingLine(stake)}
-    <div class="menu-list wide">
-      ${cheaper.slice(0, 3).map((t) => btn(`${t.stake ? `🪙 ${fmt(t.stake)}` : "Gratuite"} · ${e(t.name)}`, "join", "menu-item", `data-table="${t.id}"`)).join("") || btn("⚡ Partie rapide gratuite", "quick", "menu-item")}
-      ${btn("🪙 Plus de jetons", "shop", "menu-item")}
-      ${btn("🤖 Entraînement gratuit", "practice", "menu-item")}
-    </div></div>`,
+    ${btn("Voir tous les packs", "shop", "text-link")}</div>`,
     "confirm-modal",
   );
 }

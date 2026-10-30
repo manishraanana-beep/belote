@@ -2200,3 +2200,11 @@ table.metrics .minus { color: #ff8f8f; }
 /* Pack Royal : léger relief doré ; note « = X parties à … » sous les jetons de chaque pack. */
 .pack.royal { border-width: 2.4px; box-shadow: 0 0 0 1px #0008, 0 0 16px #f6c85f55; }
 .pack-note { display: block; font-size: 11px; opacity: 0.75; margin-top: -2px; }
+/* Ville trop chère : chip grisé avec cadenas, carte assombrie, bouton « Débloquer ». */
+.stake-card.locked { filter: saturate(0.5) brightness(0.8); }
+.stake-card.locked .sc-chip { background: #ffffff22; box-shadow: 0 0 0 3px #fff6, 0 8px 18px #000a; }
+.stake-card.locked .sc-chip .ico { width: 34px; height: 34px; stroke: #fff; fill: none; stroke-width: 1.8; }
+/* Bouton « pack qui suffit » (écran « Il te manque ») : prix sur une ligne, solde après achat juste en dessous. */
+.pack-btn { display: block; line-height: 1.3; }
+.pack-btn .pb-main { display: block; }
+.pack-btn .pb-note { display: block; font-size: 11px; font-weight: 500; opacity: 0.8; margin-top: 2px; }
