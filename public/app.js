@@ -346,13 +346,13 @@ function animateTrick() {
         dy = from.top + from.height / 2 - (to.top + to.height / 2);
       const start = rel === 0 ? Math.min(1.25, (from.width || to.width) / to.width) : 0.45;
       el.style.animation = "none";
-      // Pose directe, sans petit rebond en fin de course (perçu comme un sautillement).
       const anim = el.animate(
         [
           { transform: `translate(${dx}px, ${dy}px) rotate(${rel === 0 ? -8 : rel === 1 ? -25 : 25}deg) scale(${start})`, opacity: rel === 0 ? 1 : 0.4 },
+          { transform: "translate(0, -6px) rotate(0deg) scale(1.04)", opacity: 1, offset: 0.82 },
           { transform: "none", opacity: 1 },
         ],
-        { duration: rel === 0 ? 360 : 420, easing: "cubic-bezier(.2,.4,.3,1)" },
+        { duration: rel === 0 ? 360 : 420, easing: "cubic-bezier(.2,.75,.25,1)" },
       );
       anim.onfinish = anim.oncancel = () => el.style.removeProperty("animation"); // l'élément est gardé : le ramassage doit pouvoir s'animer
       cardSound(rel === 0 ? 1 : 0.55);
