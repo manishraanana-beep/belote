@@ -51,6 +51,7 @@ Documentation détaillée (à lire seulement si besoin) : `docs/DOCUMENTATION-CO
 - **Achats fermés** ; registre `db.purchases` (clé `provider:ref`), reprise des jetons si remboursement/opposition ; plafond mensuel ; **Pack Fondateur** une fois, après 3 parties, jusqu'à `BELOTE_FOUNDER_UNTIL`.
 - **Membre Prestige** attribué depuis le back-office (`p.prestige.until`) : jetons du jour avec la roue, cadre/étoile, voix d'annonce ; objets Prestige invalides à la fin de l'abonnement (`progression.shown`).
 - Attente avant robots **15 s** ; « en ligne » = autres joueurs connectés, masqué à 0.
+- **Animation des cartes : validée par Jacques le 30/10, ne plus y toucher** (`animateTrick`, `.tcard`/`playIn`, ramassage). Le saut à la pose venait de `playIn` rejoué en fin de vol ; corrigé par la classe `seen` (PR #171).
 - Écartés par Jacques (ne pas refaire) : explication des annonces des robots, Classique sur les villes, accessibilité (taille du texte, 4 couleurs), tournoi quotidien, ligues, classement par équipe.
 
 ## Règles de développement
