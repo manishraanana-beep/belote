@@ -74,6 +74,11 @@ export function createShop({ db, economy }) {
     catalog,
     item,
     owns: (p, id) => !!owned(p)[id],
+    // Objet offert avec un pack de jetons (ville) : attribué sans débit, jamais deux fois.
+    grant(p, id) {
+      if (!SHOP_ITEMS.some((x) => x.id === id)) throw Error("Article inconnu");
+      owned(p)[id] = Date.now();
+    },
     view(p) {
       const mine = owned(p);
       return {
@@ -103,6 +108,21 @@ export function createShop({ db, economy }) {
       // Pack de réactions : les emoji qu'il contient deviennent possédés d'un coup.
       if (it.kind === "reaction") for (const emoId of it.includes ?? []) owned(p)[emoId] = Date.now();
       return { item: it, balance: toCredits(economy.wallet(p).balance) };
+    },
+    // Offrir un objet à un ami : débite l'offreur, attribue l'objet à l'ami — jamais de jetons échangés.
+    gift(p, friend, id, note) {
+      const it = item(id);
+      if (!it || it.hidden) fail("Article indisponible");
+      if (!p.accountId) fail("Créez un compte pour offrir dans la boutique");
+      if (!friend) fail("Ami introuvable");
+      if (owned(friend)[id]) fail("Votre ami possède déjà cet article", { code: "owned" });
+      const units = toUnits(it.price);
+      const available = economy.available(p);
+      if (available < units) fail(`Il vous manque ${toCredits(units - available)} jetons`, { code: "shopFunds", missing: toCredits(units - available), price: it.price });
+      const entry = economy.post(p, `gift:${p.id}:${friend.id}:${id}`, "cadeau", -units, { label: `Cadeau pour ${friend.name} : ${it.name}`, item: id, to: friend.id });
+      if (!entry) fail("Offre impossible");
+      owned(friend)[id] = Date.now();
+      return { item: it, balance: toCredits(economy.wallet(p).balance), note: String(note ?? "").trim().slice(0, 140) };
     },
     setFavorites(p, ids) {
       if (!Array.isArray(ids)) fail("Liste invalide");

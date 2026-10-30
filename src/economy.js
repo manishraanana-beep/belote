@@ -21,6 +21,10 @@ export function economyConfig(env = process.env) {
     { id: "pack-65000", name: "Grand", credits: 65000, price: "9,99 €", priceCents: 999, note: "= Las Vegas + Dubaï" },
     { id: "pack-140000", name: "Prestige", credits: 140000, price: "19,99 €", priceCents: 1999, note: "≈ 3 parties à Las Vegas" },
     { id: "pack-400000", name: "Royal", credits: 400000, price: "49,99 €", priceCents: 4999, note: "= 8 parties à Las Vegas" },
+    // Packs ville (lot 5, 30/10) : jetons + tapis de la ville offert, jamais plus avantageux que le Royal.
+    { id: "pack-ville-monaco", name: "Pack Monaco", credits: 20000, price: "4,99 €", priceCents: 499, item: "felt-monaco", note: "+ tapis Monaco offert" },
+    { id: "pack-ville-dubai", name: "Pack Dubaï", credits: 45000, price: "9,99 €", priceCents: 999, item: "felt-dubai", note: "+ tapis Dubaï offert" },
+    { id: "pack-ville-vegas", name: "Pack Las Vegas", credits: 40000, price: "19,99 €", priceCents: 1999, item: "felt-vegas", note: "+ tapis Las Vegas offert" },
   ];
   try {
     if (env.BELOTE_PACKS) packs = JSON.parse(env.BELOTE_PACKS);
@@ -30,6 +34,8 @@ export function economyConfig(env = process.env) {
   // Pack Fondateur : une fois par compte, après 3 parties, jusqu'à la fin de la période de lancement.
   const founderUntil = Date.parse(env.BELOTE_FOUNDER_UNTIL ?? "2027-01-31T23:59:59+01:00");
   if (founderUntil) packs = [...packs.filter((x) => x.id !== "pack-founder"), { id: "pack-founder", name: "Fondateur", credits: 30000, price: "1,99 €", priceCents: 199, founder: true, frame: "frame-fondateur", note: "= 2 parties à Dubaï" }];
+  // Après le lancement (fin de l'offre Fondateur) : premier achat doublé, une seule fois par compte.
+  const firstPurchaseDoubleAfter = Date.parse(env.BELOTE_FIRST_PURCHASE_DOUBLE_AFTER ?? "2027-01-31T23:59:59+01:00");
   const production = env.NODE_ENV === "production" || !!env.RAILWAY_ENVIRONMENT;
   return {
     signupBonus: num("BELOTE_SIGNUP_BONUS", 2000),
@@ -45,6 +51,7 @@ export function economyConfig(env = process.env) {
     packs,
     founderUntil: founderUntil || 0,
     founderGames: 3,
+    firstPurchaseDoubleAfter: firstPurchaseDoubleAfter || 0,
     // Les achats restent désactivables globalement.
     purchases: env.BELOTE_PURCHASES === "on",
     stripe: !!(env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET),
@@ -57,15 +64,16 @@ export function economyConfig(env = process.env) {
 
 // Étiquette « +N % » (jetons par euro, comparés au pack de base) et « Meilleure valeur » sur le
 // seul pack qui en donne vraiment le plus par euro : jamais écrit à la main dans la grille.
-// Le pack Fondateur (offre de lancement limitée) n'entre pas dans la comparaison.
+// Le pack Fondateur (offre de lancement limitée) et les packs ville (jetons + objet, pas comparables
+// au seul critère du jeton par euro) n'entrent pas dans la comparaison.
 export function packBonuses(packs) {
-  const regular = packs.filter((p) => !p.founder && p.priceCents);
+  const regular = packs.filter((p) => !p.founder && !p.item && p.priceCents);
   if (!regular.length) return packs;
   const rate = (p) => p.credits / p.priceCents;
   const baseRate = Math.min(...regular.map(rate));
   const bestRate = Math.max(...regular.map(rate));
   return packs.map((p) => {
-    if (p.founder || !p.priceCents) return { ...p, bonus: p.bonus ?? null };
+    if (p.founder || p.item || !p.priceCents) return { ...p, bonus: p.bonus ?? null };
     const pct = Math.floor((rate(p) / baseRate - 1) * 100);
     const bonus = pct > 0 ? `+${pct} %${rate(p) === bestRate ? " · Meilleure valeur" : ""}` : rate(p) === bestRate ? "Meilleure valeur" : null;
     return { ...p, bonus };

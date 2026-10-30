@@ -1507,6 +1507,14 @@ export function createApp({
         reply = { bought: r.item.id, balance: r.balance };
         break;
       }
+      case "shopGift": {
+        const friend = db.players[String(d.to)];
+        check(friend && p.friends[friend.id], "Choisissez un ami");
+        const r = shop.gift(p, friend, String(d.id), d.note);
+        deliver(friend.id, { kind: "cadeau", title: `🎁 ${p.name} vous a offert un objet`, body: r.note ? `« ${r.note} »` : `${r.item.name} : à découvrir dans votre boutique.` });
+        reply = { gifted: r.item.id, balance: r.balance };
+        break;
+      }
       case "shopFavorites":
         shop.setFavorites(p, d.ids);
         break;
@@ -1792,6 +1800,7 @@ export function createApp({
     const { credited } = registry.record(p, purchase);
     const pack = economy.config.packs.find((x) => x.id === purchase.packId);
     if (credited && pack?.frame) progression.grant(p, pack.frame); // cadre Fondateur, jamais revendu
+    if (credited && pack?.item) shop.grant(p, pack.item); // tapis offert avec un pack ville
     persist();
     return credited;
   }
@@ -2001,8 +2010,9 @@ export function createApp({
     if (url.pathname === "/api/shop/config") {
       const c = economy.config;
       return json(res, 200, {
-        packs: packBonuses(c.packs).map(({ id, name, credits, price, priceCents, bonus, founder, note }) => ({ id, name, credits, price, priceCents, bonus, founder, note })),
+        packs: packBonuses(c.packs).map(({ id, name, credits, price, priceCents, bonus, founder, item, note }) => ({ id, name, credits, price, priceCents, bonus, founder, item, note })),
         founderUntil: c.founderUntil,
+        firstPurchaseDoubleAfter: c.firstPurchaseDoubleAfter ?? 0,
         tableFeePct: c.tableFeePct ?? 0,
         commissionPct: c.commissionPct ?? 0,
         piggyCap: c.piggyCap ?? 0,

@@ -1114,6 +1114,52 @@ test("boutique : achat unique, solde insuffisant, jetons engagés, équipement, 
   }
 });
 
+test("pack ville : jetons + tapis offert ; offrir un objet à un ami ; premier achat doublé après le lancement", async () => {
+  const f = await fixture({
+    env: {
+      BELOTE_TEST_SHOP: "on",
+      BELOTE_LOGIN_BONUS: "0",
+      BELOTE_SIGNUP_BONUS: "100000",
+      BELOTE_FOUNDER_UNTIL: "2020-01-01T00:00:00Z", // lancement terminé
+      BELOTE_FIRST_PURCHASE_DOUBLE_AFTER: "2020-01-01T00:00:00Z",
+    },
+  });
+  try {
+    const a = await member(f, "ville-a@exemple.fr");
+    const b = await member(f, "ville-b@exemple.fr");
+    const pa = f.app.db.players[a.state.player.id];
+    const pb = f.app.db.players[b.state.player.id];
+    // Premier achat (après la date de lancement) : doublé automatiquement, une seule fois par compte.
+    const before = pa.wallet.balance;
+    const r1 = await api(f, a.cookie, "/api/shop/test", { pack: "pack-ville-monaco", transactionId: "v1" });
+    assert.equal(r1.status, 200);
+    assert.equal(pa.wallet.balance - before, 80000); // 20 000 jetons doublés = 40 000, en demi-crédits
+    assert.ok(pa.progress.owned["felt-monaco"], "tapis Monaco offert avec le pack");
+    assert.equal(f.app.db.purchases["test:v1"].doubled, true);
+    // Deuxième achat : plus de doublement.
+    const before2 = pa.wallet.balance;
+    const r2 = await api(f, a.cookie, "/api/shop/test", { pack: "pack-10000", transactionId: "v2" });
+    assert.equal(r2.status, 200);
+    assert.equal(pa.wallet.balance - before2, 20000); // 10 000 jetons, non doublés
+    // Offrir un objet à un ami : débite l'offreur, l'ami reçoit l'objet, jamais de jetons transférés.
+    pa.friends[pb.id] = { since: Date.now() };
+    pb.friends[pa.id] = { since: Date.now() };
+    const beforeGift = pa.wallet.balance;
+    await a.command("shopGift", { id: "felt-cannes", to: pb.id, note: "Pour toi !" });
+    assert.equal(pa.wallet.balance, beforeGift - 4000 * 2); // felt-cannes = 4000 jetons (demi-crédits)
+    assert.ok(pb.progress.owned["felt-cannes"], "objet reçu par l'ami");
+    assert.equal(pb.wallet.balance, 100000 * 2, "aucun jeton transféré à l'ami");
+    assert.ok(pb.inbox.some((n) => n.kind === "cadeau" && /Pour toi/.test(n.body)), "notification reçue avec le mot");
+    // Déjà possédé par l'ami : refusé.
+    await a.command("shopGift", { id: "felt-cannes", to: pb.id, note: "" }, "error");
+    // Pas ami : refusé.
+    const c = await member(f, "ville-c@exemple.fr");
+    await a.command("shopGift", { id: "felt-dubai", to: f.app.db.players[c.state.player.id].id }, "error");
+  } finally {
+    await f.close();
+  }
+});
+
 test("Jouer maintenant : partie à 200 avec les robots de la Maison, gratuite sans crédits", async () => {
   const f = await fixture({ fillSeconds: 0.05, env: { BELOTE_LOGIN_BONUS: "0", BELOTE_SIGNUP_BONUS: "1000" } });
   try {
