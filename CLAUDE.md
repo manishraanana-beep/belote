@@ -58,7 +58,8 @@ Documentation détaillée (à lire seulement si besoin) : `docs/DOCUMENTATION-CO
 
 1. Une branche par sujet → PR GitHub → fusion **squash** ; Railway déploie `main` automatiquement.
 2. Tests avant chaque mise en ligne ; 1–2 tests serveur parfois instables : relancer.
-3. **Changement visuel : montrer une capture avant la mise en ligne.**
+3. **Changement visuel : montrer une capture** (avec le compte rendu).
+3b. **Mise en ligne automatique** (consigne de Jacques, 30/10) : une fois le travail fini et testé, fusionner et mettre en ligne sans redemander. Exceptions inchangées : achats, App Store/Google Play, jetons (section 14.2).
 4. Textes de l'application et messages **en français**.
 5. **CSP stricte** : aucun style en ligne ; styles dynamiques via `style.setProperty` ou classes.
 6. **Aucun secret dans le dépôt** (variables Railway uniquement).
