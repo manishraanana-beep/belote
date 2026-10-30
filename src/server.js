@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { createAccounts, createMailer, normalizeEmail, checkPassword, hash as hashAccount } from "./accounts.js";
 import { createBackup } from "./backup.js";
 import { openStorage } from "./storage.js";
-import { createEconomy, economyConfig, STAKES, toCredits, toUnits } from "./economy.js";
+import { createEconomy, economyConfig, packBonuses, STAKES, toCredits, toUnits } from "./economy.js";
 import { createProgression, TOURNAMENT_REWARDS } from "./progression.js";
 import { createTournaments, validTimeZone } from "./tournaments.js";
 import { generateVapidKeys, pushConfig, sendFcm, sendWebPush } from "./push.js";
@@ -110,8 +110,10 @@ export const REPORT_REASONS = {
   profile: "Pseudo ou photo inappropriés",
   other: "Autre",
 };
+// Les dix avatars classiques (av-01..av-10) sont gratuits (plan jetons/boutique, 30/10) : on vend
+// désormais les cadres, pas les visages.
 const validAvatar = (v, p) =>
-  AVATARS.includes(v) || (typeof v === "string" && v.startsWith("u:") && v === p?.photo);
+  AVATARS.includes(v) || /^av-\d\d$/.test(v ?? "") || (typeof v === "string" && v.startsWith("u:") && v === p?.photo);
 const hashPassword = (password, salt) =>
   scryptSync(password, salt, 32).toString("hex");
 export function createApp({
@@ -353,8 +355,8 @@ export function createApp({
   }
   // Tables publiques permanentes : partie gratuite et mises de 200, 500 et 1 000 jetons.
   // Tables permanentes : une ville et un tapis par montant.
-  const CITIES = { 500: ["paris", "Paris"], 1000: ["monaco", "Monaco"], 2500: ["dubai", "Dubaï"], 10000: ["vegas", "Las Vegas"] };
-  const LOBBY = (env.BELOTE_LOBBY_STAKES ?? "500,1000,2500,10000").split(",").map(Number).filter((n) => Number.isInteger(n) && n >= 0);
+  const CITIES = { 500: ["paris", "Paris"], 1500: ["cannes", "Cannes"], 5000: ["monaco", "Monaco"], 15000: ["dubai", "Dubaï"], 50000: ["vegas", "Las Vegas"] };
+  const LOBBY = (env.BELOTE_LOBBY_STAKES ?? "500,1500,5000,15000,50000").split(",").map(Number).filter((n) => Number.isInteger(n) && n >= 0);
   // Une table permanente dont le montant n'est plus proposé est retirée (si personne n'y joue).
   for (const t of Object.values(db.tables))
     if (t.lobby && !LOBBY.includes(t.stake ?? 0) && !t.seats.some((x) => x && !x.bot)) delete db.tables[t.id];
@@ -488,6 +490,8 @@ export function createApp({
       fillAt: t.fillAt,
       stake: t.stake ?? 0,
       fee: economy.tableFee(t.stake ?? 0),
+      // Gain net d'un joueur gagnant (mise moins la commission de la Maison, 0 en partie gratuite).
+      gain: t.stake ? t.stake - Math.round((t.stake * (economy.config.commissionPct ?? 0)) / 100) : 0,
       practice: !!t.practice,
       fillBots: !!t.fillBots,
       lobby: !!t.lobby,
@@ -1494,7 +1498,7 @@ export function createApp({
         if (shop.item(String(d.id))) {
           const it = shop.item(String(d.id));
           check(shop.owns(p, it.id), "Achetez d’abord cet article");
-          check(it.kind === "back" || it.kind === "felt", "Article non équipable");
+          check(["back", "felt", "frame", "effect"].includes(it.kind), "Article non équipable");
           progression.prog(p).equipped[it.kind] = it.id;
         } else progression.equip(p, d.id);
         break;
@@ -1997,9 +2001,12 @@ export function createApp({
     if (url.pathname === "/api/shop/config") {
       const c = economy.config;
       return json(res, 200, {
-        packs: c.packs.map(({ id, name, credits, price, priceCents, bonus, founder }) => ({ id, name, credits, price, priceCents, bonus, founder })),
+        packs: packBonuses(c.packs).map(({ id, name, credits, price, priceCents, bonus, founder, note }) => ({ id, name, credits, price, priceCents, bonus, founder, note })),
         founderUntil: c.founderUntil,
         tableFeePct: c.tableFeePct ?? 0,
+        commissionPct: c.commissionPct ?? 0,
+        piggyCap: c.piggyCap ?? 0,
+        piggyBreakPrice: c.piggyBreakPrice ?? null,
         purchases: c.purchases,
         stripe: c.stripe,
         apple: c.apple,

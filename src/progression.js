@@ -2,6 +2,7 @@
 // Indépendante du portefeuille : perdre des crédits ne fait jamais perdre un niveau.
 // Le niveau récompense la participation ; il n'indique pas la force d'un joueur.
 import { dayId, nextReset, toUnits } from "./economy.js";
+import { CITY_COLLECTION } from "./shop.js";
 
 export const LEVELS = [
   { name: "Débutant", xp: 0 },
@@ -53,6 +54,26 @@ export const COSMETICS = [
   { id: "frame-champion", kind: "frame", name: "Couronne de champion", unlock: { type: "tournament", label: "Exclusif tournoi" } },
   { id: "back-velours", kind: "back", name: "Velours VIP", unlock: { type: "tournament", label: "Exclusif tournoi" } },
   { id: "felt-velours", kind: "felt", name: "Velours violet", unlock: { type: "tournament", label: "Exclusif tournoi" } },
+  // À gagner, jamais en vente (plan jetons/boutique, 30/10) : cadre de victoire à Las Vegas (badge déjà
+  // existant), et un titre par ville pour qui a la collection complète (tapis + dos + cadre de la ville).
+  { id: "frame-vegas", kind: "frame", name: "Vainqueur à Las Vegas", unlock: { type: "badge", value: "vegas-winner", label: "Badge Vainqueur à Las Vegas" } },
+  { id: "titre-paris", kind: "title", name: "Titi parisien", unlock: { type: "collection", value: "paris", label: "Collection Paris complète" } },
+  { id: "titre-cannes", kind: "title", name: "Star de la Croisette", unlock: { type: "collection", value: "cannes", label: "Collection Cannes complète" } },
+  { id: "titre-monaco", kind: "title", name: "Habitué du Rocher", unlock: { type: "collection", value: "monaco", label: "Collection Monaco complète" } },
+  { id: "titre-dubai", kind: "title", name: "Étoile du désert", unlock: { type: "collection", value: "dubai", label: "Collection Dubaï complète" } },
+  { id: "titre-vegas", kind: "title", name: "Roi de Las Vegas", unlock: { type: "collection", value: "vegas", label: "Collection Las Vegas complète" } },
+  // Cadres de la boutique (achetés, pas gagnés) : simplement reconnus ici pour s'afficher aux sièges
+  // (progression.shown) ; le prix et l'achat restent dans shop.js, même id, même réserve « owned ».
+  ...[
+    ["frame-dore", "Cadre doré"],
+    ["frame-couronne-shop", "Cadre couronne"],
+    ["frame-etoile", "Cadre étoilé animé"],
+    ["frame-v-paris", "Cadre Paris"],
+    ["frame-v-cannes", "Cadre Cannes"],
+    ["frame-v-monaco", "Cadre Monaco"],
+    ["frame-v-dubai", "Cadre Dubaï"],
+    ["frame-v-vegas", "Cadre animé Las Vegas"],
+  ].map(([id, name]) => ({ id, kind: "frame", name, unlock: { type: "shop", label: "Boutique" } })),
 ];
 // Récompenses proposables pour un tournoi (badges ou objets exclusifs).
 export const TOURNAMENT_REWARDS = [
@@ -93,7 +114,7 @@ export function createProgression({ db, economy, env = process.env, maxSameLineu
   const challenges = challengesConfig(env);
   const day = () => dayId(Date.now(), economy.config.dayStartUtc);
   const prog = (p) => {
-    p.progress ??= { xp: 0, badges: {}, owned: {}, equipped: { frame: "frame-none", back: "back-prune", felt: "felt-emeraude" }, finished: 0, wins: 0, daily: {} };
+    p.progress ??= { xp: 0, badges: {}, owned: {}, equipped: { frame: "frame-none", back: "back-prune", felt: "felt-emeraude", title: null, effect: null }, finished: 0, wins: 0, daily: {} };
     return p.progress;
   };
   function unlocked(p, item) {
@@ -103,6 +124,8 @@ export function createProgression({ db, economy, env = process.env, maxSameLineu
     if (u.type === "level") return levelInfo(g.xp).index >= u.value;
     if (u.type === "badge") return !!g.badges[u.value];
     if (u.type === "prestige") return (p.prestige?.until ?? 0) > Date.now();
+    // Collection de ville (tapis + dos + cadre, achetés en boutique) : titre automatique, jamais vendu.
+    if (u.type === "collection") return (CITY_COLLECTION[u.value] ?? []).every((id) => !!g.owned[id]);
     return !!g.owned[item.id]; // défi, événement : attribué explicitement
   }
   function badge(p, id, out) {

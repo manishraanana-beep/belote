@@ -439,9 +439,10 @@ function coinHead(extra = "") {
   return `<span class="shop-logo"><img src="/decor/logo.webp" alt="Belote Prestige"></span>
     <div class="shop-balance"><button type="button" class="sb-main" data-action="wallet" aria-label="Portefeuille"><i class="coin big"></i><b>${jetons(state.player.wallet.available / 2)}</b></button><button type="button" class="plus" data-action="shop" aria-label="Acheter des jetons">+</button></div>${extra}`;
 }
-const SHOP_FILTERS = [["avatars", "Avatars"], ["cartes", "Cartes"], ["decors", "Table"], ["emojis", "Emojis"], ["owned", "Possédés"]];
-const FILTER_CATS = { avatars: ["classic", "gold", "crown"], cartes: ["back"], decors: ["felt"], emojis: ["emoji"] };
-const CAT_ART = { classic: "av-04", gold: "av-or-4", crown: "av-roi-2", back: "dos-violet", felt: "tapis-violet", emoji: "emo-02" };
+// Trois gammes (plan jetons/boutique, 30/10) : Classique, Rare, Prestige.
+const SHOP_GAMMES = [["Classique", "Classique"], ["Rare", "Rare"], ["Prestige", "Prestige"]];
+const CITY_ORDER = ["paris", "cannes", "monaco", "dubai", "vegas"];
+const CITY_TITLE = { paris: "Titi parisien", cannes: "Star de la Croisette", monaco: "Habitué du Rocher", dubai: "Étoile du désert", vegas: "Roi de Las Vegas" };
 const shopItem = (id) => state.player.shop?.items.find((x) => x.id === id);
 const ownedShop = (kind) => (state.player.shop?.items ?? []).filter((x) => x.owned && (!kind || x.kind === kind));
 const favEmojis = () => (state.player.shop?.favorites ?? []).map(shopItem).filter(Boolean);
@@ -454,45 +455,41 @@ const jetons = (n) => `${fmt(n).replace(/\s/g, "\u00a0")} jetons`;
 function itemStatus(it) {
   if (!it.owned) return "available";
   const p = state.player;
-  const on = it.kind === "avatar" ? p.avatar === it.id : it.kind === "emoji" ? p.shop.favorites.includes(it.id) : p.progress.equipped[it.kind] === it.id;
+  const on = it.kind === "emoji" ? p.shop.favorites.includes(it.id) : p.progress.equipped[it.kind] === it.id;
   return on ? "equipped" : "owned";
 }
 const STATUS_LABEL = { available: "Disponible", owned: "Possédé", equipped: "Équipé" };
-function catArt(cat) {
-  const it = shopItem(CAT_ART[cat]);
-  if (cat === "back") {
-    const backs = ["dos-violet", "dos-rouge", "dos-violet", "dos-bleu"].map(shopItem).filter(Boolean);
-    return `<span class="sart sa-fan">${backs.map((b, i) => `<img class="f${i}" src="${b.img}" alt="">`).join("")}</span>`;
-  }
-  return it ? `<span class="sart sa-${cat}"><img src="${it.img}" alt=""></span>` : "";
+const itemCard = (it) => {
+  const st = itemStatus(it);
+  return `<article class="shop-card item k-${it.kind} st-${st}"><h3>${e(it.name)}</h3><span class="sart sa-${it.cat}"><img src="${it.img}" alt=""></span>${st === "available" ? `<p class="price"><i class="coin"></i>${jetons(it.price)}${euroOf(it.price)}</p>` : `<p class="status ${st}">${st === "equipped" ? icon("check", "tiny") : ""}${STATUS_LABEL[st]}</p>`}${btn("Voir", "shopItem", "shop-voir", `data-id="${it.id}"`)}</article>`;
+};
+// Carte « collection » d'une ville : tapis + dos + cadre, progression et titre une fois complète.
+function cityCard(v) {
+  const items = CITY_ORDER.includes(v) ? (state.player.shop?.items ?? []).filter((x) => x.ville === v) : [];
+  const done = items.length && items.every((x) => x.owned);
+  const n = items.filter((x) => x.owned).length;
+  return `<article class="shop-card ville-card ${done ? "done" : ""}"><h3>${e(CITY_NAME_FR[v])}</h3>
+    <span class="sart sa-ville">${items.map((x) => `<img src="${x.img}" alt="" class="${x.owned ? "on" : "off"}">`).join("")}</span>
+    <p class="status">${done ? `🏆 ${e(CITY_TITLE[v])}` : `${n} / ${items.length} objets`}</p>
+    ${btn("Voir", "shopCat", "shop-voir", `data-cat="${v}"`)}</article>`;
 }
+const CITY_NAME_FR = { paris: "Paris", cannes: "Cannes", monaco: "Monaco", dubai: "Dubaï", vegas: "Las Vegas" };
 function boutiquePage() {
   const p = state.player,
     f = page.params.f ?? "all",
     cat = page.params.cat;
-  const cats = state.player.shop?.categories ?? [];
-  const chips = `<div class="shop-chips" role="tablist">${SHOP_FILTERS.map(([k, l]) => btn(l, "shopFilter", `shop-chip ${f === k && !cat ? "on" : ""}`, `data-f="${k}" role="tab"`)).join("")}</div>`;
+  const chips = `<div class="shop-chips" role="tablist">${[["all", "Tout"], ...SHOP_GAMMES, ["owned", "Possédés"]].map(([k, l]) => btn(l, "shopFilter", `shop-chip ${f === k && !cat ? "on" : ""}`, `data-f="${k}" role="tab"`)).join("")}</div>`;
   let body;
   if (f === "all" && !cat)
-    body = `<div class="shop-grid">${cats
-      .map((c) => {
-        const prices = (p.shop?.items ?? []).filter((x) => x.cat === c.id).map((x) => x.price);
-        const price = prices.length ? Math.min(...prices) : c.price;
-        return `<article class="shop-card cat-${c.id}"><h3>${e(c.name)}</h3>${catArt(c.id)}<p class="price"><i class="coin"></i>${jetons(price)}</p>${btn("Voir", "shopCat", "shop-voir", `data-cat="${c.id}"`)}</article>`;
-      })
-      .join("")}</div>`;
+    body = `<h2 class="shop-sub">Collections par ville</h2><div class="shop-grid">${CITY_ORDER.map(cityCard).join("")}</div>
+      <h2 class="shop-sub">Autres objets</h2><div class="shop-grid sg-items">${(p.shop?.items ?? []).filter((x) => !x.ville).map(itemCard).join("")}</div>`;
   else {
-    const list = (p.shop?.items ?? []).filter((x) => (cat ? x.cat === cat : f === "owned" ? x.owned : FILTER_CATS[f]?.includes(x.cat)));
-    const title = cat ? cats.find((c) => c.id === cat)?.name : SHOP_FILTERS.find(([k]) => k === f)?.[1];
-    body = `${cat ? `<button type="button" class="shop-back" data-action="shopFilter" data-f="all">${icon("back", "tiny")} Toutes les catégories</button>` : ""}<h2 class="shop-sub">${e(title ?? "")}</h2>
-      <div class="shop-grid sg-items">${
-        list
-          .map((it) => {
-            const st = itemStatus(it);
-            return `<article class="shop-card item k-${it.kind} st-${st}"><h3>${e(it.name)}</h3><span class="sart sa-${it.cat}"><img src="${it.img}" alt=""></span>${st === "available" ? `<p class="price"><i class="coin"></i>${jetons(it.price)}</p>` : `<p class="status ${st}">${st === "equipped" ? icon("check", "tiny") : ""}${STATUS_LABEL[st]}</p>`}${btn("Voir", "shopItem", "shop-voir", `data-id="${it.id}"`)}</article>`;
-          })
-          .join("") || `<p class="empty">${f === "owned" ? "Vous ne possédez encore aucun article de la boutique." : "Aucun article."}</p>`
-      }</div>`;
+    const list = (p.shop?.items ?? []).filter((x) => (cat ? x.ville === cat : f === "owned" ? x.owned : x.gamme === f));
+    const title = cat ? CITY_NAME_FR[cat] : SHOP_GAMMES.find(([k]) => k === f)?.[1] ?? "Possédés";
+    const done = cat && list.length && list.every((x) => x.owned);
+    body = `<button type="button" class="shop-back" data-action="shopFilter" data-f="all">${icon("back", "tiny")} Toutes les catégories</button><h2 class="shop-sub">${e(title ?? "")}</h2>
+      ${cat ? `<p class="muted small">${done ? `🏆 Collection complète : titre « ${e(CITY_TITLE[cat])} » débloqué.` : `Tapis, dos de cartes et cadre de ${e(CITY_NAME_FR[cat])} : les trois donnent le titre « ${e(CITY_TITLE[cat])} ».`}</p>` : ""}
+      <div class="shop-grid sg-items">${list.map(itemCard).join("") || `<p class="empty">${f === "owned" ? "Vous ne possédez encore aucun article de la boutique." : "Aucun article."}</p>`}</div>`;
   }
   return shell(
     `<div class="shop-head">
@@ -512,6 +509,10 @@ function shopPreview(it) {
   if (it.kind === "avatar") return `<div class="pv-scene felt-scene"><div class="pv-seat">${avatar(it.id, "pv-av")}<b>${e(p.name)}</b></div></div>`;
   if (it.kind === "back") return `<div class="pv-scene felt-scene"><div class="pv-backs-fan">${[0, 1, 2, 3, 4].map((i) => `<img class="b${i}" src="${it.img}" alt="">`).join("")}</div></div>`;
   if (it.kind === "felt") return `<div class="pv-scene"><div class="pv-table"><img class="pv-felt-img" src="${it.img}" alt=""><span class="pv-cards">${["AS", "10H", "KD", "9C"].map((c) => `<img src="${cardImage(c)}" alt="">`).join("")}</span></div></div>`;
+  // Cadre : sur la table, aperçu avec son avatar — visible par toute la table, comme en jeu.
+  if (it.kind === "frame") return `<div class="pv-scene felt-scene"><div class="pv-avatar ${it.id}"><div class="seat-avatar">${avatar(p.avatar)}</div></div><b>${e(p.name)}</b></div>`;
+  if (it.kind === "effect") return `<div class="pv-scene felt-scene pv-effect"><span class="pv-effect-icon">${it.id === "effect-jetons" ? "🪙" : it.id === "effect-feu" ? "🎆" : "🎉"}</span></div>`;
+  if (it.kind === "reaction") return "";
   return `<div class="pv-scene felt-scene"><div class="pv-seat">${avatar(p.avatar, "pv-av")}<b>${e(p.name)}</b><span class="pv-emo"><img src="${it.img}" alt=""></span></div></div>`;
 }
 function shopItemModal(id) {
@@ -526,26 +527,36 @@ function shopItemModal(id) {
         ? st === "equipped"
           ? btn("Retirer de mes favoris", "shopUse", "line-btn wide", `data-id="${it.id}"`)
           : btn(fav.length >= 8 ? "Favoris complets (8 au maximum)" : "Utiliser · ajouter aux favoris", "shopUse", "gold-btn wide", `data-id="${it.id}"`, fav.length >= 8)
-        : st === "equipped"
-          ? `<p class="status equipped big">${icon("check", "tiny")} Équipé</p>`
-          : btn("Utiliser", "shopUse", "gold-btn wide", `data-id="${it.id}"`);
+        : it.kind === "reaction"
+          ? `<p class="status owned big">${icon("check", "tiny")} Réactions débloquées</p><div class="pack-emojis">${(it.includes ?? []).map((id) => `<img src="/shop/emoji/${id}.webp" alt="">`).join("")}</div>`
+          : st === "equipped"
+            ? `<p class="status equipped big">${icon("check", "tiny")} Équipé</p>`
+            : btn("Utiliser", "shopUse", "gold-btn wide", `data-id="${it.id}"`);
   modal(
     `<div class="shop-modal"><h2>${e(it.name)}</h2><p class="muted">${e(state.player.shop.categories.find((c) => c.id === it.cat)?.name ?? "")}</p>
-      ${it.kind === "felt" ? "" : `<div class="shop-modal-art sa-${it.cat}"><img src="${it.img}" alt=""></div>`}
+      ${it.kind === "felt" || it.kind === "reaction" ? "" : `<div class="shop-modal-art sa-${it.cat}"><img src="${it.img}" alt=""></div>`}
       ${shopPreview(it)}
       <div class="shop-modal-meta"><span><i class="coin"></i>${jetons(it.price)}${euroOf(it.price)}</span><span class="status ${st}">${STATUS_LABEL[st]}</span></div>
       ${action}
       ${it.kind === "felt" && state.player.progress.equipped.felt?.startsWith("tapis-") ? btn("Revenir au tapis vert d’origine", "feltDefault", "line-btn wide") : ""}
-      <p class="muted small">${it.kind === "back" || it.kind === "felt" ? "Visible uniquement sur votre écran : les autres joueurs gardent leurs propres choix." : it.kind === "emoji" ? "Apparaît quelques secondes près de votre avatar, sans masquer les cartes." : "Visible par tous les joueurs à votre table."} Purement cosmétique, aucun avantage de jeu.</p></div>`,
+      <p class="muted small">${it.kind === "back" || it.kind === "felt" ? "Visible uniquement sur votre écran : les autres joueurs gardent leurs propres choix." : it.kind === "emoji" || it.kind === "reaction" ? "Apparaît quelques secondes près de votre avatar, sans masquer les cartes." : it.kind === "effect" ? "Joué à la table en cas de victoire, visible par tous les joueurs." : "Visible par tous les joueurs à votre table."} Purement cosmétique, aucun avantage de jeu.</p></div>`,
     "sheet-modal shop-item-modal",
   );
 }
 function shopFundsModal(it, missing) {
+  const w = state.player.wallet;
+  const free = [
+    w.loginBonus && (wheelReady() || w.loginBonus.next <= Date.now()) ? btn("🎡 Roue du jour : un tour vous attend", "wheel", "menu-item") : "",
+    btn("🎯 Défis du jour", "challenges", "menu-item"),
+  ].join("");
   modal(
     `<div class="confirm"><span class="confirm-icon">🪙</span><h2>Solde insuffisant</h2>
     <p>${e(it.name)} coûte <b>${jetons(it.price)}</b>. Il vous manque <b>${jetons(missing)}</b>.</p>
     <p class="muted small">Les jetons engagés dans une partie en cours ne peuvent pas être dépensés.</p>
-    <div class="stack">${btn("Acheter des jetons", "shop", "gold-btn wide")}${btn("Plus tard", "close", "line-btn wide")}</div></div>`,
+    <h3 class="wallet-sub">Gratuit d’abord</h3>
+    <div class="menu-list wide">${free}</div>
+    ${packSuggest(missing)}
+    ${btn("Plus tard", "close", "line-btn wide")}</div>`,
     "confirm-modal",
   );
 }
@@ -969,7 +980,7 @@ function tablesPage() {
   );
 }
 // Tables permanentes avec mise : une carte par montant, « Jouer » regroupe les joueurs sans invitation.
-const STAKE_LOOK = { 500: ["paris", "Paris"], 1000: ["monaco", "Monaco"], 2500: ["dubai", "Dubaï"], 10000: ["vegas", "Las Vegas"] };
+const STAKE_LOOK = { 500: ["paris", "Paris"], 1500: ["cannes", "Cannes"], 5000: ["monaco", "Monaco"], 15000: ["dubai", "Dubaï"], 50000: ["vegas", "Las Vegas"] };
 // Tapis de chaque ville (vert, violet, bordeaux, ivoire).
 const CITY_FELT = { paris: "vert", monaco: "violet", dubai: "rouge", vegas: "ivoire" };
 // Prochain objectif après une victoire : la ville suivante que le solde ne permet pas encore.
@@ -1011,12 +1022,16 @@ function stakeGrid(levels) {
       const waiting = Math.max(0, ...open.map((t) => 4 - t.available));
       const playing = state.tables.filter((t) => t.lobby && t.stake === stake && t.status === "Partie en cours").length;
       const [cls, title] = STAKE_LOOK[stake] ?? ["royale", `Table à ${fmt(stake)}`];
-      return `<button type="button" class="stake-card ${cls}" data-action="playLobby" data-stake="${stake}">
+      const gain = state.tables.find((t) => t.stake === stake)?.gain ?? stake;
+      // Ville trop chère : cadenas, « Il te manque X jetons », bouton qui ouvre directement la boutique.
+      const bal = Math.floor((state.player.wallet?.available ?? 0) / 2);
+      const locked = !!state.player.account && bal < stake;
+      return `<button type="button" class="stake-card ${cls} ${locked ? "locked" : ""}" data-action="${locked ? "shop" : "playLobby"}" ${locked ? "" : `data-stake="${stake}"`}>
         <span class="sc-photo" aria-hidden="true"></span>
-        <span class="sc-chip"><b>${fmt(stake)}</b><small>jetons</small></span>
-        <span class="sc-main"><b>${title}<i class="sc-flag" aria-hidden="true"></i></b><small>Mise ${fmt(stake)}${feeOf(stake) ? ` + droit de table ${fmt(feeOf(stake))}` : ""} · gain +${fmt(stake)}</small>
+        <span class="sc-chip">${locked ? icon("lock") : `<b>${fmt(stake)}</b><small>jetons</small>`}</span>
+        <span class="sc-main"><b>${title}<i class="sc-flag" aria-hidden="true"></i></b><small>${locked ? `Il te manque <b>${fmt(stake - bal)}</b> jetons` : `Mise ${fmt(stake)} · gain +${fmt(gain)}`}</small>
         <span class="sc-meta"><span class="sc-seats">${[0, 1, 2, 3].map((i) => `<i class="${i < waiting ? "on" : ""}"></i>`).join("")}</span>${waiting ? `${waiting}/4 joueurs` : "Table libre"}${playing ? ` · ${playing} en jeu` : ""}</span></span>
-        <span class="sc-go">Jouer</span>
+        <span class="sc-go">${locked ? "Débloquer" : "Jouer"}</span>
       </button>`;
     })
     .join("")}</div>`;
@@ -1361,6 +1376,18 @@ function inboxModal() {
     "sheet-modal",
   );
   cmd("readInbox");
+}
+function piggyModal() {
+  const w = state.player.wallet;
+  const price = w.piggyBreakPrice?.price ?? "2,99 €";
+  modal(
+    `<div class="confirm"><span class="confirm-icon">🐷</span><h2>Ta tirelire est pleine</h2>
+    <p class="piggy-amount">${fmt(w.piggyCap)} jetons</p>
+    <p>Elle s’est remplie avec la commission de tes victoires.</p>
+    <div class="row">${btn(`Casser la tirelire · ${price}`, "close", "gold-btn wide", "", true)}${btn("Plus tard", "close", "line-btn wide")}</div>
+    <p class="muted small">Achats bientôt disponibles.</p></div>`,
+    "confirm-modal",
+  );
 }
 function fundsTourModal(m) {
   modal(
@@ -1731,14 +1758,23 @@ function finalResult(g, t, me) {
 }
 // Mise affichée avec le droit de table : « Mise 1 000 + droit de table 100 ».
 const stakeLabel = (stake, fee) => `Mise ${fmt(stake)}${fee ? ` + droit de table ${fmt(fee)}` : ""} jetons`;
-// Ligne « Droit de table −100 » du décompte de fin de partie.
+// Ligne « Droit de table −100 » du décompte de fin de partie (réactivable, 0 par défaut).
 const feeLine = (r) => (r.fee ? `<small class="fee-line">Droit de table −${fmt(r.fee)} · résultat net ${signed(r.delta - r.fee)}</small>` : "");
+// Commission de la Maison versée dans la tirelire : « Gain 5 000, dont 500 de commission versés dans ta tirelire ».
+const commissionLine = (r) => (r.commission ? `<small class="fee-line">Gain ${fmt(r.delta + r.commission)}, dont ${fmt(r.commission)} de commission versés dans ta tirelire</small>` : "");
+// Mini barre de la tirelire (plafond atteint : proposer de la casser).
+function piggyLine() {
+  const w = state.player.wallet;
+  if (!w?.piggyCap) return "";
+  const pct = Math.min(100, Math.round((w.piggy / w.piggyCap) * 20) * 5);
+  return `<div class="piggy-mini"><small>🐷 Tirelire : ${fmt(w.piggy)} / ${fmt(w.piggyCap)}</small><div class="bar"><i class="w${pct}"></i></div>${w.piggy >= w.piggyCap ? btn("Casser la tirelire", "piggyBreak", "text-link") : ""}</div>`;
+}
 function moneyLines(r) {
   if (!r || !r.stake) return "";
   const kind = r.rubicon ? "Rubicon" : "Victoire simple";
   if (r.delta > 0)
-    return `<div class="money win"><b>Bénéfice : <span data-countup="${r.delta}">${signed(r.delta)}</span> crédits</b><small>${fmt(r.stake + r.delta)} récupérés, dont ${fmt(r.stake)} de mise — bénéfice ${signed(r.delta)} · ${kind}</small>${r.adjusted ? '<small class="adjusted">Gain ajusté aux crédits engagés par les adversaires.</small>' : ""}${feeLine(r)}<span>Nouveau solde ${coins(r.balance)}</span></div>`;
-  return `<div class="money lose"><b>Perte : ${signed(r.delta)} crédits</b><small>${kind} · ${fmt(r.engaged)} étaient engagés</small>${feeLine(r)}<span>Nouveau solde ${coins(r.balance)}</span></div>`;
+    return `<div class="money win"><b>Bénéfice : <span data-countup="${r.delta}">${signed(r.delta)}</span> jetons</b><small>${fmt(r.stake + r.delta + (r.commission ?? 0))} récupérés, dont ${fmt(r.stake)} de mise — bénéfice ${signed(r.delta)} · ${kind}</small>${r.adjusted ? '<small class="adjusted">Gain ajusté aux jetons engagés par les adversaires.</small>' : ""}${feeLine(r)}${commissionLine(r)}<span>Nouveau solde ${coins(r.balance)}</span></div>${piggyLine()}`;
+  return `<div class="money lose"><b>Perte : ${signed(r.delta)} jetons</b><small>${kind} · ${fmt(r.engaged)} étaient engagés</small>${feeLine(r)}<span>Nouveau solde ${coins(r.balance)}</span></div>`;
 }
 // Maquette « Choisir votre contrat ».
 // Maquette « Votre annonce ».
@@ -1855,7 +1891,7 @@ function gameView() {
   const myBid = g.phase === "bidding" && g.turn === me;
   const eq = state.player.progress.equipped;
   const vip = t.vip && !t.practice;
-  return `<div class="screen game phase-${g.phase} ${vip ? "theme-vip" : "theme-club"} ${myBid ? "bidding-me" : ""} ${eq.back} ${t.city ? `tapis tapis-${CITY_FELT[t.city]} city city-${t.city}` : eq.felt?.startsWith("tapis-") ? `${eq.felt} tapis` : vip ? "" : eq.felt}">
+  return `<div class="screen game phase-${g.phase} ${vip ? "theme-vip" : "theme-club"} ${myBid ? "bidding-me" : ""} ${eq.back} ${t.city ? `tapis tapis-${CITY_FELT[t.city]} city city-${t.city}` : eq.felt?.startsWith("tapis-") || eq.felt?.startsWith("felt-") ? `${eq.felt} tapis` : vip ? "" : eq.felt}">
     <div class="ambient" aria-hidden="true"><i class="lamp l1"></i><i class="lamp l2"></i><i class="leaf f1"></i><i class="leaf f2"></i></div>
     ${topBar(g, t, me)}
     <main class="arena">
@@ -2487,14 +2523,14 @@ async function shopModal() {
     `<div class="modal-head"><span class="modal-icon">🪙</span><h2>Plus de jetons</h2></div>
     <p class="muted">Solde : ${coins(state.player.wallet.balance / 2)}</p>
     <h3 class="wallet-sub">Gratuit</h3><div class="menu-list wide">${free}</div>
-    ${founder && state.player.founderOffer ? `<article class="founder-card"><span class="pack-tag">Lancement · jusqu’au ${new Date(c.founderUntil).toLocaleDateString("fr-FR")}</span><b>Pack Fondateur</b><p>${fmt(founder.credits)} jetons + cadre « Fondateur », qui ne sera plus jamais vendu. Une seule fois par compte.</p>${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(founder.price)) : e(founder.price), "buy", "gold-btn small", `data-pack="${founder.id}"`, !open)}</article>` : ""}
-    ${prestigeCard()}
+    ${founder && state.player.founderOffer ? `<article class="founder-card"><span class="pack-tag">Lancement · jusqu’au ${new Date(c.founderUntil).toLocaleDateString("fr-FR")}</span><b>Pack Fondateur</b><p>${fmt(founder.credits)} jetons + cadre « Fondateur », qui ne sera plus jamais vendu. Une seule fois par compte.</p>${founder.note ? `<small class="pack-note">${e(founder.note)}</small>` : ""}${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(founder.price)) : e(founder.price), "buy", "gold-btn small", `data-pack="${founder.id}"`, !open)}</article>` : ""}
     <h3 class="wallet-sub">Packs de jetons</h3>
-    <div class="packs">${packs.map((pk) => `<article class="pack">${pk.bonus ? `<span class="pack-tag">${e(pk.bonus)}</span>` : ""}${pk.name ? `<small class="pack-name">${e(pk.name)}</small>` : ""}<span class="pack-coins">${"<i class=\"coin\"></i>".repeat(Math.min(4, 1 + Math.round(Math.log10(pk.credits / 500))))}</span><b>${fmt(pk.credits)}</b><small>jetons</small>
+    <div class="packs">${packs.map((pk) => `<article class="pack ${/royal/i.test(pk.name) ? "royal" : ""}">${pk.bonus ? `<span class="pack-tag">${e(pk.bonus)}</span>` : ""}${pk.name ? `<small class="pack-name">${e(pk.name)}</small>` : ""}<span class="pack-coins">${"<i class=\"coin\"></i>".repeat(Math.min(4, 1 + Math.round(Math.log10(pk.credits / 500))))}</span><b>${fmt(pk.credits)}</b><small>jetons</small>${pk.note ? `<small class="pack-note">${e(pk.note)}</small>` : ""}
       ${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(pk.price)) : e(pk.price), "buy", "pill small", `data-pack="${pk.id}"`, !open || !state.player.account)}</article>`).join("")}</div>
-    ${!state.player.account ? '<p class="warn">Créez un compte pour acheter des crédits.</p>' : open ? "" : '<p class="warn">Les achats ne sont pas encore ouverts. En attendant : bonus du jour, défis et entraînement gratuit.</p>'}
+    ${!state.player.account ? '<p class="warn">Créez un compte pour acheter des jetons.</p>' : open ? "" : '<p class="warn">Les achats ne sont pas encore ouverts. En attendant : bonus du jour, défis et entraînement gratuit.</p>'}
     ${c.test && !c.purchases ? '<p class="warn">Mode développement : paiement fictif, jamais disponible en production.</p>' : ""}
-    <p class="muted small">Achats vérifiés par le serveur (App Store sur iPhone, Google Play sur Android, paiement sécurisé sur le site). Crédits sans valeur monétaire, non remboursables en argent, non transférables. Réservé aux joueurs majeurs.</p>`,
+    ${prestigeCard()}
+    <p class="muted small">Achats vérifiés par le serveur (App Store sur iPhone, Google Play sur Android, paiement sécurisé sur le site). Jetons sans valeur monétaire, non transférables, utilisables uniquement dans le jeu. Rétractation de 14 jours sur les jetons non utilisés (conditions de vente). Réservé aux joueurs majeurs.</p>`,
     "sheet-modal",
   );
 }
@@ -2518,25 +2554,36 @@ function prestigeCard() {
     m ? `<p class="ok">Vous êtes membre jusqu’au ${new Date(m.until).toLocaleDateString("fr-FR")}.</p>` : "<p><b>4,99 € / mois</b>, sans engagement · bientôt disponible</p>"
   }<ul><li>${fmt(m?.daily ?? 500)} jetons offerts chaque jour (avec la roue)</li><li>Cadre et étoile Prestige visibles à la table</li><li>Voix d’annonce : commentateur sportif, voix du Sud</li></ul></article>`;
 }
-// « Il te manque X jetons pour … » avec le plus petit pack qui couvre le manque (prix en euros).
+// Le plus petit pack qui couvre un manque donné, en bouton direct avec le solde après achat.
+function packSuggest(miss) {
+  const pk = [...(shopConfig?.packs ?? [])].filter((x) => !x.founder && x.credits >= miss).sort((a, b) => a.credits - b.credits)[0];
+  if (!pk) return "";
+  const after = Math.floor(state.player.wallet.available / 2) + pk.credits;
+  return btn(`<span class="pb-main">${e(pk.name ?? "")} · ${fmt(pk.credits)} jetons · ${e(pk.price)}</span><small class="pb-note">Solde après achat : ${fmt(after)}</small>`, "buy", "gold-btn wide pack-btn", `data-pack="${pk.id}"`);
+}
+// « Il te manque X jetons pour … » : le plus petit pack qui suffit, en bouton direct, solde après achat.
 function missingLine(stake) {
   const miss = Math.ceil(stake + feeOf(stake) - state.player.wallet.available / 2);
   if (miss <= 0) return "";
   const city = STAKE_LOOK[stake]?.[1];
-  const pk = [...(shopConfig?.packs ?? [])].filter((x) => !x.founder && x.credits >= miss).sort((a, b) => a.credits - b.credits)[0];
-  return `<p class="missing">Il te manque <b>${fmt(miss)} jetons</b>${city ? ` pour ${e(city)}` : ""}.${pk ? ` Le pack ${e(pk.name ?? "")} (${fmt(pk.credits)} jetons, ${e(pk.price)}) suffit.` : ""}</p>`;
+  return `<p class="missing">Il te manque <b>${fmt(miss)} jetons</b>${city ? ` pour ${e(city)}` : ""}.</p>${packSuggest(miss)}`;
 }
+// Écran « Il te manque » : le gratuit d'abord (roue, défis, tables moins chères), puis le pack qui suffit.
 function fundsModal(stake) {
+  const w = state.player.wallet;
   const cheaper = state.tables.filter((t) => t.stake < stake && t.available && t.status !== "Partie en cours");
+  const free = [
+    w.loginBonus && (wheelReady() || w.loginBonus.next <= Date.now()) ? btn("🎡 Roue du jour : un tour vous attend", "wheel", "menu-item") : "",
+    btn("🎯 Défis du jour", "challenges", "menu-item"),
+    ...cheaper.slice(0, 2).map((t) => btn(t.stake ? `🏆 Gagner à ${e(t.name)} +${fmt(t.gain ?? t.stake)}` : `⚡ ${e(t.name)}`, "join", "menu-item", `data-table="${t.id}"`)),
+  ].join("");
   modal(
     `<div class="confirm"><span class="confirm-icon">🪙</span><h2>Solde insuffisant</h2>
     <p>Il faut ${coins(stake + feeOf(stake))} disponibles pour cette table${feeOf(stake) ? " (droit de table compris)" : ""}. Vous avez ${coins(state.player.wallet.available / 2)}.</p>
+    <h3 class="wallet-sub">Gratuit d’abord</h3>
+    <div class="menu-list wide">${free}</div>
     ${missingLine(stake)}
-    <div class="menu-list wide">
-      ${cheaper.slice(0, 3).map((t) => btn(`${t.stake ? `🪙 ${fmt(t.stake)}` : "Gratuite"} · ${e(t.name)}`, "join", "menu-item", `data-table="${t.id}"`)).join("") || btn("⚡ Partie rapide gratuite", "quick", "menu-item")}
-      ${btn("🪙 Plus de jetons", "shop", "menu-item")}
-      ${btn("🤖 Entraînement gratuit", "practice", "menu-item")}
-    </div></div>`,
+    ${btn("Voir tous les packs", "shop", "text-link")}</div>`,
     "confirm-modal",
   );
 }
@@ -3024,6 +3071,9 @@ document.addEventListener("click", async (ev) => {
       break;
     case "shop":
       shopModal();
+      break;
+    case "piggyBreak":
+      piggyModal();
       break;
     case "shopFilter":
       page = { ...page, params: { f: el.dataset.f } };
