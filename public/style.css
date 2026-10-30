@@ -2197,3 +2197,6 @@ table.metrics .minus { color: #ff8f8f; }
 .piggy-mini small { display: block; margin-bottom: 4px; }
 .piggy-mini .bar i { background: linear-gradient(90deg, #ffd36a, #f2a93c); }
 .piggy-amount { font-family: var(--title); font-size: 32px; color: var(--gold); text-align: center; margin: 4px 0 10px; }
+/* Pack Royal : léger relief doré ; note « = X parties à … » sous les jetons de chaque pack. */
+.pack.royal { border-width: 2.4px; box-shadow: 0 0 0 1px #0008, 0 0 16px #f6c85f55; }
+.pack-note { display: block; font-size: 11px; opacity: 0.75; margin-top: -2px; }

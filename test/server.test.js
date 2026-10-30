@@ -1432,7 +1432,7 @@ test("pack Fondateur : après 3 parties, une seule fois, cadre offert, plus rien
     const before = P.wallet.balance;
     const r = await buy("t1");
     assert.equal(r.status, 200);
-    assert.equal(P.wallet.balance - before, 20000); // 10 000 jetons (demi-crédits)
+    assert.equal(P.wallet.balance - before, 60000); // 30 000 jetons (demi-crédits)
     assert.ok(P.progress.owned["frame-fondateur"], "cadre Fondateur offert");
     assert.equal((await buy("t2")).status, 400, "une seule fois par compte");
   } finally {

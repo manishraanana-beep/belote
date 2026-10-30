@@ -207,3 +207,17 @@ test("tirelire plafonnée : l'excédent de commission reste sur le solde, rien n
   assert.equal(toCredits(players[0].wallet.piggy), 300);
   assert.equal(toCredits(players[0].wallet.balance), 10000 + 1000 - 50, "l'excédent (450) reste sur le solde");
 });
+test("packBonuses : étiquette calculée (jetons par euro), « Meilleure valeur » sur le vrai meilleur pack", async () => {
+  const { packBonuses } = await import("../src/economy.js");
+  const packs = [
+    { id: "a", credits: 10000, priceCents: 199 }, // base : 50,25 jetons/centime
+    { id: "b", credits: 30000, priceCents: 499 }, // 60,1
+    { id: "c", credits: 400000, priceCents: 4999 }, // 80 : le meilleur
+    { id: "f", credits: 30000, priceCents: 199, founder: true }, // hors comparaison
+  ];
+  const r = packBonuses(packs);
+  assert.equal(r.find((x) => x.id === "a").bonus, null, "pack de base : pas d'étiquette");
+  assert.ok(r.find((x) => x.id === "b").bonus.startsWith("+"));
+  assert.match(r.find((x) => x.id === "c").bonus, /Meilleure valeur/);
+  assert.equal(r.find((x) => x.id === "f").bonus, null, "le Fondateur n'entre pas dans la comparaison");
+});

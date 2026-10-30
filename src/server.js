@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { createAccounts, createMailer, normalizeEmail, checkPassword, hash as hashAccount } from "./accounts.js";
 import { createBackup } from "./backup.js";
 import { openStorage } from "./storage.js";
-import { createEconomy, economyConfig, STAKES, toCredits, toUnits } from "./economy.js";
+import { createEconomy, economyConfig, packBonuses, STAKES, toCredits, toUnits } from "./economy.js";
 import { createProgression, TOURNAMENT_REWARDS } from "./progression.js";
 import { createTournaments, validTimeZone } from "./tournaments.js";
 import { generateVapidKeys, pushConfig, sendFcm, sendWebPush } from "./push.js";
@@ -1999,7 +1999,7 @@ export function createApp({
     if (url.pathname === "/api/shop/config") {
       const c = economy.config;
       return json(res, 200, {
-        packs: c.packs.map(({ id, name, credits, price, priceCents, bonus, founder }) => ({ id, name, credits, price, priceCents, bonus, founder })),
+        packs: packBonuses(c.packs).map(({ id, name, credits, price, priceCents, bonus, founder, note }) => ({ id, name, credits, price, priceCents, bonus, founder, note })),
         founderUntil: c.founderUntil,
         tableFeePct: c.tableFeePct ?? 0,
         commissionPct: c.commissionPct ?? 0,

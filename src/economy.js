@@ -13,12 +13,14 @@ export const toCredits = (units) => units / U;
 
 export function economyConfig(env = process.env) {
   const num = (k, d) => (env[k] !== undefined && env[k] !== "" ? Number(env[k]) : d);
-  // Grille de la section 14.4 (site web ; le pack « Relance » à 0,99 € est réservé à l'appli native).
+  // Grille du plan jetons (lot 2, 29/10) ; le pack « Relance » à 0,99 € est réservé à l'appli native.
+  // Le bonus (« jetons par euro ») et « Meilleure valeur » sont calculés, jamais écrits à la main (packBonuses()).
   let packs = [
-    { id: "pack-4000", name: "Petit", credits: 4000, price: "1,99 €", priceCents: 199 },
-    { id: "pack-11000", name: "Moyen", credits: 11000, price: "4,99 €", priceCents: 499, bonus: "+10 %" },
-    { id: "pack-24000", name: "Grand", credits: 24000, price: "9,99 €", priceCents: 999, bonus: "+20 %" },
-    { id: "pack-52000", name: "Prestige", credits: 52000, price: "19,99 €", priceCents: 1999, bonus: "+30 % · Meilleure valeur" },
+    { id: "pack-10000", name: "Petit", credits: 10000, price: "1,99 €", priceCents: 199, note: "= 2 parties à Monaco" },
+    { id: "pack-30000", name: "Moyen", credits: 30000, price: "4,99 €", priceCents: 499, note: "= 2 parties à Dubaï" },
+    { id: "pack-65000", name: "Grand", credits: 65000, price: "9,99 €", priceCents: 999, note: "= Las Vegas + Dubaï" },
+    { id: "pack-140000", name: "Prestige", credits: 140000, price: "19,99 €", priceCents: 1999, note: "≈ 3 parties à Las Vegas" },
+    { id: "pack-400000", name: "Royal", credits: 400000, price: "49,99 €", priceCents: 4999, note: "= 8 parties à Las Vegas" },
   ];
   try {
     if (env.BELOTE_PACKS) packs = JSON.parse(env.BELOTE_PACKS);
@@ -27,7 +29,7 @@ export function economyConfig(env = process.env) {
   }
   // Pack Fondateur : une fois par compte, après 3 parties, jusqu'à la fin de la période de lancement.
   const founderUntil = Date.parse(env.BELOTE_FOUNDER_UNTIL ?? "2027-01-31T23:59:59+01:00");
-  if (founderUntil) packs = [...packs.filter((x) => x.id !== "pack-founder"), { id: "pack-founder", name: "Fondateur", credits: 10000, price: "1,99 €", priceCents: 199, founder: true, frame: "frame-fondateur" }];
+  if (founderUntil) packs = [...packs.filter((x) => x.id !== "pack-founder"), { id: "pack-founder", name: "Fondateur", credits: 30000, price: "1,99 €", priceCents: 199, founder: true, frame: "frame-fondateur", note: "= 2 parties à Dubaï" }];
   const production = env.NODE_ENV === "production" || !!env.RAILWAY_ENVIRONMENT;
   return {
     signupBonus: num("BELOTE_SIGNUP_BONUS", 2000),
@@ -51,6 +53,23 @@ export function economyConfig(env = process.env) {
     // Fournisseur de test : jamais disponible en production.
     testShop: env.BELOTE_TEST_SHOP === "on" && !production,
   };
+}
+
+// Étiquette « +N % » (jetons par euro, comparés au pack de base) et « Meilleure valeur » sur le
+// seul pack qui en donne vraiment le plus par euro : jamais écrit à la main dans la grille.
+// Le pack Fondateur (offre de lancement limitée) n'entre pas dans la comparaison.
+export function packBonuses(packs) {
+  const regular = packs.filter((p) => !p.founder && p.priceCents);
+  if (!regular.length) return packs;
+  const rate = (p) => p.credits / p.priceCents;
+  const baseRate = Math.min(...regular.map(rate));
+  const bestRate = Math.max(...regular.map(rate));
+  return packs.map((p) => {
+    if (p.founder || !p.priceCents) return { ...p, bonus: p.bonus ?? null };
+    const pct = Math.floor((rate(p) / baseRate - 1) * 100);
+    const bonus = pct > 0 ? `+${pct} %${rate(p) === bestRate ? " · Meilleure valeur" : ""}` : rate(p) === bestRate ? "Meilleure valeur" : null;
+    return { ...p, bonus };
+  });
 }
 
 // Jour de jeu commun : change chaque jour à dayStartUtc heures UTC.
