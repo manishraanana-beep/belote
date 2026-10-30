@@ -344,15 +344,15 @@ function animateTrick() {
       if (!from || !to.width) continue;
       const dx = from.left + from.width / 2 - (to.left + to.width / 2),
         dy = from.top + from.height / 2 - (to.top + to.height / 2);
-      const start = rel === 0 ? Math.min(1.25, (from.width || to.width) / to.width) : 0.45;
+      // Trajet direct, sans grand effet de zoom ni rotation : juste un glissement qui s'arrête net.
+      const start = rel === 0 ? Math.min(1.08, (from.width || to.width) / to.width) : 0.7;
       el.style.animation = "none";
       const anim = el.animate(
         [
-          { transform: `translate(${dx}px, ${dy}px) rotate(${rel === 0 ? -8 : rel === 1 ? -25 : 25}deg) scale(${start})`, opacity: rel === 0 ? 1 : 0.4 },
-          { transform: "translate(0, -6px) rotate(0deg) scale(1.04)", opacity: 1, offset: 0.82 },
+          { transform: `translate(${dx}px, ${dy}px) scale(${start})`, opacity: rel === 0 ? 1 : 0.4 },
           { transform: "none", opacity: 1 },
         ],
-        { duration: rel === 0 ? 360 : 420, easing: "cubic-bezier(.2,.75,.25,1)" },
+        { duration: 240, easing: "cubic-bezier(.25,.1,.25,1)" },
       );
       anim.onfinish = anim.oncancel = () => el.style.removeProperty("animation"); // l'élément est gardé : le ramassage doit pouvoir s'animer
       cardSound(rel === 0 ? 1 : 0.55);
