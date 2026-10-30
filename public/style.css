@@ -1165,8 +1165,8 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .gold-round { width: 44px; height: 44px; }
 }
 @media (max-width: 380px) {
-  .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: 2%; }
-  .screen.game:has(.bid-zone.watching) .seat .robot-tag, .screen.game:has(.bid-zone.watching) .seat-timer { display: none; }
+  .screen.game.watching-bid .seat.p1, .screen.game.watching-bid .seat.p3 { top: 2%; }
+  .screen.game.watching-bid .seat .robot-tag, .screen.game.watching-bid .seat-timer { display: none; }
 }
 /* Ordinateur : on agrandit l'interface autour du tapis */
 @media (min-width: 900px) and (min-height: 600px) {
@@ -1530,7 +1530,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 @media (max-aspect-ratio: 4/5) {
   .screen.game, .screen.game.theme-vip, .screen.game.felt-ocean, .screen.game.felt-bordeaux, .screen.game.felt-lagon, .screen.game.felt-velours { isolation: isolate; background: #0b2a26; }
   .screen.game .felt { display: block; position: fixed; inset: 0; z-index: -1; width: auto; translate: none; top: 0; bottom: 0; left: 0; right: 0; border-radius: 0; box-shadow: inset 0 0 0 clamp(5px, 1.4vmin, 9px) var(--rim-1), inset 0 0 0 clamp(7px, 1.9vmin, 12px) var(--rim-2), inset 0 0 90px #000a; }
-  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: 50%; translate: 0 -50%; }
+  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game.watching-bid .seat.p1, .screen.game.watching-bid .seat.p3 { top: 50%; translate: 0 -50%; }
 }
 @media (max-aspect-ratio: 4/5) {
   /* Pendant les annonces, le panneau occupe le centre : les joueurs de côté juste en dessous */
@@ -1539,7 +1539,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 }
 /* Écrans étroits en portrait : le panneau d'annonce couvre toute la largeur, les joueurs de côté passent dessous */
 @media (max-aspect-ratio: 4/5) and (max-width: 400px) {
-  .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: auto; bottom: 2%; translate: none; }
+  .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game.watching-bid .seat.p1, .screen.game.watching-bid .seat.p3 { top: auto; bottom: 2%; translate: none; }
 }
 /* Portrait : bandeau du tour plus compact, il ne touche plus l'avatar ni les boutons */
 @media (max-aspect-ratio: 4/5) {
@@ -1589,13 +1589,13 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .screen.game .seat.p3 .backs { rotate: calc(-90deg + var(--fan)); }
 /* Joueurs de côté en portrait : ancrés par le haut, ils ne bougent plus quand un minuteur ou une annonce apparaît */
 @media (max-aspect-ratio: 4/5) {
-  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: calc(50% - var(--av) * 0.75); translate: none; }
+  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game.watching-bid .seat.p1, .screen.game.watching-bid .seat.p3 { top: calc(50% - var(--av) * 0.75); translate: none; }
 }
 /* Pendant la partie, l'écran est figé : rien ne peut faire défiler la page (cartes ramassées, animations) */
 html:has(body.in-game) { overflow: hidden; overscroll-behavior: none; }
 body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 @media (orientation: landscape) and (max-height: 900px) and (max-width: 899px) {
-  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: 18%; translate: none; }
+  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game.watching-bid .seat.p1, .screen.game.watching-bid .seat.p3 { top: 18%; translate: none; }
 }
 /* Le pli garde la même place jusqu'à la dernière carte (résultat de la donne compris) */
 .screen.game .center, .screen.game.phase-summary .center, .screen.game.phase-finished .center { top: calc(var(--av) + 64px); }
@@ -1614,7 +1614,7 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 @keyframes slotArrive { from { scale: 0.4; opacity: 0; } }
 /* Écrans étroits en portrait, pendant les annonces : joueurs de côté sous le panneau (ancrés par le bas uniquement) */
 @media (max-aspect-ratio: 4/5) and (max-width: 400px) {
-  .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: auto; bottom: 2%; translate: none; }
+  .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game.watching-bid .seat.p1, .screen.game.watching-bid .seat.p3 { top: auto; bottom: 2%; translate: none; }
 }
 /* Paysage : le haut de l'écran prend le moins de place possible pour laisser la table aux cartes jouées.
    Score à gauche à côté du logo, joueur d'en face tout en haut au centre ; rien sous l'encoche de l'iPhone. */
@@ -1629,14 +1629,14 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
   .screen.game .seat.p2, .screen.game.bidding-me .seat.p2 { top: calc(12px + var(--safe-t)); }
   .screen.game .center, .screen.game.phase-playing .center, .screen.game.phase-summary .center, .screen.game.phase-finished .center { top: calc(var(--av) + 40px); }
   .screen.game .bid-zone { top: calc(var(--av) + 34px); }
-  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: calc(var(--av) * 0.9 + 26px); }
+  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game.watching-bid .seat.p1, .screen.game.watching-bid .seat.p3 { top: calc(var(--av) * 0.9 + 26px); }
 }
 /* Points de la donne en cours sous le score de chaque équipe */
 .scoreboard .deal-pts { margin-top: 2px; padding: 0 8px; border-radius: 999px; background: #00000040; color: #ffe7a6; font-size: 11px; font-weight: 700; line-height: 1.5; white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* Paysage : cartes plus grandes (main et pli), joueurs de côté à mi-hauteur de la table */
 @media (orientation: landscape) and (max-height: 900px) and (max-width: 899px) {
   .screen.game { --cw: clamp(56px, 25vh, 108px); --tc: clamp(50px, 21vh, 92px); --step: min(calc(var(--cw) * 0.62), calc((100vw - var(--cw) * 1.6 - 270px) / 7)); }
-  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: calc(40px + var(--tc) * 1.05 + var(--av) * 0.4); }
+  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game.watching-bid .seat.p1, .screen.game.watching-bid .seat.p3 { top: calc(40px + var(--tc) * 1.05 + var(--av) * 0.4); }
   .screen.game .scoreboard .deal-pts { font-size: 10px; margin-top: 1px; }
 }
 @media (orientation: landscape) and (max-height: 900px) and (max-width: 899px) {
@@ -2186,7 +2186,7 @@ table.metrics .minus { color: #ff8f8f; }
   .screen.game .center, .screen.game.phase-playing .center { top: max(calc(2% + var(--av) + 24px), calc(44% - var(--tc) * 1.05)); }
   .screen.game .hcard { bottom: 6px; }
   .screen.game { --av: clamp(64px, 10.5vh, 96px); }
-  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game:has(.bid-zone.watching) .seat.p1, .screen.game:has(.bid-zone.watching) .seat.p3 { top: 48%; bottom: auto; translate: 0 -50%; }
+  .screen.game .seat.p1, .screen.game .seat.p3, .screen.game.bidding-me .seat.p1, .screen.game.bidding-me .seat.p3, .screen.game.watching-bid .seat.p1, .screen.game.watching-bid .seat.p3 { top: 48%; bottom: auto; translate: 0 -50%; }
   /* Annonces : bloc plus grand, au centre du tapis */
   .screen.game .bid-zone, .screen.game .bid-zone.watching { width: 520px; top: max(calc(var(--av) + 60px), calc(48vh - 120px)); scale: 1.2; }
   .screen.game .bid-zone .bid-amounts { grid-template-columns: repeat(6, 1fr); }

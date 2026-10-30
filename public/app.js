@@ -1889,9 +1889,12 @@ function gameView() {
     g = t.game,
     me = Math.max(0, t.seats.findIndex((s) => s?.id === state.player.id));
   const myBid = g.phase === "bidding" && g.turn === me;
+  // Classe posée directement (plutôt que :has(.bid-zone.watching) en CSS, coûteux à recalculer à
+  // chaque carte jouée puisque toute la table est reconstruite à chaque mise à jour).
+  const watchingBid = g.phase === "bidding" && g.turn !== me;
   const eq = state.player.progress.equipped;
   const vip = t.vip && !t.practice;
-  return `<div class="screen game phase-${g.phase} ${vip ? "theme-vip" : "theme-club"} ${myBid ? "bidding-me" : ""} ${eq.back} ${t.city ? `tapis tapis-${CITY_FELT[t.city]} city city-${t.city}` : eq.felt?.startsWith("tapis-") || eq.felt?.startsWith("felt-") ? `${eq.felt} tapis` : vip ? "" : eq.felt}">
+  return `<div class="screen game phase-${g.phase} ${vip ? "theme-vip" : "theme-club"} ${myBid ? "bidding-me" : ""} ${watchingBid ? "watching-bid" : ""} ${eq.back} ${t.city ? `tapis tapis-${CITY_FELT[t.city]} city city-${t.city}` : eq.felt?.startsWith("tapis-") || eq.felt?.startsWith("felt-") ? `${eq.felt} tapis` : vip ? "" : eq.felt}">
     <div class="ambient" aria-hidden="true"><i class="lamp l1"></i><i class="lamp l2"></i><i class="leaf f1"></i><i class="leaf f2"></i></div>
     ${topBar(g, t, me)}
     <main class="arena">
