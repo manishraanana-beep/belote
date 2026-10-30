@@ -510,7 +510,7 @@ body.in-game { overflow: hidden; overscroll-behavior: none; }
 @keyframes pop { from { scale: 0.4; opacity: 0; } }
 .center { position: absolute; left: 50%; top: 47%; translate: -50% -50%; z-index: 6; display: grid; place-items: center; }
 .trick { position: relative; width: calc(var(--tc) * 2.85); height: calc(var(--tc) * 2.9); }
-.tcard { position: absolute; width: var(--tc); animation: playIn 0.32s cubic-bezier(0.2, 0.4, 0.3, 1) both; }
+.tcard { position: absolute; width: var(--tc); animation: playIn 0.32s cubic-bezier(0.2, 1.2, 0.4, 1) both; }
 .tcard img, .hcard img, .lt-cards img { display: block; width: 100%; aspect-ratio: 169 / 245; border-radius: 8% / 5.5%; background: #fff; box-shadow: 0 0 0 1px #0000002e, 0 4px 10px #0005; }
 .tcard.p0 { left: calc(50% - var(--tc) / 2); bottom: 0; --from: 0 80px; rotate: -2deg; }
 .tcard.p2 { left: calc(50% - var(--tc) / 2); top: 0; --from: 0 -80px; rotate: 2deg; }
