@@ -33,6 +33,10 @@ export function economyConfig(env = process.env) {
     signupBonus: num("BELOTE_SIGNUP_BONUS", 2000),
     // Droit de table : % de la mise payé à l'entrée par chaque joueur, retiré de la circulation.
     tableFeePct: num("BELOTE_TABLE_FEE_PCT", 0), // supprimé par défaut (décision de Jacques)
+    // Commission de la Maison sur le gain (villes payantes uniquement), versée dans la tirelire du joueur.
+    commissionPct: num("BELOTE_COMMISSION_PCT", 10),
+    piggyCap: num("BELOTE_PIGGY_CAP", 20000), // tirelire pleine : le joueur la casse (achat réel)
+    piggyBreakPrice: { price: "2,99 €", priceCents: 299 },
     // Bonus de connexion : montant par défaut, modifiable depuis l'administration.
     loginBonus: num("BELOTE_LOGIN_BONUS", 200),
     dayStartUtc: num("BELOTE_DAY_START_UTC", 3), // heure commune de renouvellement
@@ -80,7 +84,7 @@ export function createEconomy(db, config = economyConfig()) {
   db.ledgerKeys ??= {};
   db.settings ??= {};
   const loginAmount = () => db.settings.loginBonus ?? config.loginBonus;
-  const wallet = (p) => (p.wallet ??= { balance: 0, reserved: 0 });
+  const wallet = (p) => (p.wallet ??= { balance: 0, reserved: 0, piggy: 0 });
   const available = (p) => wallet(p).balance - wallet(p).reserved;
   // Écriture unique au journal : la clé empêche toute double attribution.
   function post(p, key, type, amount, meta = {}) {
@@ -123,6 +127,9 @@ export function createEconomy(db, config = economyConfig()) {
         balance: w.balance,
         reserved: w.reserved,
         available: w.balance - w.reserved,
+        piggy: toCredits(w.piggy ?? 0),
+        piggyCap: config.piggyCap ?? 0,
+        piggyBreakPrice: config.piggyBreakPrice ?? null,
         loginBonus: p.accountId
           ? {
               amount: loginAmount(),
@@ -235,7 +242,16 @@ export function createEconomy(db, config = economyConfig()) {
       for (const r of result.rows) {
         const p = players[r.pid];
         if (!p) continue;
-        wallet(p).reserved = Math.max(0, wallet(p).reserved - r.engaged);
+        const w = wallet(p);
+        w.reserved = Math.max(0, w.reserved - r.engaged);
+        // Commission de la Maison sur le gain (villes payantes seulement), versée dans la tirelire du
+        // joueur et plafonnée ; l'excédent reste sur le solde (le joueur ne perd jamais un jeton gagné).
+        const commission = r.delta > 0 && money.stake > 0 ? Math.round((r.delta * (config.commissionPct ?? 0)) / 100) : 0;
+        const room = Math.max(0, (config.piggyCap ? toUnits(config.piggyCap) : Infinity) - (w.piggy ?? 0));
+        const toPiggy = Math.min(commission, room);
+        // result.rows[].delta devient le changement net du solde (ce qui est réellement versé) ;
+        // r.commission garde la part détournée vers la tirelire (gain brut = delta + commission).
+        r.delta -= toPiggy;
         const e = post(p, `settle:${gameKey}:${r.pid}`, r.delta >= 0 ? "win" : "loss", r.delta, {
           gameId: gameKey,
           stake: money.stake,
@@ -243,8 +259,16 @@ export function createEconomy(db, config = economyConfig()) {
           rubicon: result.rubicon,
           adjusted: r.adjusted,
           label: result.rubicon ? "Rubicon" : "Victoire simple",
+          ...(toPiggy ? { commission: toCredits(toPiggy) } : {}),
         });
-        r.balance = e ? e.balance : wallet(p).balance;
+        if (toPiggy) {
+          w.piggy = (w.piggy ?? 0) + toPiggy;
+          const key = `piggy:${gameKey}:${r.pid}`;
+          db.ledgerKeys[key] = randomBytes(9).toString("base64url");
+          db.ledger.push({ id: db.ledgerKeys[key], key, pid: p.id, type: "piggy", amount: toPiggy, balance: w.balance, piggy: w.piggy, at: Date.now(), gameId: gameKey, label: "Commission → tirelire" });
+        }
+        r.balance = e ? e.balance : w.balance;
+        r.commission = toCredits(toPiggy);
       }
       money.settled = true;
       money.result = result;

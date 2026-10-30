@@ -22,7 +22,7 @@ test("rubicon : signalé, mais la perte reste limitée à la mise", () => {
 });
 test("réservation : seulement la mise ; règlement unique et équilibré", () => {
   const db = { players: {} };
-  const eco = createEconomy(db, { ...economyConfig({ BELOTE_TABLE_FEE_PCT: "0" }), dayStartUtc: 3 });
+  const eco = createEconomy(db, { ...economyConfig({ BELOTE_TABLE_FEE_PCT: "0", BELOTE_COMMISSION_PCT: "0" }), dayStartUtc: 3 });
   const players = [200, 350, 1000, 5000].map((c, i) => {
     const p = { id: "p" + i, name: "J" + i, accountId: "a" + i };
     eco.post(p, "seed:" + i, "seed", toUnits(c));
@@ -42,7 +42,7 @@ test("réservation : seulement la mise ; règlement unique et équilibré", () =
 });
 test("abandon : la mise est perdue tout de suite, même si l'équipe gagne ensuite", () => {
   const db = { players: {} };
-  const eco = createEconomy(db, economyConfig({ BELOTE_TABLE_FEE_PCT: "0" }));
+  const eco = createEconomy(db, economyConfig({ BELOTE_TABLE_FEE_PCT: "0", BELOTE_COMMISSION_PCT: "0" }));
   const players = [1000, 1000, 1000, 1000].map((c, i) => {
     const p = { id: "p" + i, name: "J" + i };
     eco.post(p, "seed:" + i, "seed", toUnits(c));
@@ -59,7 +59,7 @@ test("abandon : la mise est perdue tout de suite, même si l'équipe gagne ensui
 });
 test("annulation technique : réservations libérées sans gain ni perte", () => {
   const db = { players: {} };
-  const eco = createEconomy(db, economyConfig({ BELOTE_TABLE_FEE_PCT: "0" }));
+  const eco = createEconomy(db, economyConfig({ BELOTE_TABLE_FEE_PCT: "0", BELOTE_COMMISSION_PCT: "0" }));
   const players = [1000, 1000, 1000, 1000].map((c, i) => {
     const p = { id: "p" + i, name: "J" + i };
     eco.post(p, "seed:" + i, "seed", toUnits(c));
@@ -73,7 +73,7 @@ test("annulation technique : réservations libérées sans gain ni perte", () =>
 });
 test("roue du jour : un tour par 24 h, case tirée par le serveur, série de jours", () => {
   const db = { players: {} };
-  const eco = createEconomy(db, economyConfig({ BELOTE_TABLE_FEE_PCT: "0" }));
+  const eco = createEconomy(db, economyConfig({ BELOTE_TABLE_FEE_PCT: "0", BELOTE_COMMISSION_PCT: "0" }));
   const p = { id: "p", accountId: "a" };
   const H = 3600_000,
     t0 = Date.UTC(2026, 2, 28, 22);
@@ -129,7 +129,7 @@ test("règlement avec les robots de la Maison : le joueur gagne ou perd contre l
 
 test("droit de table (si activé) : 10 % de la mise payé à l'entrée, retiré de la circulation, rendu si la partie est annulée", () => {
   const db = { players: {} };
-  const eco = createEconomy(db, economyConfig({ BELOTE_TABLE_FEE_PCT: "10" }));
+  const eco = createEconomy(db, economyConfig({ BELOTE_TABLE_FEE_PCT: "10", BELOTE_COMMISSION_PCT: "0" }));
   assert.equal(eco.tableFee(1000), 100);
   assert.equal(eco.tableFee(0), 0);
   const players = [1100, 1100, 1100, 1099].map((c, i) => {
@@ -152,7 +152,7 @@ test("droit de table (si activé) : 10 % de la mise payé à l'entrée, retiré 
 });
 test("roue du jour : 10 jours d'affilée, et jamais bloquée si le compteur a pris du retard", () => {
   const db = { players: {} };
-  const eco = createEconomy(db, economyConfig({ BELOTE_TABLE_FEE_PCT: "0" }));
+  const eco = createEconomy(db, economyConfig({ BELOTE_TABLE_FEE_PCT: "0", BELOTE_COMMISSION_PCT: "0" }));
   const p = { id: "p", accountId: "a" };
   const H = 3600_000,
     t0 = Date.UTC(2026, 9, 1, 10);
@@ -167,4 +167,43 @@ test("roue du jour : 10 jours d'affilée, et jamais bloquée si le compteur a pr
 test("droit de table : aucun par défaut", () => {
   const eco = createEconomy({ players: {} }, economyConfig({}));
   assert.equal(eco.tableFee(500), 0);
+});
+test("commission de 10 % sur le gain d'une ville payante, versée dans la tirelire (plafonnée)", () => {
+  const db = { players: {} };
+  const eco = createEconomy(db, economyConfig({ BELOTE_TABLE_FEE_PCT: "0", BELOTE_COMMISSION_PCT: "10", BELOTE_PIGGY_CAP: "20000" }));
+  const players = [6000, 6000, 6000, 6000].map((c, i) => {
+    const p = { id: "p" + i, name: "J" + i };
+    eco.post(p, "seed:" + i, "seed", toUnits(c));
+    db.players[p.id] = p;
+    return p;
+  });
+  const m = eco.reserve({ stake: 5000, gameId: "g1" }, players);
+  const r = eco.settle(db.players, m, [1100, 300], "g1"); // équipe de p0/p2 gagne
+  // Gagnants : +5 000 bruts, 10 % (500) vers la tirelire, net +4 500 sur le solde.
+  assert.deepEqual(credits(r).filter((_, i) => i % 2 === 0), [4500, 4500]);
+  assert.equal(toCredits(players[0].wallet.piggy), 500);
+  assert.equal(toCredits(players[0].wallet.balance), 6000 + 4500);
+  assert.equal(eco.view(players[0]).piggy, 500);
+  // Perdants : perte normale, pas de commission.
+  assert.deepEqual(credits(r).filter((_, i) => i % 2 === 1), [-5000, -5000]);
+  assert.equal(players[1].wallet.piggy ?? 0, 0);
+  // Partie gratuite (stake 0) : aucune commission.
+  players.forEach((p, i) => eco.post(p, "seed2:" + i, "seed", toUnits(1000)));
+  const free = eco.reserve({ stake: 0, gameId: "g2" }, players);
+  const r2 = eco.settle(db.players, free, [1100, 300], "g2");
+  assert.equal(r2.rows.every((x) => !x.commission), true);
+});
+test("tirelire plafonnée : l'excédent de commission reste sur le solde, rien n'est perdu", () => {
+  const db = { players: {} };
+  const eco = createEconomy(db, economyConfig({ BELOTE_TABLE_FEE_PCT: "0", BELOTE_COMMISSION_PCT: "50", BELOTE_PIGGY_CAP: "300" }));
+  const players = [10000, 10000, 10000, 10000].map((c, i) => {
+    const p = { id: "p" + i, name: "J" + i, wallet: { balance: toUnits(c), reserved: 0, piggy: toUnits(250) } };
+    db.players[p.id] = p;
+    return p;
+  });
+  const m = eco.reserve({ stake: 1000, gameId: "g1" }, players);
+  const r = eco.settle(db.players, m, [1100, 300], "g1");
+  // Commission due : 500 (50 % de 1 000), mais il ne reste que 50 de place dans la tirelire (300 - 250).
+  assert.equal(toCredits(players[0].wallet.piggy), 300);
+  assert.equal(toCredits(players[0].wallet.balance), 10000 + 1000 - 50, "l'excédent (450) reste sur le solde");
 });

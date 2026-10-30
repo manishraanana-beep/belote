@@ -964,7 +964,7 @@ function tablesPage() {
   );
 }
 // Tables permanentes avec mise : une carte par montant, « Jouer » regroupe les joueurs sans invitation.
-const STAKE_LOOK = { 500: ["paris", "Paris"], 1000: ["monaco", "Monaco"], 2500: ["dubai", "Dubaï"], 10000: ["vegas", "Las Vegas"] };
+const STAKE_LOOK = { 500: ["paris", "Paris"], 1500: ["cannes", "Cannes"], 5000: ["monaco", "Monaco"], 15000: ["dubai", "Dubaï"], 50000: ["vegas", "Las Vegas"] };
 // Tapis de chaque ville (vert, violet, bordeaux, ivoire).
 const CITY_FELT = { paris: "vert", monaco: "violet", dubai: "rouge", vegas: "ivoire" };
 // Prochain objectif après une victoire : la ville suivante que le solde ne permet pas encore.
@@ -1006,10 +1006,11 @@ function stakeGrid(levels) {
       const waiting = Math.max(0, ...open.map((t) => 4 - t.available));
       const playing = state.tables.filter((t) => t.lobby && t.stake === stake && t.status === "Partie en cours").length;
       const [cls, title] = STAKE_LOOK[stake] ?? ["royale", `Table à ${fmt(stake)}`];
+      const gain = state.tables.find((t) => t.stake === stake)?.gain ?? stake;
       return `<button type="button" class="stake-card ${cls}" data-action="playLobby" data-stake="${stake}">
         <span class="sc-photo" aria-hidden="true"></span>
         <span class="sc-chip"><b>${fmt(stake)}</b><small>jetons</small></span>
-        <span class="sc-main"><b>${title}<i class="sc-flag" aria-hidden="true"></i></b><small>Mise ${fmt(stake)}${feeOf(stake) ? ` + droit de table ${fmt(feeOf(stake))}` : ""} · gain +${fmt(stake)}</small>
+        <span class="sc-main"><b>${title}<i class="sc-flag" aria-hidden="true"></i></b><small>Mise ${fmt(stake)} · gain +${fmt(gain)}</small>
         <span class="sc-meta"><span class="sc-seats">${[0, 1, 2, 3].map((i) => `<i class="${i < waiting ? "on" : ""}"></i>`).join("")}</span>${waiting ? `${waiting}/4 joueurs` : "Table libre"}${playing ? ` · ${playing} en jeu` : ""}</span></span>
         <span class="sc-go">Jouer</span>
       </button>`;
@@ -1356,6 +1357,18 @@ function inboxModal() {
     "sheet-modal",
   );
   cmd("readInbox");
+}
+function piggyModal() {
+  const w = state.player.wallet;
+  const price = w.piggyBreakPrice?.price ?? "2,99 €";
+  modal(
+    `<div class="confirm"><span class="confirm-icon">🐷</span><h2>Ta tirelire est pleine</h2>
+    <p class="piggy-amount">${fmt(w.piggyCap)} jetons</p>
+    <p>Elle s’est remplie avec la commission de tes victoires.</p>
+    <div class="row">${btn(`Casser la tirelire · ${price}`, "close", "gold-btn wide", "", true)}${btn("Plus tard", "close", "line-btn wide")}</div>
+    <p class="muted small">Achats bientôt disponibles.</p></div>`,
+    "confirm-modal",
+  );
 }
 function fundsTourModal(m) {
   modal(
@@ -1726,14 +1739,23 @@ function finalResult(g, t, me) {
 }
 // Mise affichée avec le droit de table : « Mise 1 000 + droit de table 100 ».
 const stakeLabel = (stake, fee) => `Mise ${fmt(stake)}${fee ? ` + droit de table ${fmt(fee)}` : ""} jetons`;
-// Ligne « Droit de table −100 » du décompte de fin de partie.
+// Ligne « Droit de table −100 » du décompte de fin de partie (réactivable, 0 par défaut).
 const feeLine = (r) => (r.fee ? `<small class="fee-line">Droit de table −${fmt(r.fee)} · résultat net ${signed(r.delta - r.fee)}</small>` : "");
+// Commission de la Maison versée dans la tirelire : « Gain 5 000, dont 500 de commission versés dans ta tirelire ».
+const commissionLine = (r) => (r.commission ? `<small class="fee-line">Gain ${fmt(r.delta + r.commission)}, dont ${fmt(r.commission)} de commission versés dans ta tirelire</small>` : "");
+// Mini barre de la tirelire (plafond atteint : proposer de la casser).
+function piggyLine() {
+  const w = state.player.wallet;
+  if (!w?.piggyCap) return "";
+  const pct = Math.min(100, Math.round((w.piggy / w.piggyCap) * 20) * 5);
+  return `<div class="piggy-mini"><small>🐷 Tirelire : ${fmt(w.piggy)} / ${fmt(w.piggyCap)}</small><div class="bar"><i class="w${pct}"></i></div>${w.piggy >= w.piggyCap ? btn("Casser la tirelire", "piggyBreak", "text-link") : ""}</div>`;
+}
 function moneyLines(r) {
   if (!r || !r.stake) return "";
   const kind = r.rubicon ? "Rubicon" : "Victoire simple";
   if (r.delta > 0)
-    return `<div class="money win"><b>Bénéfice : <span data-countup="${r.delta}">${signed(r.delta)}</span> crédits</b><small>${fmt(r.stake + r.delta)} récupérés, dont ${fmt(r.stake)} de mise — bénéfice ${signed(r.delta)} · ${kind}</small>${r.adjusted ? '<small class="adjusted">Gain ajusté aux crédits engagés par les adversaires.</small>' : ""}${feeLine(r)}<span>Nouveau solde ${coins(r.balance)}</span></div>`;
-  return `<div class="money lose"><b>Perte : ${signed(r.delta)} crédits</b><small>${kind} · ${fmt(r.engaged)} étaient engagés</small>${feeLine(r)}<span>Nouveau solde ${coins(r.balance)}</span></div>`;
+    return `<div class="money win"><b>Bénéfice : <span data-countup="${r.delta}">${signed(r.delta)}</span> jetons</b><small>${fmt(r.stake + r.delta + (r.commission ?? 0))} récupérés, dont ${fmt(r.stake)} de mise — bénéfice ${signed(r.delta)} · ${kind}</small>${r.adjusted ? '<small class="adjusted">Gain ajusté aux jetons engagés par les adversaires.</small>' : ""}${feeLine(r)}${commissionLine(r)}<span>Nouveau solde ${coins(r.balance)}</span></div>${piggyLine()}`;
+  return `<div class="money lose"><b>Perte : ${signed(r.delta)} jetons</b><small>${kind} · ${fmt(r.engaged)} étaient engagés</small>${feeLine(r)}<span>Nouveau solde ${coins(r.balance)}</span></div>`;
 }
 // Maquette « Choisir votre contrat ».
 // Maquette « Votre annonce ».
@@ -3019,6 +3041,9 @@ document.addEventListener("click", async (ev) => {
       break;
     case "shop":
       shopModal();
+      break;
+    case "piggyBreak":
+      piggyModal();
       break;
     case "shopFilter":
       page = { ...page, params: { f: el.dataset.f } };

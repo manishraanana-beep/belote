@@ -1708,11 +1708,12 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 }
 /* ———————— Tables des villes : couleur du tapis et dessin en filigrane */
 .stake-card.paris { --sc-1: #1f8a63; --sc-2: #0c4a3a; --sc-edge: #6fe3b4; --chip: #2fbf86; --fil: url(/decor/fil-paris.svg); }
+.stake-card.cannes { --sc-1: #1a7fb0; --sc-2: #0a3b53; --sc-edge: #9adcff; --chip: #2fa5d8; --fil: url(/decor/fil-paris.svg); }
 .stake-card.monaco { --sc-1: #6e3a86; --sc-2: #2a1038; --sc-edge: #d6a8ff; --chip: #9a5cc0; --fil: url(/decor/fil-monaco.svg); }
 .stake-card.dubai { --sc-1: #9a1a2a; --sc-2: #42050d; --sc-edge: #ff9aa8; --chip: #c9283c; --fil: url(/decor/fil-dubai.svg); }
 .stake-card.vegas { --sc-1: #d9c39a; --sc-2: #8c7148; --sc-edge: #fff1c8; --chip: #b89458; --fil: url(/decor/fil-vegas.svg); }
-.stake-card.paris, .stake-card.monaco, .stake-card.dubai, .stake-card.vegas { isolation: isolate; }
-.stake-card.paris::before, .stake-card.monaco::before, .stake-card.dubai::before, .stake-card.vegas::before { content: ""; position: absolute; z-index: -1; right: 8px; top: 50%; translate: 0 -50%; width: 46%; height: 140%; background: var(--fil) right center / contain no-repeat; opacity: 0.22; pointer-events: none; }
+.stake-card.paris, .stake-card.cannes, .stake-card.monaco, .stake-card.dubai, .stake-card.vegas { isolation: isolate; }
+.stake-card.paris::before, .stake-card.cannes::before, .stake-card.monaco::before, .stake-card.dubai::before, .stake-card.vegas::before { content: ""; position: absolute; z-index: -1; right: 8px; top: 50%; translate: 0 -50%; width: 46%; height: 140%; background: var(--fil) right center / contain no-repeat; opacity: 0.22; pointer-events: none; }
 .stake-card.vegas { color: #2a1a00; } .stake-card.vegas small { color: #3a2a10; }
 /* En partie : filigrane au centre du tapis */
 .screen.game.city .felt::after { content: ""; position: absolute; inset: 12% 18%; background: center / contain no-repeat; opacity: 0.09; pointer-events: none; }
@@ -1737,26 +1738,28 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .rk-val b { font-size: 15px; font-variant-numeric: tabular-nums; } .rk-val small { font-size: 10px; }
 @media (max-width: 400px) { .rk-row { grid-template-columns: 26px 32px 1fr repeat(3, 48px); gap: 5px; } .rk-row .avatar { width: 32px; height: 32px; } }
 /* ———————— Tables des villes : maquette « photos » (remplace les filigranes) */
-.stake-card.paris::before, .stake-card.monaco::before, .stake-card.dubai::before, .stake-card.vegas::before { content: none; }
+.stake-card.paris::before, .stake-card.cannes::before, .stake-card.monaco::before, .stake-card.dubai::before, .stake-card.vegas::before { content: none; }
 .stake-card.paris { --sc-1: #0f5a43; --sc-2: #062a22; --sc-edge: #4ff0b0; --chip: #18a072; --glow: #2fe6a080; --dot: #4ff0b0; --photo: url(/decor/ville-paris-hd.webp); --flag: url(/decor/drapeau-paris.svg); }
+/* Cannes : image provisoire (à remplacer), drapeau français comme Paris */
+.stake-card.cannes { --sc-1: #0e5a86; --sc-2: #062c42; --sc-edge: #5fc8ff; --chip: #1f8fc9; --glow: #4fb6ff80; --dot: #9adcff; --photo: url(/decor/ville-cannes-hd.webp); --flag: url(/decor/drapeau-paris.svg); }
 .stake-card.monaco { --sc-1: #4a1d6e; --sc-2: #1d0a30; --sc-edge: #c58bff; --chip: #7b35b8; --glow: #b46bff80; --dot: #d9a8ff; --photo: url(/decor/ville-monaco-hd.webp); --flag: url(/decor/drapeau-monaco.svg); }
 .stake-card.dubai { --sc-1: #7a0f1d; --sc-2: #2e0409; --sc-edge: #ff4d61; --chip: #d61f35; --glow: #ff334f80; --dot: #ff6b7c; --photo: url(/decor/ville-dubai-hd.webp); --flag: url(/decor/drapeau-dubai.svg); }
 .stake-card.vegas { --sc-1: #4a3410; --sc-2: #1a1206; --sc-edge: #ffd36a; --chip: #1b1b1b; --glow: #ffc84a80; --dot: #ffd36a; --photo: url(/decor/ville-vegas-hd.webp); --flag: url(/decor/drapeau-vegas.svg); color: #fff; }
 .stake-card.vegas small { color: #ffffffd0; }
-.stake-card:is(.paris, .monaco, .dubai, .vegas) { min-height: 112px; isolation: isolate; border-width: 2.5px; background: linear-gradient(90deg, var(--sc-1), var(--sc-2)); box-shadow: 0 0 0 1px #0008, 0 0 18px var(--glow), 0 10px 24px #0008, inset 0 1px 0 #ffffff30; }
+.stake-card:is(.paris, .cannes, .monaco, .dubai, .vegas) { min-height: 112px; isolation: isolate; border-width: 2.5px; background: linear-gradient(90deg, var(--sc-1), var(--sc-2)); box-shadow: 0 0 0 1px #0008, 0 0 18px var(--glow), 0 10px 24px #0008, inset 0 1px 0 #ffffff30; }
 .stake-card .sc-photo { position: absolute; z-index: 0; top: 0; right: 0; bottom: 0; left: 0; background: linear-gradient(90deg, rgba(8,8,12,.88) 0, rgba(8,8,12,.55) 40%, rgba(8,8,12,0) 70%), var(--photo) right center / cover no-repeat; pointer-events: none; }
-.stake-card:is(.paris, .monaco, .dubai, .vegas) .sc-chip { width: 82px; height: 82px; background: radial-gradient(circle, var(--chip) 0 50%, #fff 51% 53%, var(--chip) 54% 62%, transparent 63%), repeating-conic-gradient(#fff 0 15deg, var(--chip) 15deg 45deg); box-shadow: 0 0 0 3px #fff, 0 8px 18px #000a; }
+.stake-card:is(.paris, .cannes, .monaco, .dubai, .vegas) .sc-chip { width: 82px; height: 82px; background: radial-gradient(circle, var(--chip) 0 50%, #fff 51% 53%, var(--chip) 54% 62%, transparent 63%), repeating-conic-gradient(#fff 0 15deg, var(--chip) 15deg 45deg); box-shadow: 0 0 0 3px #fff, 0 8px 18px #000a; }
 .stake-card.vegas .sc-chip { --chip: #151515; background: radial-gradient(circle, #151515 0 50%, #ffd36a 51% 53%, #151515 54% 62%, transparent 63%), repeating-conic-gradient(#ffd36a 0 15deg, #151515 15deg 45deg); box-shadow: 0 0 0 3px #ffd36a, 0 8px 18px #000a; }
 .stake-card.vegas .sc-chip b, .stake-card.vegas .sc-chip small { color: #ffd36a; }
-.stake-card:is(.paris, .monaco, .dubai, .vegas) .sc-main b { display: flex; align-items: center; gap: 10px; font-size: 26px; text-shadow: 0 2px 6px #000c; }
+.stake-card:is(.paris, .cannes, .monaco, .dubai, .vegas) .sc-main b { display: flex; align-items: center; gap: 10px; font-size: 26px; text-shadow: 0 2px 6px #000c; }
 .sc-flag { display: inline-block; width: 34px; height: 23px; border-radius: 3px; background: var(--flag) center / cover; box-shadow: 0 2px 5px #0008; }
-.stake-card:is(.paris, .monaco, .dubai, .vegas) .sc-main small { text-shadow: 0 1px 3px #000c; }
-.stake-card:is(.paris, .monaco, .dubai, .vegas) .sc-seats i { width: 13px; height: 13px; border-color: var(--dot); }
-.stake-card:is(.paris, .monaco, .dubai, .vegas) .sc-seats i.on { background: var(--dot); box-shadow: 0 0 8px var(--dot); }
-.stake-card:is(.paris, .monaco, .dubai, .vegas) .sc-go { padding: 12px 22px; font-size: 19px; }
+.stake-card:is(.paris, .cannes, .monaco, .dubai, .vegas) .sc-main small { text-shadow: 0 1px 3px #000c; }
+.stake-card:is(.paris, .cannes, .monaco, .dubai, .vegas) .sc-seats i { width: 13px; height: 13px; border-color: var(--dot); }
+.stake-card:is(.paris, .cannes, .monaco, .dubai, .vegas) .sc-seats i.on { background: var(--dot); box-shadow: 0 0 8px var(--dot); }
+.stake-card:is(.paris, .cannes, .monaco, .dubai, .vegas) .sc-go { padding: 12px 22px; font-size: 19px; }
 .robot-note { display: flex; align-items: center; gap: 14px; margin: 14px 0; padding: 12px 16px; border-radius: 16px; border: 1px solid #ffffff1f; background: #00000033; color: #d9e6e0; font-size: 14px; line-height: 1.4; }
 .robot-note .ico { flex: none; width: 34px; height: 34px; color: var(--gold); }
-@media (max-width: 380px) { .stake-card:is(.paris, .monaco, .dubai, .vegas) .sc-main b { font-size: 21px; } .sc-flag { width: 26px; height: 18px; } .stake-card:is(.paris, .monaco, .dubai, .vegas) .sc-chip { width: 66px; height: 66px; } }
+@media (max-width: 380px) { .stake-card:is(.paris, .cannes, .monaco, .dubai, .vegas) .sc-main b { font-size: 21px; } .sc-flag { width: 26px; height: 18px; } .stake-card:is(.paris, .cannes, .monaco, .dubai, .vegas) .sc-chip { width: 66px; height: 66px; } }
 .plus-dot { display: inline-grid; place-items: center; width: 26px; height: 26px; margin-right: 10px; border-radius: 50%; background: #1d1205; color: var(--gold-1); font-style: normal; font-weight: 800; font-size: 20px; line-height: 1; vertical-align: -4px; }
 .screen.game.city .felt::after { content: none; }
 /* Logo ton sur ton : silhouette du logo, teinte plus foncée du tapis. */
@@ -1973,7 +1976,7 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .gold-btn.a-play small { font-size: 15px; letter-spacing: 0; font-weight: 700; }
 .a-h { margin: 6px 0 -2px; font: 800 18px var(--arc); }
 .page-arcade .stake-grid { gap: 12px; }
-:root[data-skin="arcade"] .stake-card:is(.paris, .monaco, .dubai, .vegas) { border-radius: 18px; }
+:root[data-skin="arcade"] .stake-card:is(.paris, .cannes, .monaco, .dubai, .vegas) { border-radius: 18px; }
 .a-banner { position: relative; display: grid; align-content: center; justify-items: start; gap: 2px; min-height: 100px; padding: 14px 16px; border-radius: 18px; overflow: hidden; text-align: left; isolation: isolate; box-shadow: inset 0 0 0 2px var(--a-gold), 0 5px 0 var(--a-gold-sh), 0 0 16px #f6c85f44; }
 .a-banner img { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; object-position: right center; }
 .a-banner::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, var(--a-panel) 0%, rgba(11, 49, 52, 0.75) 45%, transparent 80%); }
@@ -2003,7 +2006,7 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .a-tabbar .a-tab-play { align-self: start; }
 .a-tabbar .a-tab-play span { margin-top: 2px; }
 /* Cartes des villes dans l'accueil Arcade : jeton à droite, la carte entière lance la partie. */
-.page-arcade .stake-card:is(.paris, .monaco, .dubai, .vegas) { min-height: 100px; padding: 10px 12px 10px 16px; box-shadow: inset 0 0 0 2px var(--sc-edge), 0 6px 0 var(--sc-2), 0 0 16px var(--glow); }
+.page-arcade .stake-card:is(.paris, .cannes, .monaco, .dubai, .vegas) { min-height: 100px; padding: 10px 12px 10px 16px; box-shadow: inset 0 0 0 2px var(--sc-edge), 0 6px 0 var(--sc-2), 0 0 16px var(--glow); }
 .page-arcade .stake-card .sc-go { display: none; }
 .page-arcade .stake-card .sc-chip { order: 2; margin-left: auto; width: 60px; height: 60px; }
 .page-arcade .stake-card .sc-chip small { display: none; }
@@ -2189,3 +2192,8 @@ table.metrics .minus { color: #ff8f8f; }
   .screen.game .bid-zone .bid-amounts { grid-template-columns: repeat(6, 1fr); }
 }
 .profile-hero .ph-mail { display: block; margin-top: 4px; opacity: 0.85; word-break: break-all; }
+/* Tirelire (commission des villes payantes) : mini barre en fin de partie, montant plein écran dans la modale. */
+.piggy-mini { margin-top: 8px; padding: 8px 10px; border-radius: 12px; background: #0000002a; }
+.piggy-mini small { display: block; margin-bottom: 4px; }
+.piggy-mini .bar i { background: linear-gradient(90deg, #ffd36a, #f2a93c); }
+.piggy-amount { font-family: var(--title); font-size: 32px; color: var(--gold); text-align: center; margin: 4px 0 10px; }

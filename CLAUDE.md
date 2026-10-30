@@ -41,6 +41,7 @@ Documentation détaillée (à lire seulement si besoin) : `docs/DOCUMENTATION-CO
 
 - Montants internes en **demi-crédits** (`toUnits`/`toCredits`) ; tout mouvement passe par `economy.post` (clé unique, jamais deux fois).
 - **Droit de table supprimé** (0 % par défaut, décision de Jacques) ; réactivable avec `BELOTE_TABLE_FEE_PCT`.
+- **Lot 1 (29/10) villes/jetons** : Paris 500, Cannes 1 500 (nouvelle, image provisoire), Monaco 5 000, Dubaï 15 000, Las Vegas 50 000 ; **commission** de 10 % sur le gain (`BELOTE_COMMISSION_PCT`) versée dans la **tirelire** du joueur (`wallet.piggy`), plafonnée à 20 000 (`BELOTE_PIGGY_CAP`), l'excédent reste sur le solde ; « Casser la tirelire » prêt mais inactif (achats fermés).
 - **Tournois payants** : droit d'entrée prélevé au départ sur les seuls joueurs présents ; cagnotte = entrées − part Maison (10–20 %), 70 / 30.
 - **Parrainage** versé après 10 parties et e-mail vérifié ; **Gmail normalisé** (points et « + ») ; connexion d'abord à l'adresse exacte.
 - **Achats fermés** ; registre `db.purchases` (clé `provider:ref`), reprise des jetons si remboursement/opposition ; plafond mensuel ; **Pack Fondateur** une fois, après 3 parties, jusqu'à `BELOTE_FOUNDER_UNTIL`.
