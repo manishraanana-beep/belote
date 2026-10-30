@@ -78,6 +78,12 @@ const avatarUrl = (v) =>
         : `/avatars/${AVATARS.includes(v) ? v : "jacques"}.webp`;
 // Les avatars de la boutique ont déjà leur propre cadre (doré, couronne) : on n'y ajoute pas d'anneau.
 const avatar = (v, cls = "") => `<img class="avatar ${cls} ${/^av-/.test(v ?? "") ? "framed" : ""}" src="${avatarUrl(v)}" alt="" draggable="false">`;
+// Cadre de la boutique équipé par le joueur (posé autour de son avatar : accueil, profil, table).
+const myFrame = () => {
+  const f = state?.player?.progress?.equipped?.frame;
+  return state?.player?.shop?.items?.some((x) => x.id === f && x.owned && x.kind === "frame") ? f : "";
+};
+const framed = (html) => (myFrame() ? `<span class="fr-wrap ${myFrame()}">${html}</span>` : html);
 const btn = (text, action, cls = "", data = "", disabled = false) =>
   `<button type="button" class="${cls}" data-action="${action}" ${data} ${disabled ? "disabled" : ""}>${text}</button>`;
 const suitHtml = (s) => `<span class="suit ${isRed(s) ? "red" : ""}">${SUITS[s]}</span>`;
@@ -457,10 +463,20 @@ function itemStatus(it) {
   const on = it.kind === "emoji" ? p.shop.favorites.includes(it.id) : p.progress.equipped[it.kind] === it.id;
   return on ? "equipped" : "owned";
 }
+const EFFECT_ICON = { "effect-confettis": "🎉", "effect-jetons": "🪙", "effect-feu": "🎆" };
+// Visuel d'un objet : son image, sinon une icône (effets) ou les emojis du pack (réactions).
+const itemArt = (it) =>
+  it.img
+    ? `<img src="${it.img}" alt="">`
+    : it.kind === "effect"
+      ? `<b class="art-emoji">${EFFECT_ICON[it.id] ?? "✨"}</b>`
+      : it.kind === "reaction"
+        ? `<span class="art-pack">${(it.includes ?? []).slice(0, 4).map((id) => `<img src="/shop/emoji/${id}.webp" alt="">`).join("")}</span>`
+        : "";
 const STATUS_LABEL = { available: "Disponible", owned: "Possédé", equipped: "Équipé" };
 const itemCard = (it) => {
   const st = itemStatus(it);
-  return `<article class="shop-card item k-${it.kind} st-${st}"><h3>${e(it.name)}</h3><span class="sart sa-${it.cat}"><img src="${it.img}" alt=""></span>${st === "available" ? `<p class="price"><i class="coin"></i>${jetons(it.price)}${euroOf(it.price)}</p>` : `<p class="status ${st}">${st === "equipped" ? icon("check", "tiny") : ""}${STATUS_LABEL[st]}</p>`}${btn("Voir", "shopItem", "shop-voir", `data-id="${it.id}"`)}</article>`;
+  return `<article class="shop-card item k-${it.kind} st-${st}"><h3>${e(it.name)}</h3><span class="sart sa-${it.cat}">${itemArt(it)}</span>${st === "available" ? `<p class="price"><i class="coin"></i>${jetons(it.price)}${euroOf(it.price)}</p>` : `<p class="status ${st}">${st === "equipped" ? icon("check", "tiny") : ""}${STATUS_LABEL[st]}</p>`}${btn("Voir", "shopItem", "shop-voir", `data-id="${it.id}"`)}</article>`;
 };
 // Carte « collection » d'une ville : tapis + dos + cadre, progression et titre une fois complète.
 function cityCard(v) {
@@ -533,7 +549,7 @@ function shopItemModal(id) {
             : btn("Utiliser", "shopUse", "gold-btn wide", `data-id="${it.id}"`);
   modal(
     `<div class="shop-modal"><h2>${e(it.name)}</h2><p class="muted">${e(state.player.shop.categories.find((c) => c.id === it.cat)?.name ?? "")}</p>
-      ${it.kind === "felt" || it.kind === "reaction" ? "" : `<div class="shop-modal-art sa-${it.cat}"><img src="${it.img}" alt=""></div>`}
+      ${it.kind === "felt" || it.kind === "reaction" || it.kind === "effect" ? "" : `<div class="shop-modal-art sa-${it.cat}"><img src="${it.img}" alt=""></div>`}
       ${shopPreview(it)}
       <div class="shop-modal-meta"><span><i class="coin"></i>${jetons(it.price)}${euroOf(it.price)}</span><span class="status ${st}">${STATUS_LABEL[st]}</span></div>
       ${action}
@@ -565,7 +581,7 @@ function shopGiftAsk(id) {
   const it = shopItem(id);
   const friends = state.player.friends ?? [];
   modal(
-    `<div class="confirm"><div class="shop-modal-art sa-${it.cat} small"><img src="${it.img}" alt=""></div><h2>Offrir ${e(it.name)}</h2>
+    `<div class="confirm"><div class="shop-modal-art sa-${it.cat} small">${itemArt(it)}</div><h2>Offrir ${e(it.name)}</h2>
     <p class="muted small">${jetons(it.price)}${euroOf(it.price)} débités de votre solde ; votre ami reçoit l’objet, jamais des jetons.</p>
     ${
       friends.length
@@ -590,7 +606,7 @@ function shopBuyAsk(id) {
   const avail = p.wallet.available / 2;
   if (avail < it.price) return shopFundsModal(it, it.price - avail);
   modal(
-    `<div class="confirm"><div class="shop-modal-art sa-${it.cat} small"><img src="${it.img}" alt=""></div><h2>Acheter ${e(it.name)} ?</h2>
+    `<div class="confirm"><div class="shop-modal-art sa-${it.cat} small">${itemArt(it)}</div><h2>Acheter ${e(it.name)} ?</h2>
     <div class="buy-lines"><div><span>Prix</span><b>${jetons(it.price)}</b></div><div><span>Solde disponible</span><b>${jetons(avail)}</b></div><div class="after"><span>Solde après achat</span><b>${jetons(avail - it.price)}</b></div></div>
     <div class="stack">${btn("Confirmer l’achat", "shopBuy", "gold-btn wide", `data-id="${it.id}"`)}${btn("Annuler", "close", "line-btn wide")}</div></div>`,
     "confirm-modal",
@@ -961,7 +977,7 @@ function homePage() {
   return shell(
     `<div class="shop-head home-head">${coinHead()}</div>
     <div class="me-row">
-      <button type="button" class="me" data-action="go" data-page="profile">${avatar(p.avatar, "lg ring")}<span><b>${e(p.name)} ${icon("chevron", "tiny")}</b><small>${levelTitle()}</small></span></button>
+      <button type="button" class="me" data-action="go" data-page="profile">${framed(avatar(p.avatar, "lg ring"))}<span><b>${e(p.name)} ${icon("chevron", "tiny")}</b><small>${levelTitle()}</small></span></button>
     </div>
     ${p.account && p.wallet.loginBonus?.amount > 0 ? (wheelReady() ? `<p class="bonus-line">${btn("🎡 La roue du jour vous attend ! Tourner", "wheel", "inline-link")}</p>` : `<p class="bonus-line">🎡 Prochaine roue du jour dans <b data-countdown="${p.wallet.loginBonus.next}"></b>${p.wallet.loginBonus.streak ? ` · série ${p.wallet.loginBonus.streak} j 🔥` : ""}</p>`) : ""}
     ${needVerify() ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
@@ -1002,7 +1018,7 @@ function tablesPage() {
 // Tables permanentes avec mise : une carte par montant, « Jouer » regroupe les joueurs sans invitation.
 const STAKE_LOOK = { 500: ["paris", "Paris"], 1500: ["cannes", "Cannes"], 5000: ["monaco", "Monaco"], 15000: ["dubai", "Dubaï"], 50000: ["vegas", "Las Vegas"] };
 // Tapis de chaque ville (vert, violet, bordeaux, ivoire).
-const CITY_FELT = { paris: "vert", monaco: "violet", dubai: "rouge", vegas: "ivoire" };
+const CITY_FELT = { paris: "vert", cannes: "ciel", monaco: "violet", dubai: "rouge", vegas: "ivoire" };
 // Prochain objectif après une victoire : la ville suivante que le solde ne permet pas encore.
 function nextGoal() {
   const bal = Math.floor(state.player.wallet.available / 2);
@@ -1069,7 +1085,7 @@ function profilePage() {
   const p = state.player;
   const rate = p.stats.games ? Math.round((100 * p.stats.wins) / p.stats.games) : 0;
   return shell(
-    `<div class="profile-hero"><div class="ph-avatar">${avatar(p.avatar, "xxl ring")}<label class="cam" aria-label="Ajouter une photo">${icon("camera")}<input type="file" accept="image/*" id="photo-input" hidden></label></div>
+    `<div class="profile-hero"><div class="ph-avatar">${framed(avatar(p.avatar, "xxl ring"))}<label class="cam" aria-label="Ajouter une photo">${icon("camera")}<input type="file" accept="image/*" id="photo-input" hidden></label></div>
       <h1>${e(p.name)}</h1><small>${levelTitle()} · ${e(p.tag)}</small>${p.account?.email ? `<small class="ph-mail">✉️ ${e(p.account.email)}${p.account.verified ? "" : " · non vérifiée"}</small>` : ""}</div>
     <div class="stack tight">${btn(`${icon("pen")} Modifier mon pseudo`, "editName", "line-btn wide")}${btn(`${icon("users")} Choisir un avatar`, "go", "line-btn wide", 'data-page="avatar"')}<label class="line-btn wide">${icon("camera")} Ajouter une photo<input type="file" accept="image/*" id="photo-input-2" hidden></label></div>
     <div class="stat-card"><div>${icon("trophy")}<b>${p.stats.games}</b><small>Parties</small></div><div>${icon("crown")}<b>${p.stats.wins}</b><small>Victoires</small></div><div>${icon("chart")}<b>${rate} %</b><small>Réussite</small></div></div>
@@ -1899,7 +1915,7 @@ function handView(g, me, t) {
     ${hand.map((c, i) => `<button type="button" class="hcard c${i} ${c === selected ? "selected" : ""}" data-action="pick" data-card="${c}" aria-label="${cardName(c)}" aria-pressed="${c === selected}"><img src="${cardImage(c)}" alt="" draggable="false"></button>`).join("")}
   </div>
   <div class="status-row">
-    <span class="me-mini"><span class="me-seat"><span class="me-av ${["bidding", "playing"].includes(g.phase) && g.turn === me && t.deadline ? "ring" : ""}" ${["bidding", "playing"].includes(g.phase) && g.turn === me && t.deadline ? `data-ring="${t.deadline}" data-ring-total="${(t.rules.turnSeconds ?? 20) * 1000}"` : ""}>${avatar(state.player.avatar)}</span><b>${e(state.player.name)}</b>${takerBadge(g, me)}${seatBubble(g, me) ? `<span class="me-bub">${seatBubble(g, me)}</span>` : ""}</span>${t.money ? `<small>${fmt(mine?.engaged ?? 0)} engagés</small>` : ""}</span>
+    <span class="me-mini"><span class="me-seat"><span class="me-av ${myFrame()} ${["bidding", "playing"].includes(g.phase) && g.turn === me && t.deadline ? "ring" : ""}" ${["bidding", "playing"].includes(g.phase) && g.turn === me && t.deadline ? `data-ring="${t.deadline}" data-ring-total="${(t.rules.turnSeconds ?? 20) * 1000}"` : ""}>${avatar(state.player.avatar)}</span><b>${e(state.player.name)}</b>${takerBadge(g, me)}${seatBubble(g, me) ? `<span class="me-bub">${seatBubble(g, me)}</span>` : ""}</span>${t.money ? `<small>${fmt(mine?.engaged ?? 0)} engagés</small>` : ""}</span>
     ${status}
     <span class="status-btns">${btn("😊", "react", "round-btn", 'aria-label="Réactions"')}${btn(`${icon("chat")}${t.chat.length > seenChat && sheet !== "chat" ? '<i class="dot"></i>' : ""}`, "chat", "round-btn gold-round", 'aria-label="Discussion"')}</span>
   </div>`;

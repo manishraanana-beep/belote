@@ -1504,6 +1504,8 @@ export function createApp({
         break;
       case "shopBuy": {
         const r = shop.buy(p, String(d.id));
+        // Objet équipable (cadre, tapis, dos, effet) : posé tout de suite, comme le joueur s'y attend.
+        if (["back", "felt", "frame", "effect"].includes(r.item.kind)) progression.prog(p).equipped[r.item.kind] = r.item.id;
         reply = { bought: r.item.id, balance: r.balance };
         break;
       }
