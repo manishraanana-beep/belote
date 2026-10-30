@@ -538,6 +538,7 @@ function shopItemModal(id) {
       ${shopPreview(it)}
       <div class="shop-modal-meta"><span><i class="coin"></i>${jetons(it.price)}${euroOf(it.price)}</span><span class="status ${st}">${STATUS_LABEL[st]}</span></div>
       ${action}
+      ${it.kind !== "reaction" && state.player.account ? btn("🎁 Offrir à un ami", "shopGiftAsk", "line-btn wide", `data-id="${it.id}"`) : ""}
       ${it.kind === "felt" && state.player.progress.equipped.felt?.startsWith("tapis-") ? btn("Revenir au tapis vert d’origine", "feltDefault", "line-btn wide") : ""}
       <p class="muted small">${it.kind === "back" || it.kind === "felt" ? "Visible uniquement sur votre écran : les autres joueurs gardent leurs propres choix." : it.kind === "emoji" || it.kind === "reaction" ? "Apparaît quelques secondes près de votre avatar, sans masquer les cartes." : it.kind === "effect" ? "Joué à la table en cas de victoire, visible par tous les joueurs." : "Visible par tous les joueurs à votre table."} Purement cosmétique, aucun avantage de jeu.</p></div>`,
     "sheet-modal shop-item-modal",
@@ -557,6 +558,26 @@ function shopFundsModal(it, missing) {
     <div class="menu-list wide">${free}</div>
     ${packSuggest(missing)}
     ${btn("Plus tard", "close", "line-btn wide")}</div>`,
+    "confirm-modal",
+  );
+}
+// Offrir un objet à un ami : jamais de jetons envoyés, juste un objet (+ un petit mot).
+function shopGiftAsk(id) {
+  const it = shopItem(id);
+  const friends = state.player.friends ?? [];
+  modal(
+    `<div class="confirm"><div class="shop-modal-art sa-${it.cat} small"><img src="${it.img}" alt=""></div><h2>Offrir ${e(it.name)}</h2>
+    <p class="muted small">${jetons(it.price)}${euroOf(it.price)} débités de votre solde ; votre ami reçoit l’objet, jamais des jetons.</p>
+    ${
+      friends.length
+        ? `<form id="gift-form" class="stack" data-id="${it.id}">
+        <label>À qui ?<select name="to" required>${friends.map((f) => `<option value="${f.id}">${e(f.name)}</option>`).join("")}</select></label>
+        <label>Petit mot <small>facultatif</small><textarea name="note" maxlength="140" rows="2" placeholder="Pour toi !"></textarea></label>
+        <button class="gold-btn wide">Offrir</button>
+      </form>`
+        : `<p class="muted">Ajoutez des amis pour pouvoir leur offrir un objet.</p>${btn("Mes amis", "friends", "line-btn wide")}`
+    }
+    ${btn("Annuler", "close", "line-btn wide")}</div>`,
     "confirm-modal",
   );
 }
@@ -2521,7 +2542,10 @@ async function shopModal() {
   const acc = state.player.account;
   const w = state.player.wallet;
   const founder = c.packs.find((x) => x.founder);
-  const packs = c.packs.filter((x) => !x.founder);
+  const packs = c.packs.filter((x) => !x.founder && !x.item);
+  const villePacks = c.packs.filter((x) => x.item);
+  // Après l'offre de lancement : premier achat doublé, une seule fois par compte.
+  const firstDouble = c.firstPurchaseDoubleAfter && Date.now() >= c.firstPurchaseDoubleAfter && !(state.player.purchases ?? []).length;
   // Écran « Plus de jetons » : le gratuit d'abord, puis l'offre Fondateur, puis les packs.
   const free = [
     acc && w.loginBonus ? (wheelReady() || w.loginBonus.next <= Date.now() ? btn("🎡 Roue du jour : un tour vous attend", "wheel", "menu-item") : `<p class="free-line">🎡 Prochain tour de roue dans <b data-countdown="${w.loginBonus.next}"></b></p>`) : "",
@@ -2533,9 +2557,17 @@ async function shopModal() {
     <p class="muted">Solde : ${coins(state.player.wallet.balance / 2)}</p>
     <h3 class="wallet-sub">Gratuit</h3><div class="menu-list wide">${free}</div>
     ${founder && state.player.founderOffer ? `<article class="founder-card"><span class="pack-tag">Lancement · jusqu’au ${new Date(c.founderUntil).toLocaleDateString("fr-FR")}</span><b>Pack Fondateur</b><p>${fmt(founder.credits)} jetons + cadre « Fondateur », qui ne sera plus jamais vendu. Une seule fois par compte.</p>${founder.note ? `<small class="pack-note">${e(founder.note)}</small>` : ""}${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(founder.price)) : e(founder.price), "buy", "gold-btn small", `data-pack="${founder.id}"`, !open)}</article>` : ""}
+    ${firstDouble ? `<p class="free-line">🎉 Premier achat doublé : deux fois plus de jetons sur votre tout premier pack.</p>` : ""}
     <h3 class="wallet-sub">Packs de jetons</h3>
-    <div class="packs">${packs.map((pk) => `<article class="pack ${/royal/i.test(pk.name) ? "royal" : ""}">${pk.bonus ? `<span class="pack-tag">${e(pk.bonus)}</span>` : ""}${pk.name ? `<small class="pack-name">${e(pk.name)}</small>` : ""}<span class="pack-coins">${"<i class=\"coin\"></i>".repeat(Math.min(4, 1 + Math.round(Math.log10(pk.credits / 500))))}</span><b>${fmt(pk.credits)}</b><small>jetons</small>${pk.note ? `<small class="pack-note">${e(pk.note)}</small>` : ""}
+    <div class="packs">${packs.map((pk) => `<article class="pack ${/royal/i.test(pk.name) ? "royal" : ""}">${pk.bonus ? `<span class="pack-tag">${e(pk.bonus)}</span>` : ""}${pk.name ? `<small class="pack-name">${e(pk.name)}</small>` : ""}<span class="pack-coins">${"<i class=\"coin\"></i>".repeat(Math.min(4, 1 + Math.round(Math.log10(pk.credits / 500))))}</span><b>${fmt(firstDouble ? pk.credits * 2 : pk.credits)}</b><small>jetons</small>${firstDouble ? `<small class="pack-note">au lieu de ${fmt(pk.credits)}</small>` : pk.note ? `<small class="pack-note">${e(pk.note)}</small>` : ""}
       ${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(pk.price)) : e(pk.price), "buy", "pill small", `data-pack="${pk.id}"`, !open || !state.player.account)}</article>`).join("")}</div>
+    ${
+      villePacks.length
+        ? `<h3 class="wallet-sub">Packs ville</h3><p class="muted small">Jetons + tapis de la ville offert.</p>
+    <div class="packs">${villePacks.map((pk) => `<article class="pack">${pk.name ? `<small class="pack-name">${e(pk.name)}</small>` : ""}<span class="pack-coins"><i class="coin"></i></span><b>${fmt(pk.credits)}</b><small>jetons</small>${pk.note ? `<small class="pack-note">${e(pk.note)}</small>` : ""}
+      ${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(pk.price)) : e(pk.price), "buy", "pill small", `data-pack="${pk.id}"`, !open || !state.player.account)}</article>`).join("")}</div>`
+        : ""
+    }
     ${!state.player.account ? '<p class="warn">Créez un compte pour acheter des jetons.</p>' : open ? "" : '<p class="warn">Les achats ne sont pas encore ouverts. En attendant : bonus du jour, défis et entraînement gratuit.</p>'}
     ${c.test && !c.purchases ? '<p class="warn">Mode développement : paiement fictif, jamais disponible en production.</p>' : ""}
     ${prestigeCard()}
@@ -3101,6 +3133,9 @@ document.addEventListener("click", async (ev) => {
     case "shopBuy":
       shopBuy(el.dataset.id);
       break;
+    case "shopGiftAsk":
+      shopGiftAsk(el.dataset.id);
+      break;
     case "feltDefault":
       cmd("equip", { id: "felt-emeraude" });
       toast("Tapis vert d’origine remis");
@@ -3640,6 +3675,15 @@ document.addEventListener("submit", async (ev) => {
         if (f.id === "create-form" && needFunds(Number(d.stake))) return;
         cmd(f.id === "create-form" ? "create" : "rules", { name: d.name, password: d.password || undefined, vip: d.vip === "true", rules: r, stake: Number(d.stake ?? 0), fillBots: d.fillBots === "on" });
         break;
+      }
+      case "gift-form": {
+        if (!d.to) return toast("Choisissez un ami");
+        ask("shopGift", { id: f.dataset.id, to: d.to, note: d.note }, () => {
+          tone([523, 659, 784], 0.08, 0.05);
+          toast("Cadeau envoyé !");
+          closeModal();
+        });
+        return;
       }
       case "search-form": {
         const id = crypto.randomUUID();

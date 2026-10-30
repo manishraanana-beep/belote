@@ -214,10 +214,12 @@ test("packBonuses : étiquette calculée (jetons par euro), « Meilleure valeur 
     { id: "b", credits: 30000, priceCents: 499 }, // 60,1
     { id: "c", credits: 400000, priceCents: 4999 }, // 80 : le meilleur
     { id: "f", credits: 30000, priceCents: 199, founder: true }, // hors comparaison
+    { id: "v", credits: 20000, priceCents: 499, item: "felt-monaco" }, // pack ville : hors comparaison
   ];
   const r = packBonuses(packs);
   assert.equal(r.find((x) => x.id === "a").bonus, null, "pack de base : pas d'étiquette");
   assert.ok(r.find((x) => x.id === "b").bonus.startsWith("+"));
   assert.match(r.find((x) => x.id === "c").bonus, /Meilleure valeur/);
   assert.equal(r.find((x) => x.id === "f").bonus, null, "le Fondateur n'entre pas dans la comparaison");
+  assert.equal(r.find((x) => x.id === "v").bonus, null, "un pack ville (jetons + objet) n'entre pas dans la comparaison");
 });
