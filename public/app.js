@@ -434,9 +434,10 @@ function coinHead(extra = "") {
   return `<span class="shop-logo"><img src="/decor/logo.webp" alt="Belote Prestige"></span>
     <div class="shop-balance"><button type="button" class="sb-main" data-action="wallet" aria-label="Portefeuille"><i class="coin big"></i><b>${jetons(state.player.wallet.available / 2)}</b></button><button type="button" class="plus" data-action="shop" aria-label="Acheter des jetons">+</button></div>${extra}`;
 }
-const SHOP_FILTERS = [["avatars", "Avatars"], ["cartes", "Cartes"], ["decors", "Table"], ["emojis", "Emojis"], ["owned", "Possédés"]];
-const FILTER_CATS = { avatars: ["classic", "gold", "crown"], cartes: ["back"], decors: ["felt"], emojis: ["emoji"] };
-const CAT_ART = { classic: "av-04", gold: "av-or-4", crown: "av-roi-2", back: "dos-violet", felt: "tapis-violet", emoji: "emo-02" };
+// Trois gammes (plan jetons/boutique, 30/10) : Classique, Rare, Prestige.
+const SHOP_GAMMES = [["Classique", "Classique"], ["Rare", "Rare"], ["Prestige", "Prestige"]];
+const CITY_ORDER = ["paris", "cannes", "monaco", "dubai", "vegas"];
+const CITY_TITLE = { paris: "Titi parisien", cannes: "Star de la Croisette", monaco: "Habitué du Rocher", dubai: "Étoile du désert", vegas: "Roi de Las Vegas" };
 const shopItem = (id) => state.player.shop?.items.find((x) => x.id === id);
 const ownedShop = (kind) => (state.player.shop?.items ?? []).filter((x) => x.owned && (!kind || x.kind === kind));
 const favEmojis = () => (state.player.shop?.favorites ?? []).map(shopItem).filter(Boolean);
@@ -449,45 +450,41 @@ const jetons = (n) => `${fmt(n).replace(/\s/g, "\u00a0")} jetons`;
 function itemStatus(it) {
   if (!it.owned) return "available";
   const p = state.player;
-  const on = it.kind === "avatar" ? p.avatar === it.id : it.kind === "emoji" ? p.shop.favorites.includes(it.id) : p.progress.equipped[it.kind] === it.id;
+  const on = it.kind === "emoji" ? p.shop.favorites.includes(it.id) : p.progress.equipped[it.kind] === it.id;
   return on ? "equipped" : "owned";
 }
 const STATUS_LABEL = { available: "Disponible", owned: "Possédé", equipped: "Équipé" };
-function catArt(cat) {
-  const it = shopItem(CAT_ART[cat]);
-  if (cat === "back") {
-    const backs = ["dos-violet", "dos-rouge", "dos-violet", "dos-bleu"].map(shopItem).filter(Boolean);
-    return `<span class="sart sa-fan">${backs.map((b, i) => `<img class="f${i}" src="${b.img}" alt="">`).join("")}</span>`;
-  }
-  return it ? `<span class="sart sa-${cat}"><img src="${it.img}" alt=""></span>` : "";
+const itemCard = (it) => {
+  const st = itemStatus(it);
+  return `<article class="shop-card item k-${it.kind} st-${st}"><h3>${e(it.name)}</h3><span class="sart sa-${it.cat}"><img src="${it.img}" alt=""></span>${st === "available" ? `<p class="price"><i class="coin"></i>${jetons(it.price)}${euroOf(it.price)}</p>` : `<p class="status ${st}">${st === "equipped" ? icon("check", "tiny") : ""}${STATUS_LABEL[st]}</p>`}${btn("Voir", "shopItem", "shop-voir", `data-id="${it.id}"`)}</article>`;
+};
+// Carte « collection » d'une ville : tapis + dos + cadre, progression et titre une fois complète.
+function cityCard(v) {
+  const items = CITY_ORDER.includes(v) ? (state.player.shop?.items ?? []).filter((x) => x.ville === v) : [];
+  const done = items.length && items.every((x) => x.owned);
+  const n = items.filter((x) => x.owned).length;
+  return `<article class="shop-card ville-card ${done ? "done" : ""}"><h3>${e(CITY_NAME_FR[v])}</h3>
+    <span class="sart sa-ville">${items.map((x) => `<img src="${x.img}" alt="" class="${x.owned ? "on" : "off"}">`).join("")}</span>
+    <p class="status">${done ? `🏆 ${e(CITY_TITLE[v])}` : `${n} / ${items.length} objets`}</p>
+    ${btn("Voir", "shopCat", "shop-voir", `data-cat="${v}"`)}</article>`;
 }
+const CITY_NAME_FR = { paris: "Paris", cannes: "Cannes", monaco: "Monaco", dubai: "Dubaï", vegas: "Las Vegas" };
 function boutiquePage() {
   const p = state.player,
     f = page.params.f ?? "all",
     cat = page.params.cat;
-  const cats = state.player.shop?.categories ?? [];
-  const chips = `<div class="shop-chips" role="tablist">${SHOP_FILTERS.map(([k, l]) => btn(l, "shopFilter", `shop-chip ${f === k && !cat ? "on" : ""}`, `data-f="${k}" role="tab"`)).join("")}</div>`;
+  const chips = `<div class="shop-chips" role="tablist">${[["all", "Tout"], ...SHOP_GAMMES, ["owned", "Possédés"]].map(([k, l]) => btn(l, "shopFilter", `shop-chip ${f === k && !cat ? "on" : ""}`, `data-f="${k}" role="tab"`)).join("")}</div>`;
   let body;
   if (f === "all" && !cat)
-    body = `<div class="shop-grid">${cats
-      .map((c) => {
-        const prices = (p.shop?.items ?? []).filter((x) => x.cat === c.id).map((x) => x.price);
-        const price = prices.length ? Math.min(...prices) : c.price;
-        return `<article class="shop-card cat-${c.id}"><h3>${e(c.name)}</h3>${catArt(c.id)}<p class="price"><i class="coin"></i>${jetons(price)}</p>${btn("Voir", "shopCat", "shop-voir", `data-cat="${c.id}"`)}</article>`;
-      })
-      .join("")}</div>`;
+    body = `<h2 class="shop-sub">Collections par ville</h2><div class="shop-grid">${CITY_ORDER.map(cityCard).join("")}</div>
+      <h2 class="shop-sub">Autres objets</h2><div class="shop-grid sg-items">${(p.shop?.items ?? []).filter((x) => !x.ville).map(itemCard).join("")}</div>`;
   else {
-    const list = (p.shop?.items ?? []).filter((x) => (cat ? x.cat === cat : f === "owned" ? x.owned : FILTER_CATS[f]?.includes(x.cat)));
-    const title = cat ? cats.find((c) => c.id === cat)?.name : SHOP_FILTERS.find(([k]) => k === f)?.[1];
-    body = `${cat ? `<button type="button" class="shop-back" data-action="shopFilter" data-f="all">${icon("back", "tiny")} Toutes les catégories</button>` : ""}<h2 class="shop-sub">${e(title ?? "")}</h2>
-      <div class="shop-grid sg-items">${
-        list
-          .map((it) => {
-            const st = itemStatus(it);
-            return `<article class="shop-card item k-${it.kind} st-${st}"><h3>${e(it.name)}</h3><span class="sart sa-${it.cat}"><img src="${it.img}" alt=""></span>${st === "available" ? `<p class="price"><i class="coin"></i>${jetons(it.price)}</p>` : `<p class="status ${st}">${st === "equipped" ? icon("check", "tiny") : ""}${STATUS_LABEL[st]}</p>`}${btn("Voir", "shopItem", "shop-voir", `data-id="${it.id}"`)}</article>`;
-          })
-          .join("") || `<p class="empty">${f === "owned" ? "Vous ne possédez encore aucun article de la boutique." : "Aucun article."}</p>`
-      }</div>`;
+    const list = (p.shop?.items ?? []).filter((x) => (cat ? x.ville === cat : f === "owned" ? x.owned : x.gamme === f));
+    const title = cat ? CITY_NAME_FR[cat] : SHOP_GAMMES.find(([k]) => k === f)?.[1] ?? "Possédés";
+    const done = cat && list.length && list.every((x) => x.owned);
+    body = `<button type="button" class="shop-back" data-action="shopFilter" data-f="all">${icon("back", "tiny")} Toutes les catégories</button><h2 class="shop-sub">${e(title ?? "")}</h2>
+      ${cat ? `<p class="muted small">${done ? `🏆 Collection complète : titre « ${e(CITY_TITLE[cat])} » débloqué.` : `Tapis, dos de cartes et cadre de ${e(CITY_NAME_FR[cat])} : les trois donnent le titre « ${e(CITY_TITLE[cat])} ».`}</p>` : ""}
+      <div class="shop-grid sg-items">${list.map(itemCard).join("") || `<p class="empty">${f === "owned" ? "Vous ne possédez encore aucun article de la boutique." : "Aucun article."}</p>`}</div>`;
   }
   return shell(
     `<div class="shop-head">
@@ -507,6 +504,10 @@ function shopPreview(it) {
   if (it.kind === "avatar") return `<div class="pv-scene felt-scene"><div class="pv-seat">${avatar(it.id, "pv-av")}<b>${e(p.name)}</b></div></div>`;
   if (it.kind === "back") return `<div class="pv-scene felt-scene"><div class="pv-backs-fan">${[0, 1, 2, 3, 4].map((i) => `<img class="b${i}" src="${it.img}" alt="">`).join("")}</div></div>`;
   if (it.kind === "felt") return `<div class="pv-scene"><div class="pv-table"><img class="pv-felt-img" src="${it.img}" alt=""><span class="pv-cards">${["AS", "10H", "KD", "9C"].map((c) => `<img src="${cardImage(c)}" alt="">`).join("")}</span></div></div>`;
+  // Cadre : sur la table, aperçu avec son avatar — visible par toute la table, comme en jeu.
+  if (it.kind === "frame") return `<div class="pv-scene felt-scene"><div class="pv-avatar ${it.id}"><div class="seat-avatar">${avatar(p.avatar)}</div></div><b>${e(p.name)}</b></div>`;
+  if (it.kind === "effect") return `<div class="pv-scene felt-scene pv-effect"><span class="pv-effect-icon">${it.id === "effect-jetons" ? "🪙" : it.id === "effect-feu" ? "🎆" : "🎉"}</span></div>`;
+  if (it.kind === "reaction") return "";
   return `<div class="pv-scene felt-scene"><div class="pv-seat">${avatar(p.avatar, "pv-av")}<b>${e(p.name)}</b><span class="pv-emo"><img src="${it.img}" alt=""></span></div></div>`;
 }
 function shopItemModal(id) {
@@ -521,17 +522,19 @@ function shopItemModal(id) {
         ? st === "equipped"
           ? btn("Retirer de mes favoris", "shopUse", "line-btn wide", `data-id="${it.id}"`)
           : btn(fav.length >= 8 ? "Favoris complets (8 au maximum)" : "Utiliser · ajouter aux favoris", "shopUse", "gold-btn wide", `data-id="${it.id}"`, fav.length >= 8)
-        : st === "equipped"
-          ? `<p class="status equipped big">${icon("check", "tiny")} Équipé</p>`
-          : btn("Utiliser", "shopUse", "gold-btn wide", `data-id="${it.id}"`);
+        : it.kind === "reaction"
+          ? `<p class="status owned big">${icon("check", "tiny")} Réactions débloquées</p><div class="pack-emojis">${(it.includes ?? []).map((id) => `<img src="/shop/emoji/${id}.webp" alt="">`).join("")}</div>`
+          : st === "equipped"
+            ? `<p class="status equipped big">${icon("check", "tiny")} Équipé</p>`
+            : btn("Utiliser", "shopUse", "gold-btn wide", `data-id="${it.id}"`);
   modal(
     `<div class="shop-modal"><h2>${e(it.name)}</h2><p class="muted">${e(state.player.shop.categories.find((c) => c.id === it.cat)?.name ?? "")}</p>
-      ${it.kind === "felt" ? "" : `<div class="shop-modal-art sa-${it.cat}"><img src="${it.img}" alt=""></div>`}
+      ${it.kind === "felt" || it.kind === "reaction" ? "" : `<div class="shop-modal-art sa-${it.cat}"><img src="${it.img}" alt=""></div>`}
       ${shopPreview(it)}
       <div class="shop-modal-meta"><span><i class="coin"></i>${jetons(it.price)}${euroOf(it.price)}</span><span class="status ${st}">${STATUS_LABEL[st]}</span></div>
       ${action}
       ${it.kind === "felt" && state.player.progress.equipped.felt?.startsWith("tapis-") ? btn("Revenir au tapis vert d’origine", "feltDefault", "line-btn wide") : ""}
-      <p class="muted small">${it.kind === "back" || it.kind === "felt" ? "Visible uniquement sur votre écran : les autres joueurs gardent leurs propres choix." : it.kind === "emoji" ? "Apparaît quelques secondes près de votre avatar, sans masquer les cartes." : "Visible par tous les joueurs à votre table."} Purement cosmétique, aucun avantage de jeu.</p></div>`,
+      <p class="muted small">${it.kind === "back" || it.kind === "felt" ? "Visible uniquement sur votre écran : les autres joueurs gardent leurs propres choix." : it.kind === "emoji" || it.kind === "reaction" ? "Apparaît quelques secondes près de votre avatar, sans masquer les cartes." : it.kind === "effect" ? "Joué à la table en cas de victoire, visible par tous les joueurs." : "Visible par tous les joueurs à votre table."} Purement cosmétique, aucun avantage de jeu.</p></div>`,
     "sheet-modal shop-item-modal",
   );
 }
@@ -1883,7 +1886,7 @@ function gameView() {
   const myBid = g.phase === "bidding" && g.turn === me;
   const eq = state.player.progress.equipped;
   const vip = t.vip && !t.practice;
-  return `<div class="screen game phase-${g.phase} ${vip ? "theme-vip" : "theme-club"} ${myBid ? "bidding-me" : ""} ${eq.back} ${t.city ? `tapis tapis-${CITY_FELT[t.city]} city city-${t.city}` : eq.felt?.startsWith("tapis-") ? `${eq.felt} tapis` : vip ? "" : eq.felt}">
+  return `<div class="screen game phase-${g.phase} ${vip ? "theme-vip" : "theme-club"} ${myBid ? "bidding-me" : ""} ${eq.back} ${t.city ? `tapis tapis-${CITY_FELT[t.city]} city city-${t.city}` : eq.felt?.startsWith("tapis-") || eq.felt?.startsWith("felt-") ? `${eq.felt} tapis` : vip ? "" : eq.felt}">
     <div class="ambient" aria-hidden="true"><i class="lamp l1"></i><i class="lamp l2"></i><i class="leaf f1"></i><i class="leaf f2"></i></div>
     ${topBar(g, t, me)}
     <main class="arena">

@@ -110,8 +110,10 @@ export const REPORT_REASONS = {
   profile: "Pseudo ou photo inappropriés",
   other: "Autre",
 };
+// Les dix avatars classiques (av-01..av-10) sont gratuits (plan jetons/boutique, 30/10) : on vend
+// désormais les cadres, pas les visages.
 const validAvatar = (v, p) =>
-  AVATARS.includes(v) || (typeof v === "string" && v.startsWith("u:") && v === p?.photo);
+  AVATARS.includes(v) || /^av-\d\d$/.test(v ?? "") || (typeof v === "string" && v.startsWith("u:") && v === p?.photo);
 const hashPassword = (password, salt) =>
   scryptSync(password, salt, 32).toString("hex");
 export function createApp({
@@ -1496,7 +1498,7 @@ export function createApp({
         if (shop.item(String(d.id))) {
           const it = shop.item(String(d.id));
           check(shop.owns(p, it.id), "Achetez d’abord cet article");
-          check(it.kind === "back" || it.kind === "felt", "Article non équipable");
+          check(["back", "felt", "frame", "effect"].includes(it.kind), "Article non équipable");
           progression.prog(p).equipped[it.kind] = it.id;
         } else progression.equip(p, d.id);
         break;
