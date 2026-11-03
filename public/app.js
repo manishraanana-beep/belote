@@ -1054,9 +1054,6 @@ const stakeLevels = () => [...new Set(state.tables.filter((t) => t.lobby && t.st
 function stakeGrid(levels) {
   return `<div class="stake-grid">${levels
     .map((stake) => {
-      const open = state.tables.filter((t) => t.lobby && t.stake === stake && t.status !== "Partie en cours");
-      const waiting = Math.max(0, ...open.map((t) => 4 - t.available));
-      const playing = state.tables.filter((t) => t.lobby && t.stake === stake && t.status === "Partie en cours").length;
       const [cls, title] = STAKE_LOOK[stake] ?? ["royale", `Table à ${fmt(stake)}`];
       const gain = state.tables.find((t) => t.stake === stake)?.gain ?? stake;
       // Ville trop chère : cadenas, « Il te manque X jetons », bouton qui ouvre directement la boutique.
@@ -1065,8 +1062,7 @@ function stakeGrid(levels) {
       return `<button type="button" class="stake-card ${cls} ${locked ? "locked" : ""}" data-action="${locked ? "shop" : "playLobby"}" ${locked ? "" : `data-stake="${stake}"`}>
         <span class="sc-photo" aria-hidden="true"></span>
         <span class="sc-chip">${locked ? icon("lock") : `<b>${fmt(stake)}</b><small>jetons</small>`}</span>
-        <span class="sc-main"><b>${title}<i class="sc-flag" aria-hidden="true"></i></b><small>${locked ? `Il te manque <b>${fmt(stake - bal)}</b> jetons` : `Mise ${fmt(stake)} · gain +${fmt(gain)}`}</small>
-        <span class="sc-meta"><span class="sc-seats">${[0, 1, 2, 3].map((i) => `<i class="${i < waiting ? "on" : ""}"></i>`).join("")}</span>${waiting ? `${waiting}/4 joueurs` : "Table libre"}${playing ? ` · ${playing} en jeu` : ""}</span></span>
+        <span class="sc-main"><b>${title}<i class="sc-flag" aria-hidden="true"></i></b><small>${locked ? `Il te manque <b>${fmt(stake - bal)}</b> jetons` : `Mise ${fmt(stake)} · gain +${fmt(gain)}`}</small></span>
         <span class="sc-go">${locked ? "Débloquer" : "Jouer"}</span>
       </button>`;
     })
