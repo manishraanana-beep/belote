@@ -1347,7 +1347,8 @@ function tournamentPage() {
   const lobby =
     ["closed", "ready"].includes(t.stage) || (t.me && Date.now() >= t.confirmOpen && t.stage === "open")
       ? `<h2 class="section orn-title">Salon d’attente</h2>
-        <div class="lobby-card"><div><b>${t.ready}</b><small>équipes prêtes</small></div><div><b>${t.confirmedCount}</b><small>présences confirmées</small></div><div><b>${free}</b><small>places restantes</small></div><div><b data-countdown="${t.start}"></b><small>avant le départ</small></div></div>`
+        <div class="lobby-card"><div><b>${t.ready}</b><small>équipes prêtes</small></div><div><b>${t.confirmedCount}</b><small>présences confirmées</small></div><div><b>${free}</b><small>places restantes</small></div><div><b data-countdown="${t.start}"></b><small>avant le départ</small></div></div>
+        <p class="tour-soon" hidden data-deadline="${t.start}">Le tournoi commence dans <b></b></p>`
       : "";
   const pause = t.nextRoundAt ? `<div class="notice-box">${icon("clock")} <span><b>${e(t.nextRoundName ?? "Tour suivant")}</b> dans <b data-countdown="${t.nextRoundAt}"></b> · restez connectés</span></div>` : "";
   const mine = t.next
@@ -2115,6 +2116,12 @@ function clock() {
   document.querySelectorAll("[data-deadline]").forEach((el) => {
     const d = Number(el.dataset.deadline);
     const n = Math.max(0, Math.ceil((d - Date.now()) / 1000));
+    if (el.classList.contains("tour-soon")) {
+      el.hidden = !(d && n > 0 && n <= 10);
+      const b = el.querySelector("b");
+      if (b) b.textContent = `${n} s`;
+      return;
+    }
     el.textContent = d ? `${n} s` : "";
     el.classList.toggle("urgent", d > 0 && n <= 5);
   });
