@@ -2226,8 +2226,9 @@ table.metrics .minus { color: #ff8f8f; }
 .frame-v-vegas .seat-avatar, .pv-avatar.frame-v-vegas .seat-avatar, .swatch.frame-v-vegas { background: conic-gradient(#ffd36a, #1b1b1b, #ffd36a, #1b1b1b, #ffd36a); box-shadow: 0 0 16px #ffd36a; }
 /* Boutique : carte « collection » d'une ville (tapis + dos + cadre), effets et packs de réactions. */
 .ville-card .sart.sa-ville { display: flex; gap: 4px; justify-content: center; }
-.ville-card .sart.sa-ville img { width: 34px; height: 34px; object-fit: cover; border-radius: 8px; opacity: 0.4; filter: grayscale(1); }
-.ville-card .sart.sa-ville img.on { opacity: 1; filter: none; box-shadow: 0 0 0 2px var(--gold); }
+.ville-card .sart.sa-ville { align-items: center; background: #0000001a; border-radius: 10px; padding: 6px; }
+.ville-card .sart.sa-ville img { width: 46px; height: 46px; object-fit: contain; border-radius: 6px; opacity: 0.55; filter: grayscale(0.7); }
+.ville-card .sart.sa-ville img.on { opacity: 1; filter: none; box-shadow: 0 0 0 2px var(--gold); background: #fff; }
 .ville-card.done { border-color: var(--gold); box-shadow: 0 0 0 1px #0006, 0 0 14px #f6c85f55; }
 .pv-effect { display: grid; place-items: center; min-height: 92px; }
 .pv-effect-icon { font-size: 48px; }
