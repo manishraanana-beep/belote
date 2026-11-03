@@ -481,7 +481,7 @@ body.in-game { overflow: hidden; overscroll-behavior: none; }
 .seat.p3 { right: max(10px, 2.5vw); top: 30%; }
 .seat-avatar { position: relative; width: var(--av); height: var(--av); border-radius: 50%; padding: 3px; background: var(--gold); box-shadow: 0 6px 16px #0008; transition: scale 0.2s; }
 .seat-avatar .avatar { width: 100%; height: 100%; }
-.seat.active .seat-avatar { scale: 1.07; } /* plus de lueur animée en boucle (redessin permanent, saccades) : l anneau chrono suffit */
+/* scale retiré (faisait bouger les avatars de côté à chaque carte) : l'anneau chrono suffit */
 @keyframes turnGlow { from { box-shadow: 0 0 0 0 #f6c85fcc, 0 6px 16px #0008; } to { box-shadow: 0 0 0 10px #f6c85f00, 0 6px 16px #0008; } }
 .seat.offline .avatar { filter: grayscale(1) opacity(0.6); }
 .seat .tappable { pointer-events: auto; cursor: pointer; }
@@ -1171,6 +1171,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 /* Ordinateur : on agrandit l'interface autour du tapis */
 @media (min-width: 900px) and (min-height: 600px) {
   .screen.game { --av: clamp(64px, 9.5vh, 92px); --cw: clamp(84px, 12.5vh, 118px); --tc: clamp(80px, 13vh, 112px); }
+  .felt { width: min(118vw, 1900px, 190vh); }
   .gt-logo .logo .emblem { font-size: 12px; }
   .gt-logo .logo b { font-size: 34px; }
   .gt-logo .logo b + .orn { font-size: 11px; }
