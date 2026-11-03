@@ -559,7 +559,7 @@ export function createApp({
       // Historique des achats (portefeuille) : les 20 derniers.
       founderOffer: founderOk(p),
       prestige: isPrestige(p) ? { until: p.prestige.until, daily: PRESTIGE_DAILY } : null,
-      purchases: registry.list(p.id).slice(0, 20).map((x) => ({ at: x.at, credits: x.credits, amountCents: x.amountCents, currency: x.currency, status: x.status })),
+      purchases: registry.list(p.id).slice(0, 20).map((x) => ({ at: x.at, credits: x.credits, amountCents: x.amountCents, currency: x.currency, status: x.status, pack: x.pack })),
       id: p.id,
       name: p.name,
       avatar: p.avatar,
@@ -1798,6 +1798,10 @@ export function createApp({
     const c = economy.config;
     return !!(p?.accountId && c.founderUntil && Date.now() < c.founderUntil && (p.stats?.games ?? 0) >= c.founderGames && !registry.list(p.id).some((x) => x.pack === "pack-founder"));
   }
+  // Packs ville : une seule fois par compte.
+  function onceOk(p, pack) {
+    return !pack?.once || !registry.list(p.id).some((x) => x.pack === pack.id && x.status === "paid");
+  }
   function creditPurchase(p, purchase) {
     const { credited } = registry.record(p, purchase);
     const pack = economy.config.packs.find((x) => x.id === purchase.packId);
@@ -2012,7 +2016,7 @@ export function createApp({
     if (url.pathname === "/api/shop/config") {
       const c = economy.config;
       return json(res, 200, {
-        packs: packBonuses(c.packs).map(({ id, name, credits, price, priceCents, bonus, founder, item, note }) => ({ id, name, credits, price, priceCents, bonus, founder, item, note })),
+        packs: packBonuses(c.packs).map(({ id, name, credits, price, priceCents, bonus, founder, item, once, note }) => ({ id, name, credits, price, priceCents, bonus, founder, item, once, note })),
         founderUntil: c.founderUntil,
         firstPurchaseDoubleAfter: c.firstPurchaseDoubleAfter ?? 0,
         tableFeePct: c.tableFeePct ?? 0,
@@ -2053,6 +2057,7 @@ export function createApp({
           const pack = cfg.packs.find((x) => x.id === d.pack);
           check(pack, "Pack inconnu");
           check(!pack.founder || founderOk(p), "Pack Fondateur indisponible");
+          check(onceOk(p, pack), "Pack déjà acheté : une seule fois par compte");
           const cap = p.settings?.spendCap ?? 0;
           if (cap) {
             const month = new Date().toISOString().slice(0, 7);
@@ -2070,6 +2075,7 @@ export function createApp({
           // Paiement fictif réservé au développement : refusé dès que l'environnement est en production.
           check(cfg.testShop, "Indisponible");
           check(d.pack !== "pack-founder" || founderOk(p), "Pack Fondateur indisponible");
+          check(onceOk(p, cfg.packs.find((x) => x.id === d.pack)), "Pack déjà acheté : une seule fois par compte");
           result = creditPurchase(p, { provider: "test", transactionId: clean(d.transactionId, 80) || id(), packId: d.pack });
         } else throw Object.assign(Error("Action inconnue"), { status: 404 });
         broadcast();
