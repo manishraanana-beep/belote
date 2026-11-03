@@ -47,6 +47,9 @@ export const SHOP_ITEMS = [
   { id: "emo-02", cat: "emoji", ville: null, gamme: "Classique", name: "Clin d’œil", price: 500, img: "/shop/emoji/emo-02.webp" },
   { id: "pack-bistrot", cat: "reaction", ville: null, gamme: "Classique", name: "Pack Bistrot", price: 2000, includes: [1, 3, 4, 6, 7, 8, 9, 10] },
   { id: "pack-champion", cat: "reaction", ville: null, gamme: "Rare", name: "Pack Champion", price: 12000, includes: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20] },
+  // Emoji compris dans un pack : jamais vendus seuls (masqués du catalogue), mais il leur faut une
+  // fiche pour s'afficher une fois possédés (favoris, réactions à table).
+  ...EMOJI_NAMES.map((name, i) => ({ id: `emo-${pad(i + 1)}`, cat: "emoji", ville: null, gamme: null, name, price: 0, img: `/shop/emoji/emo-${pad(i + 1)}.webp`, hidden: true })).filter((it) => it.id !== "emo-02"),
 ].map((it, order) => {
   const c = SHOP_CATEGORIES.find((x) => x.id === it.cat);
   return { ...it, kind: c.kind, order, includes: it.includes ? it.includes.map((n) => `emo-${pad(n)}`) : undefined };
