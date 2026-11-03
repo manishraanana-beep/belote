@@ -81,6 +81,13 @@ export function createShop({ db, economy }) {
     },
     view(p) {
       const mine = owned(p);
+      // Réparation : un pack de réactions acheté avant que ses emoji soient mis en favoris (correctif
+      // ultérieur) laissait des emoji possédés mais invisibles à table. Complété ici, une fois pour toutes.
+      const fav = (p.progress.favorites ??= []);
+      for (const it of SHOP_ITEMS)
+        if (it.kind === "reaction" && mine[it.id])
+          for (const emoId of it.includes ?? [])
+            if (fav.length < FAVORITE_EMOJIS && !fav.includes(emoId)) fav.push(emoId);
       return {
         items: catalog()
           .filter((it) => !it.hidden || mine[it.id])
