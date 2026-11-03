@@ -101,12 +101,17 @@ export function createShop({ db, economy }) {
       const entry = economy.post(p, `shop:${p.id}:${id}`, "achat", -units, { label: `Boutique : ${it.name}`, item: id });
       if (!entry) fail("Vous possédez déjà cet article", { code: "owned" });
       owned(p)[id] = Date.now();
+      const fav = (p.progress.favorites ??= []);
       if (it.kind === "emoji") {
-        const fav = (p.progress.favorites ??= []);
         if (fav.length < FAVORITE_EMOJIS && !fav.includes(id)) fav.push(id);
       }
-      // Pack de réactions : les emoji qu'il contient deviennent possédés d'un coup.
-      if (it.kind === "reaction") for (const emoId of it.includes ?? []) owned(p)[emoId] = Date.now();
+      // Pack de réactions : les emoji qu'il contient deviennent possédés d'un coup, et ajoutés aux
+      // favoris (seul moyen de les envoyer en partie) dans la limite des 8 favoris.
+      if (it.kind === "reaction")
+        for (const emoId of it.includes ?? []) {
+          owned(p)[emoId] = Date.now();
+          if (fav.length < FAVORITE_EMOJIS && !fav.includes(emoId)) fav.push(emoId);
+        }
       return { item: it, balance: toCredits(economy.wallet(p).balance) };
     },
     // Offrir un objet à un ami : débite l'offreur, attribue l'objet à l'ami — jamais de jetons échangés.
