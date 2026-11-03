@@ -2208,6 +2208,7 @@ table.metrics .minus { color: #ff8f8f; }
 .piggy-amount { font-family: var(--title); font-size: 32px; color: var(--gold); text-align: center; margin: 4px 0 10px; }
 /* Pack Royal : léger relief doré ; note « = X parties à … » sous les jetons de chaque pack. */
 .pack.royal { border-width: 2.4px; box-shadow: 0 0 0 1px #0008, 0 0 16px #f6c85f55; }
+.pack.royal { grid-column: 1 / -1; }
 .pack-note { display: block; font-size: 11px; opacity: 0.75; margin-top: -2px; }
 /* Ville trop chère : chip grisé avec cadenas, carte assombrie, bouton « Débloquer ». */
 .stake-card.locked { filter: saturate(0.5) brightness(0.8); }
