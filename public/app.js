@@ -527,7 +527,7 @@ function shopPreview(it) {
   // Cadre : sur la table, aperçu avec son avatar — visible par toute la table, comme en jeu.
   if (it.kind === "frame") return `<div class="pv-scene felt-scene"><div class="pv-avatar ${it.id}"><div class="seat-avatar">${avatar(p.avatar)}</div></div><b>${e(p.name)}</b></div>`;
   if (it.kind === "effect") return `<div class="pv-scene felt-scene pv-effect"><span class="pv-effect-icon">${it.id === "effect-jetons" ? "🪙" : it.id === "effect-feu" ? "🎆" : "🎉"}</span></div>`;
-  if (it.kind === "reaction") return "";
+  if (it.kind === "reaction") return `<div class="pack-emojis">${(it.includes ?? []).map((emoId) => `<img src="/shop/emoji/${emoId}.webp" alt="">`).join("")}</div>`;
   return `<div class="pv-scene felt-scene"><div class="pv-seat">${avatar(p.avatar, "pv-av")}<b>${e(p.name)}</b><span class="pv-emo"><img src="${it.img}" alt=""></span></div></div>`;
 }
 function shopItemModal(id) {
@@ -543,13 +543,13 @@ function shopItemModal(id) {
           ? btn("Retirer de mes favoris", "shopUse", "line-btn wide", `data-id="${it.id}"`)
           : btn(fav.length >= 8 ? "Favoris complets (8 au maximum)" : "Utiliser · ajouter aux favoris", "shopUse", "gold-btn wide", `data-id="${it.id}"`, fav.length >= 8)
         : it.kind === "reaction"
-          ? `<p class="status owned big">${icon("check", "tiny")} Réactions débloquées</p><div class="pack-emojis">${(it.includes ?? []).map((id) => `<img src="/shop/emoji/${id}.webp" alt="">`).join("")}</div>`
+          ? `<p class="status owned big">${icon("check", "tiny")} Réactions débloquées</p>`
           : st === "equipped"
             ? `<p class="status equipped big">${icon("check", "tiny")} Équipé</p>`
             : btn("Utiliser", "shopUse", "gold-btn wide", `data-id="${it.id}"`);
   modal(
     `<div class="shop-modal"><h2>${e(it.name)}</h2><p class="muted">${e(state.player.shop.categories.find((c) => c.id === it.cat)?.name ?? "")}</p>
-      ${it.kind === "felt" || it.kind === "reaction" || it.kind === "effect" ? "" : `<div class="shop-modal-art sa-${it.cat}"><img src="${it.img}" alt=""></div>`}
+      ${it.kind === "felt" || it.kind === "reaction" || it.kind === "effect" || it.kind === "frame" ? "" : `<div class="shop-modal-art sa-${it.cat}"><img src="${it.img}" alt=""></div>`}
       ${shopPreview(it)}
       <div class="shop-modal-meta"><span><i class="coin"></i>${jetons(it.price)}${euroOf(it.price)}</span><span class="status ${st}">${STATUS_LABEL[st]}</span></div>
       ${action}
