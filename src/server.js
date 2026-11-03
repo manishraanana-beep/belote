@@ -353,7 +353,7 @@ export function createApp({
     db.tables[t.id] = t;
     return t;
   }
-  // Tables publiques permanentes : partie gratuite et mises de 200, 500 et 1 000 jetons.
+  // Tables publiques permanentes : partie gratuite et villes Paris 500, Cannes 1 500, Monaco 5 000, Dubaï 15 000, Las Vegas 50 000 jetons (BELOTE_LOBBY_STAKES).
   // Tables permanentes : une ville et un tapis par montant.
   const CITIES = { 500: ["paris", "Paris"], 1500: ["cannes", "Cannes"], 5000: ["monaco", "Monaco"], 15000: ["dubai", "Dubaï"], 50000: ["vegas", "Las Vegas"] };
   const LOBBY = (env.BELOTE_LOBBY_STAKES ?? "500,1500,5000,15000,50000").split(",").map(Number).filter((n) => Number.isInteger(n) && n >= 0);
@@ -1206,7 +1206,7 @@ export function createApp({
         break;
       }
       case "playLobby": {
-        // Mise choisie (200, 500 ou 1 000) : le joueur rejoint la table de ce montant qui a déjà
+        // Mise choisie (500, 1 500, 5 000, 15 000 ou 50 000) : le joueur rejoint la table de ce montant qui a déjà
         // le plus de joueurs, sans invitation ; la partie démarre seule à quatre.
         check(!db.settings.maintenance, "Entrées temporairement fermées");
         const stake = Number(d.stake);
