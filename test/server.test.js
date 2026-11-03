@@ -1133,9 +1133,10 @@ test("pack ville : jetons + tapis offert ; offrir un objet à un ami ; premier a
     const before = pa.wallet.balance;
     const r1 = await api(f, a.cookie, "/api/shop/test", { pack: "pack-ville-monaco", transactionId: "v1" });
     assert.equal(r1.status, 200);
-    assert.equal(pa.wallet.balance - before, 80000); // 20 000 jetons doublés = 40 000, en demi-crédits
+    assert.equal(pa.wallet.balance - before, 120000); // 30 000 jetons doublés = 60 000, en demi-crédits
     assert.ok(pa.progress.owned["felt-monaco"], "tapis Monaco offert avec le pack");
     assert.equal(f.app.db.purchases["test:v1"].doubled, true);
+    assert.equal((await api(f, a.cookie, "/api/shop/test", { pack: "pack-ville-monaco", transactionId: "v1b" })).status, 400, "pack ville : une seule fois par compte");
     // Deuxième achat : plus de doublement.
     const before2 = pa.wallet.balance;
     const r2 = await api(f, a.cookie, "/api/shop/test", { pack: "pack-10000", transactionId: "v2" });

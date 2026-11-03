@@ -22,9 +22,9 @@ export function economyConfig(env = process.env) {
     { id: "pack-140000", name: "Prestige", credits: 140000, price: "19,99 €", priceCents: 1999, note: "≈ 3 parties à Las Vegas" },
     { id: "pack-400000", name: "Royal", credits: 400000, price: "49,99 €", priceCents: 4999, note: "= 8 parties à Las Vegas" },
     // Packs ville (lot 5, 30/10) : jetons + tapis de la ville offert, jamais plus avantageux que le Royal.
-    { id: "pack-ville-monaco", name: "Pack Monaco", credits: 20000, price: "4,99 €", priceCents: 499, item: "felt-monaco", note: "+ tapis Monaco offert" },
-    { id: "pack-ville-dubai", name: "Pack Dubaï", credits: 45000, price: "9,99 €", priceCents: 999, item: "felt-dubai", note: "+ tapis Dubaï offert" },
-    { id: "pack-ville-vegas", name: "Pack Las Vegas", credits: 40000, price: "19,99 €", priceCents: 1999, item: "felt-vegas", note: "+ tapis Las Vegas offert" },
+    { id: "pack-ville-monaco", name: "Pack Monaco", credits: 30000, price: "4,99 €", priceCents: 499, item: "felt-monaco", once: true, note: "+ tapis offert" },
+    { id: "pack-ville-dubai", name: "Pack Dubaï", credits: 65000, price: "9,99 €", priceCents: 999, item: "felt-dubai", once: true, note: "+ tapis offert" },
+    { id: "pack-ville-vegas", name: "Pack Las Vegas", credits: 140000, price: "19,99 €", priceCents: 1999, item: "felt-vegas", once: true, note: "+ tapis offert" },
   ];
   try {
     if (env.BELOTE_PACKS) packs = JSON.parse(env.BELOTE_PACKS);

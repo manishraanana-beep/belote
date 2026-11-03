@@ -2561,7 +2561,7 @@ async function shopModal() {
   const w = state.player.wallet;
   const founder = c.packs.find((x) => x.founder);
   const packs = c.packs.filter((x) => !x.founder && !x.item);
-  const villePacks = c.packs.filter((x) => x.item);
+  const villePacks = c.packs.filter((x) => x.item && !(x.once && (state.player.purchases ?? []).some((b) => b.pack === x.id && b.status === "paid"))).sort((a, b) => a.priceCents - b.priceCents);
   // Après l'offre de lancement : premier achat doublé, une seule fois par compte.
   const firstDouble = c.firstPurchaseDoubleAfter && Date.now() >= c.firstPurchaseDoubleAfter && !(state.player.purchases ?? []).length;
   // Écran « Plus de jetons » : le gratuit d'abord, puis l'offre Fondateur, puis les packs.
@@ -2582,7 +2582,7 @@ async function shopModal() {
     ${
       villePacks.length
         ? `<h3 class="wallet-sub">Packs ville</h3><p class="muted small">Jetons + tapis de la ville offert.</p>
-    <div class="packs">${villePacks.map((pk) => `<article class="pack">${pk.name ? `<small class="pack-name">${e(pk.name)}</small>` : ""}<span class="pack-coins"><i class="coin"></i></span><b>${fmt(pk.credits)}</b><small>jetons</small>${pk.note ? `<small class="pack-note">${e(pk.note)}</small>` : ""}
+    <div class="packs">${villePacks.map((pk) => `<article class="pack">${pk.name ? `<small class="pack-name">${e(pk.name)}</small>` : ""}<span class="pack-coins">${"<i class=\"coin\"></i>".repeat(Math.min(4, 1 + Math.round(Math.log10(pk.credits / 500))))}</span><b>${fmt(pk.credits)}</b><small>jetons</small>${pk.note ? `<small class="pack-note">${e(pk.note)}</small>` : ""}
       ${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(pk.price)) : e(pk.price), "buy", "pill small", `data-pack="${pk.id}"`, !open || !state.player.account)}</article>`).join("")}</div>`
         : ""
     }
