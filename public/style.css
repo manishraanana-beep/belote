@@ -1762,6 +1762,9 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 .robot-note { display: flex; align-items: center; gap: 14px; margin: 14px 0; padding: 12px 16px; border-radius: 16px; border: 1px solid #ffffff1f; background: #00000033; color: #d9e6e0; font-size: 14px; line-height: 1.4; }
 .robot-note .ico { flex: none; width: 34px; height: 34px; color: var(--gold); }
 @media (max-width: 380px) { .stake-card:is(.paris, .cannes, .monaco, .dubai, .vegas) .sc-main b { font-size: 21px; } .sc-flag { width: 26px; height: 18px; } .stake-card:is(.paris, .cannes, .monaco, .dubai, .vegas) .sc-chip { width: 66px; height: 66px; } }
+/* Dubaï (15 000) et Las Vegas (50 000) : chiffres plus petits pour ne pas toucher le bord du jeton. */
+.stake-card:is(.dubai, .vegas) .sc-chip b { font-size: 16px; }
+@media (max-width: 380px) { .stake-card:is(.dubai, .vegas) .sc-chip b { font-size: 13px; } }
 .plus-dot { display: inline-grid; place-items: center; width: 26px; height: 26px; margin-right: 10px; border-radius: 50%; background: #1d1205; color: var(--gold-1); font-style: normal; font-weight: 800; font-size: 20px; line-height: 1; vertical-align: -4px; }
 .screen.game.city .felt::after { content: none; }
 /* Logo ton sur ton : silhouette du logo, teinte plus foncée du tapis. */
