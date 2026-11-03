@@ -49,7 +49,7 @@ const REPORT_REASONS = {
 const fmt = (n) => Number(n).toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 const coins = (n, cls = "") => `<span class="coins ${cls}"><i class="coin"></i>${fmt(n)}</span>`;
 const signed = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n));
-const stakeRisk = (s) => `Mise : ${fmt(s)} crédits. Vous ne pouvez perdre que votre mise. Quitter la partie en cours fait perdre la mise.`;
+const stakeRisk = (s) => `Mise : ${fmt(s)} jetons. Vous ne pouvez perdre que votre mise. Quitter la partie en cours fait perdre la mise.`;
 const DEFAULT_RULES = {
   target: 1000,
   turnSeconds: 20,
@@ -720,7 +720,7 @@ function playerSheet(id) {
       ${btn(hidden ? "👁️ Afficher ses messages et réactions" : "🙈 Masquer ses messages et réactions", "hide", "menu-item", `data-id="${id}" data-on="${!hidden}"`)}
       ${btn(blocked ? "✅ Débloquer" : "⛔ Bloquer", "block", "menu-item", `data-id="${id}" data-on="${!blocked}"`)}
       ${btn("🚩 Signaler", "reportPlayer", "menu-item danger", `data-id="${id}" data-name="${e(name)}"`)}
-    </div><p class="muted small">Bloquer n’interrompt pas la partie en cours et ne change rien aux crédits engagés.</p>`;
+    </div><p class="muted small">Bloquer n’interrompt pas la partie en cours et ne change rien aux jetons engagés.</p>`;
 }
 // ———————————————————————————————————————————————————————————— pages (maquettes « Contrée »)
 const ICONS = {
@@ -948,7 +948,7 @@ function arcadeHome() {
     </div>
     <img class="a-logo" src="/decor/logo.webp" alt="Belote Prestige" draggable="false">
     ${needVerify() ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
-    ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 crédits offerts ${icon("chevron", "tiny")}</button>`}
+    ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 jetons offerts ${icon("chevron", "tiny")}</button>`}
     ${invitesBlock()}
     ${playHero()}
     ${friendsOnline()}
@@ -981,7 +981,7 @@ function homePage() {
     </div>
     ${p.account && p.wallet.loginBonus?.amount > 0 ? (wheelReady() ? `<p class="bonus-line">${btn("🎡 La roue du jour vous attend ! Tourner", "wheel", "inline-link")}</p>` : `<p class="bonus-line">🎡 Prochaine roue du jour dans <b data-countdown="${p.wallet.loginBonus.next}"></b>${p.wallet.loginBonus.streak ? ` · série ${p.wallet.loginBonus.streak} j 🔥` : ""}</p>`) : ""}
     ${needVerify() ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
-    ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 crédits offerts ${icon("chevron", "tiny")}</button>`}
+    ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 jetons offerts ${icon("chevron", "tiny")}</button>`}
     ${playHero()}
     ${live ? `<p class="live-now"><i class="live-dot"></i>${live} partie${live > 1 ? "s" : ""} en cours en ce moment</p>` : ""}
     ${invitesBlock()}
@@ -1217,7 +1217,7 @@ function vipCreatePage() {
       <label class="toggle-row">${icon("bolt")}<span>Contrée à la volée</span><input type="checkbox" name="flyingCounter" checked><i class="sw"></i></label>
       <label class="toggle-row">${icon("robot")}<span>Compléter avec des robots</span><input type="checkbox" name="fillBots" checked><i class="sw"></i></label>
       <label class="toggle-row">${icon("clock")}<span>Temps de réflexion par tour</span><select name="turnSeconds">${[15, 20, 30, 45, 60].map((n) => `<option value="${n}" ${n === r.turnSeconds ? "selected" : ""}>${n} s</option>`).join("")}</select></label>
-      <div class="lbl">Mise par joueur<div class="seg radio wrap">${[0, ...STAKES].map((n) => `<label><input type="radio" name="stake" value="${n}" ${n ? "" : "checked"}><span>${n ? fmt(n) : "Gratuit"}</span></label>`).join("")}</div><small class="hint">Avec crédits : quatre joueurs humains, perte limitée à la mise.</small></div>
+      <div class="lbl">Mise par joueur<div class="seg radio wrap">${[0, ...STAKES].map((n) => `<label><input type="radio" name="stake" value="${n}" ${n ? "" : "checked"}><span>${n ? fmt(n) : "Gratuit"}</span></label>`).join("")}</div><small class="hint">Avec jetons : quatre joueurs humains, perte limitée à la mise.</small></div>
       <input type="hidden" name="counterWindowSeconds" value="${r.counterWindowSeconds}"><input type="hidden" name="reconnectSeconds" value="${r.reconnectSeconds}"><input type="hidden" name="capotValue" value="${r.capotValue}"><input type="hidden" name="scoring" value="${r.scoring}"><input type="hidden" name="allPass" value="${r.allPass}">${r.beloteRetained ? '<input type="hidden" name="beloteRetained" value="on">' : ""}<input type="hidden" name="beloteCountsContract" value="on">
       <button class="gold-btn wide">${icon("crown")} Créer ma table</button>
     </form>
@@ -1238,8 +1238,8 @@ function rewardsText(t) {
   const names = (ids) => ids.map((x) => REWARD_NAMES[x] ?? x).join(", ");
   if (t.entryFee) lines.push(`🎟️ Droit d’entrée : ${t.entryFee} jetons par joueur, payé au départ (rien si vous ne jouez pas)`);
   if (t.entryFee) lines.push(`🏦 Cagnotte${t.pot != null ? ` : ${t.pot} jetons` : ""} — droits d’entrée moins ${t.houseCut} % pour la Maison ; 70 % aux vainqueurs, 30 % aux finalistes`);
-  if (t.prizes?.winner) lines.push(`💰 Enjeu vainqueurs : ${t.prizes.winner} crédits par joueur`);
-  if (t.prizes?.finalist) lines.push(`💰 Enjeu finalistes : ${t.prizes.finalist} crédits par joueur`);
+  if (t.prizes?.winner) lines.push(`💰 Enjeu vainqueurs : ${t.prizes.winner} jetons par joueur`);
+  if (t.prizes?.finalist) lines.push(`💰 Enjeu finalistes : ${t.prizes.finalist} jetons par joueur`);
   if (t.rewards.winner.length) lines.push(`🏆 Vainqueurs : ${names(t.rewards.winner)}`);
   if (t.rewards.finalist.length) lines.push(`🥈 Finalistes : ${names(t.rewards.finalist)}`);
   if (t.rewards.participant.length) lines.push(`🎟️ Participants : ${names(t.rewards.participant)}`);
@@ -1754,7 +1754,7 @@ function dealResult(g, t, me) {
     ${tipLine(`deal:${t.gameId}:${h.deal}`)}
   </div></div>`;
 }
-// Maquette « Victoire ! » + règlement des crédits + revanche.
+// Maquette « Victoire ! » + règlement des jetons + revanche.
 function finalResult(g, t, me) {
   const won = g.scores[me % 2] > g.scores[1 - (me % 2)];
   const r = t.result;
@@ -2147,14 +2147,14 @@ setInterval(() => {
   if (m && state.table.game && Date.now() - m.at > 5000 && Date.now() - m.at < 5600) render();
 }, 500);
 
-// Petite pluie de pièces : « Bonus de connexion : +200 crédits ! » et nouveau solde.
+// Petite pluie de pièces : « Bonus de connexion : +200 jetons ! » et nouveau solde.
 function showBonus(m) {
   document.querySelector(".bonus-pop")?.remove();
   const el = document.createElement("div");
   el.className = "bonus-pop";
   el.setAttribute("role", "status");
   el.innerHTML = `<div class="bp-coins" aria-hidden="true">${Array.from({ length: 10 }, (_, i) => `<i class="k${i}"></i>`).join("")}</div>
-    <div class="bp-card"><span class="big-coin"></span><b>Bonus de connexion : +${fmt(m.amount)} crédits !</b><small>Nouveau solde : ${fmt(m.balance)} crédits</small></div>`;
+    <div class="bp-card"><span class="big-coin"></span><b>Bonus de connexion : +${fmt(m.amount)} jetons !</b><small>Nouveau solde : ${fmt(m.balance)} jetons</small></div>`;
   document.body.append(el);
   tone([523, 659, 784, 1046], 0.09, 0.05);
   el.addEventListener("click", () => el.remove());
@@ -2410,7 +2410,7 @@ function spinWheel() {
         clearInterval(tickT);
         wheelBusy = false;
         const out = document.getElementById("wheel-out");
-        if (out) out.innerHTML = `<div class="wheel-win"><b>+${fmt(r.amount)} crédits !</b><small>Série : ${r.streak} jour${r.streak > 1 ? "s" : ""} · ×${String(r.mult).replace(".", ",")} · nouveau solde ${fmt(r.balance)}</small></div>`;
+        if (out) out.innerHTML = `<div class="wheel-win"><b>+${fmt(r.amount)} jetons !</b><small>Série : ${r.streak} jour${r.streak > 1 ? "s" : ""} · ×${String(r.mult).replace(".", ",")} · nouveau solde ${fmt(r.balance)}</small></div>`;
         document.querySelector('button[data-action="spin"]')?.remove();
         document.querySelector('.wheel-wrap')?.removeAttribute("data-action");
         SFX.win();
@@ -2526,7 +2526,7 @@ async function oidc(provider) {
   }
 }
 
-// ———————————————————————————————————————————————————————————— crédits, progression, social
+// ———————————————————————————————————————————————————————————— jetons, progression, social
 function levelBar(l) {
   return `<div class="level"><div class="level-head"><b>${e(l.name)}</b><small>${l.next ? `${fmt(l.xp)} / ${fmt(l.next)} XP` : `${fmt(l.xp)} XP`}</small></div><div class="bar"><i class="w${Math.round(l.progress * 20) * 5}"></i></div></div>`;
 }
@@ -2540,13 +2540,13 @@ function walletModal() {
     acc = state.player.account;
   modal(
     `<div class="wallet">
-      <div class="wallet-hero"><span class="big-coin"></span><div><small>Solde</small><b>${fmt(w.balance / 2)}</b><span>crédits de jeu</span></div></div>
+      <div class="wallet-hero"><span class="big-coin"></span><div><small>Solde</small><b>${fmt(w.balance / 2)}</b><span>jetons de jeu</span></div></div>
       <div class="wallet-split"><div><small>Disponible</small><b>${fmt(w.available / 2)}</b></div><div><small>Engagé en partie</small><b>${fmt(w.reserved / 2)}</b></div></div>
-      ${acc ? `<p class="daily-done">🎡 Roue du jour : un tour toutes les 24 h, gains multipliés par votre série (jusqu’à ×4) · prochain tour dans <b data-countdown="${w.loginBonus?.next ?? 0}"></b></p>` : `<div class="account-box guest"><b>Créez un compte</b><p class="muted small">Recevez vos crédits de bienvenue et le bonus quotidien, sur le site et dans l’application.</p>${btn("Créer un compte", "auth", "pill small", 'data-mode="register"')}</div>`}
+      ${acc ? `<p class="daily-done">🎡 Roue du jour : un tour toutes les 24 h, gains multipliés par votre série (jusqu’à ×4) · prochain tour dans <b data-countdown="${w.loginBonus?.next ?? 0}"></b></p>` : `<div class="account-box guest"><b>Créez un compte</b><p class="muted small">Recevez vos jetons de bienvenue et le bonus quotidien, sur le site et dans l’application.</p>${btn("Créer un compte", "auth", "pill small", 'data-mode="register"')}</div>`}
       <div class="row">${btn("🪙 Boutique", "shop", "pill small")}${btn("📜 Historique", "history", "chip-btn")}${btn("🤖 Entraînement gratuit", "practice", "chip-btn")}</div>
       ${acc ? `<label class="cap-row">Plafond de dépenses par mois<select data-setting="spendCap">${[0, 10, 20, 50, 100].map((v) => `<option value="${v}" ${(state.player.settings.spendCap ?? 0) === v ? "selected" : ""}>${v ? `${v} €` : "Aucun"}</option>`).join("")}</select></label>` : ""}
       ${(state.player.purchases ?? []).length ? `<h3 class="wallet-sub">Mes achats</h3><ul class="buy-list">${state.player.purchases.map((x) => `<li><span>${new Date(x.at).toLocaleDateString("fr-FR")}</span><b>${fmt(x.credits)} jetons</b><span>${x.amountCents != null ? (x.amountCents / 100).toLocaleString("fr-FR", { style: "currency", currency: (x.currency || "eur").toUpperCase() }) : ""}</span><em>${{ paid: "Payé", refunded: "Remboursé", disputed: "Contesté" }[x.status] ?? x.status}</em></li>`).join("")}</ul>` : ""}
-      <p class="muted small wallet-note">Les crédits servent uniquement à jouer : ils ne peuvent être ni retirés, ni transférés, ni convertis en argent. ${btn("Conditions de vente", "go", "inline-link", 'data-page="legal"')}</p>
+      <p class="muted small wallet-note">Les jetons servent uniquement à jouer : ils ne peuvent être ni retirés, ni transférés, ni convertis en argent. ${btn("Conditions de vente", "go", "inline-link", 'data-page="legal"')}</p>
     </div>`,
     "wallet-modal",
   );
@@ -2598,11 +2598,11 @@ async function historyModal() {
   pendingAcks[id] = (m) => {
     const rows = m.wallet
       .map((x) => {
-        const game = x.gameId ? `<small>Partie ${e(x.gameId.slice(0, 6))} · mise ${fmt(x.stake)} · engagé ${fmt(x.engaged)} · ${x.rubicon ? "rubicon" : "simple"}</small>${x.adjusted ? '<small class="adjusted">Gain ajusté aux crédits engagés par les adversaires.</small>' : ""}` : "";
+        const game = x.gameId ? `<small>Partie ${e(x.gameId.slice(0, 6))} · mise ${fmt(x.stake)} · engagé ${fmt(x.engaged)} · ${x.rubicon ? "rubicon" : "simple"}</small>${x.adjusted ? '<small class="adjusted">Gain ajusté aux jetons engagés par les adversaires.</small>' : ""}` : "";
         return `<li class="${x.amount > 0 ? "in" : x.amount < 0 ? "out" : ""}"><div><b>${e(x.label ?? x.type)}</b><small>${when(x.at)}</small>${game}</div><span><b>${x.amount ? signed(x.amount) : "0"}</b><small>solde ${fmt(x.balance)}</small></span></li>`;
       })
       .join("");
-    modal(`<div class="modal-head"><span class="modal-icon">📜</span><h2>Historique des crédits</h2></div><ul class="ledger">${rows || '<li class="empty">Aucun mouvement pour l’instant.</li>'}</ul><p class="muted small">Journal en lecture seule : chaque règlement et chaque récompense ont un identifiant unique.</p>`, "sheet-modal");
+    modal(`<div class="modal-head"><span class="modal-icon">📜</span><h2>Historique des jetons</h2></div><ul class="ledger">${rows || '<li class="empty">Aucun mouvement pour l’instant.</li>'}</ul><p class="muted small">Journal en lecture seule : chaque règlement et chaque récompense ont un identifiant unique.</p>`, "sheet-modal");
   };
   ws.send(JSON.stringify({ id, type: "wallet", data: {} }));
 }
@@ -2650,7 +2650,7 @@ function needFunds(stake) {
   if (!stake) return false;
   if (!state.player.account) {
     go("register");
-    toast("Créez un compte pour jouer avec des crédits");
+    toast("Créez un compte pour jouer avec des jetons");
     return true;
   }
   if (state.player.wallet.available / 2 < stake) {
@@ -2693,7 +2693,7 @@ function progressModal() {
   modal(
     `<div class="modal-head"><span class="modal-icon">🏅</span><h2>Niveau d’activité</h2></div>
     ${levelBar(pr.level)}
-    <p class="muted small">Le niveau récompense la participation : il ne mesure pas la force de jeu et ne se perd jamais, même si vous perdez des crédits.</p>
+    <p class="muted small">Le niveau récompense la participation : il ne mesure pas la force de jeu et ne se perd jamais, même si vous perdez des jetons.</p>
     <div class="stat-row light"><div><b>${pr.finished}</b><small>parties terminées</small></div><div><b>${pr.wins}</b><small>victoires</small></div><div><b>${pr.badges.filter((b) => b.at).length}</b><small>badges</small></div></div>
     <h3>Badges</h3><div class="badges">${pr.badges.map((b) => `<div class="badge ${b.at ? "on" : ""}"><span>${b.icon}</span><b>${e(b.name)}</b><small>${b.at ? new Date(b.at).toLocaleDateString("fr-FR") : e(b.hint)}</small></div>`).join("")}</div>`,
     "sheet-modal",
@@ -2728,7 +2728,7 @@ function reportModal(id, name) {
 function joinConfirm(t, action, data = "") {
   rulesModal(
     t.rules,
-    `${t.stake ? `<div class="stake-warning">${coins(t.stake, "big")}<p>${e(stakeRisk(t.stake))}</p><small>Votre solde disponible : ${fmt(state.player.wallet.available / 2)} crédits</small></div>` : '<p class="free-note">Partie gratuite : aucun crédit engagé.</p>'}${btn(t.stake ? "J’ai compris, rejoindre" : "Accepter et rejoindre", action, "cta small wide", data)}`,
+    `${t.stake ? `<div class="stake-warning">${coins(t.stake, "big")}<p>${e(stakeRisk(t.stake))}</p><small>Votre solde disponible : ${fmt(state.player.wallet.available / 2)} jetons</small></div>` : '<p class="free-note">Partie gratuite : aucun jeton engagé.</p>'}${btn(t.stake ? "J’ai compris, rejoindre" : "Accepter et rejoindre", action, "cta small wide", data)}`,
   );
 }
 function resultModal(r) {
@@ -2753,7 +2753,7 @@ function createModal(r = DEFAULT_RULES, editing = false) {
       ${editing ? "" : `<label>Nom de la table<input name="name" placeholder="Le salon de Sophie" maxlength="40" required></label>
       <div class="seg radio"><label><input type="radio" name="vip" value="true" checked><span>👑 Privée</span></label><label><input type="radio" name="vip" value="false"><span>🌍 Publique</span></label></div>
       <label>Mot de passe <small>facultatif</small><input name="password" type="password" maxlength="128" autocomplete="new-password"></label>`}
-      <fieldset class="stakes"><legend>Mise par joueur</legend><div class="seg radio wrap">${[0, ...STAKES].map((n) => `<label><input type="radio" name="stake" value="${n}" ${n === (editing ? state.table.stake : 0) ? "checked" : ""}><span>${n ? `🪙 ${fmt(n)}` : "Gratuit"}</span></label>`).join("")}</div><small class="muted">Avec crédits : quatre joueurs, perte limitée à la mise.</small></fieldset>
+      <fieldset class="stakes"><legend>Mise par joueur</legend><div class="seg radio wrap">${[0, ...STAKES].map((n) => `<label><input type="radio" name="stake" value="${n}" ${n === (editing ? state.table.stake : 0) ? "checked" : ""}><span>${n ? `🪙 ${fmt(n)}` : "Gratuit"}</span></label>`).join("")}</div><small class="muted">Avec jetons : quatre joueurs, perte limitée à la mise.</small></fieldset>
       <details class="advanced" ${editing ? "open" : ""}><summary>Règles et délais</summary>
       <div class="form-grid">${num("target", "Points pour gagner", 100, 10000)}${num("turnSeconds", "Temps par tour (s)", 5, 120)}${num("counterWindowSeconds", "Délai de surcontre (s)", 2, 30)}${num("capotValue", "Valeur du capot", 160, 500)}${num("reconnectSeconds", "Délai d’absence (s)", 10, 600)}
       <label>Score<select name="scoring"><option value="added" ${r.scoring === "added" ? "selected" : ""}>Points + contrat</option><option value="contract" ${r.scoring === "contract" ? "selected" : ""}>Contrat seul</option></select></label>
@@ -3173,7 +3173,7 @@ document.addEventListener("click", async (ev) => {
           location.href = r.url;
         } else if (c.test) {
           await api("/api/shop/test", { pack: el.dataset.pack });
-          toast("Crédits ajoutés (paiement de test)");
+          toast("Jetons ajoutés (paiement de test)");
           closeModal();
         }
       } catch (err) {
@@ -3440,7 +3440,7 @@ document.addEventListener("click", async (ev) => {
       await adminRequest({ type: "suspend", id: el.dataset.id, enabled: el.dataset.enabled === "true" });
       break;
     case "clientDelete":
-      if (confirm(`Supprimer définitivement « ${el.dataset.name} » ? Compte, crédits et historique seront effacés.`)) {
+      if (confirm(`Supprimer définitivement « ${el.dataset.name} » ? Compte, jetons et historique seront effacés.`)) {
         adminClient = null;
         if (await adminRequest({ type: "playerDelete", id: el.dataset.id })) toast("Client supprimé");
       }
@@ -3470,7 +3470,7 @@ document.addEventListener("click", async (ev) => {
       await adminRequest({ type: "reviewAlert", id: el.dataset.id });
       break;
     case "cancelGame":
-      if (confirm("Annuler cette partie ? Les crédits engagés seront libérés sans gain ni perte.")) await adminRequest({ type: "cancelGame", id: el.dataset.id });
+      if (confirm("Annuler cette partie ? Les jetons engagés seront libérés sans gain ni perte.")) await adminRequest({ type: "cancelGame", id: el.dataset.id });
       break;
     case "resolveReport":
       await adminRequest({ type: "resolve", id: el.dataset.id });
@@ -3574,16 +3574,16 @@ async function openClient(id) {
       <div class="row">${btn("← Liste des clients", "clientBack", "chip-btn ghost")}</div>
       <div class="client-head">${avatar(c.avatar)}<div><b>${e(c.name)}</b><small>${e(c.tag ?? "")} · ${c.online ? "en ligne" : "hors ligne"}${c.banned ? " · <b>suspendu</b>" : ""}</small><small>${c.account ? `${e(c.account.email)} · ${c.account.verified ? "e-mail vérifié" : "e-mail non vérifié"}${c.account.providers.length ? " · " + c.account.providers.map(e).join(", ") : ""}` : "Invité sans compte"}</small></div></div>
       <div class="admin-stats"><div><b>${fmt(w.balance / 2)}</b><small>solde</small></div><div><b>${fmt(w.reserved / 2)}</b><small>engagés</small></div><div><b>${c.stats.games}</b><small>parties</small></div><div><b>${c.stats.wins ?? 0}</b><small>victoires</small></div></div>
-      <h4>Créditer / débiter</h4>
+      <h4>Ajouter / retirer des jetons</h4>
       <div class="row">${c.account ? `${c.prestige ? `<small>⭐ Prestige jusqu’au ${new Date(c.prestige.until).toLocaleDateString("fr-FR")}</small>` : ""}${btn("⭐ Prestige +30 j", "adminPrestige", "chip-btn", `data-id="${c.id}" data-days="30"`)}${c.prestige ? btn("Retirer Prestige", "adminPrestige", "chip-btn", `data-id="${c.id}" data-days="0"`) : ""}` : ""}</div>
-      <form id="client-credit-form" class="form inline"><input type="hidden" name="cid" value="${c.id}"><label>Montant (crédits, négatif pour retirer)<input name="amount" type="number" step="0.5" min="-1000000" max="1000000" required></label><label>Motif<input name="reason" maxlength="120" placeholder="Geste commercial, correction…"></label><button class="pill small">Valider</button></form>
+      <form id="client-credit-form" class="form inline"><input type="hidden" name="cid" value="${c.id}"><label>Montant (jetons, négatif pour retirer)<input name="amount" type="number" step="0.5" min="-1000000" max="1000000" required></label><label>Motif<input name="reason" maxlength="120" placeholder="Geste commercial, correction…"></label><button class="pill small">Valider</button></form>
       <h4>Fiche</h4>
       <form id="client-edit-form" class="form"><input type="hidden" name="cid" value="${c.id}">
         <div class="form-grid"><label>Pseudo<input name="name" value="${e(c.name)}" minlength="2" maxlength="24" required></label><label>Avatar<input name="avatar" value="${e(c.avatar)}" maxlength="8"></label>
         ${c.account ? `<label>E-mail<input name="email" type="email" value="${e(c.account.email)}" required></label><label class="check-line"><input type="checkbox" name="verified" ${c.account.verified ? "checked" : ""}>E-mail vérifié</label><label>Nouveau mot de passe <small class="muted">(laisser vide pour ne pas changer)</small><input name="password" type="text" minlength="8" maxlength="128" autocomplete="off"></label>` : ""}</div>
         <button class="pill small">Enregistrer la fiche</button></form>
       <div class="row">${btn(c.banned ? "Réactiver le compte" : "Suspendre le compte", "clientSuspend", "chip-btn", `data-id="${c.id}" data-enabled="${!c.banned}"`)}${btn("Supprimer le client", "clientDelete", "chip-btn danger", `data-id="${c.id}" data-name="${e(c.name)}"`)}</div>
-      <h4>Journal des crédits</h4>
+      <h4>Journal des jetons</h4>
       <div class="client-ledger">${c.ledger.map((x) => `<div class="admin-row"><span>${when(x.at)} · ${e(x.label ?? x.type)}</span><span class="${x.amount < 0 ? "neg" : "pos"}">${x.amount > 0 ? "+" : ""}${fmt(x.amount)} → ${fmt(x.balance)}</span></div>`).join("") || "<p class='muted small'>Aucun mouvement.</p>"}</div>
       <h4>Dernières parties</h4>
       <div>${(c.history ?? []).slice(0, 15).map((h) => `<div class="admin-row"><span>${h.at ? when(h.at) : ""} ${e(h.table ?? h.name ?? "")}</span><span>${h.won ? "Gagnée" : "Perdue"}${h.score ? ` · ${e(String(h.score))}` : ""}</span></div>`).join("") || "<p class='muted small'>Aucune partie.</p>"}</div>
@@ -3639,7 +3639,7 @@ async function adminRequest(data) {
       <nav class="admin-tabs">${tabs.map(([id, ic, label, n]) => `<button type="button" class="admin-tab ${adminTab === id ? "on" : ""}" data-action="adminTab" data-tab="${id}"><span>${ic}</span>${label}${n ? `<i>${n}</i>` : ""}</button>`).join("")}</nav>
       <div class="admin-body">
       ${panel("dash", `<h2>Tableau de bord</h2>
-        <div class="admin-stats"><div><b>${d.players.length}</b><small>clients</small></div><div><b>${online}</b><small>en ligne</small></div><div><b>${d.tables.length}</b><small>tables</small></div><div><b>${upcoming.length}</b><small>tournois à venir</small></div><div><b>${fmt(d.economy.circulating)}</b><small>crédits en circulation</small></div><div><b>${fmt(d.economy.reserved)}</b><small>crédits engagés</small></div><div><b>${open.length}</b><small>signalements</small></div><div><b>${alerts.length}</b><small>alertes</small></div></div>
+        <div class="admin-stats"><div><b>${d.players.length}</b><small>clients</small></div><div><b>${online}</b><small>en ligne</small></div><div><b>${d.tables.length}</b><small>tables</small></div><div><b>${upcoming.length}</b><small>tournois à venir</small></div><div><b>${fmt(d.economy.circulating)}</b><small>jetons en circulation</small></div><div><b>${fmt(d.economy.reserved)}</b><small>jetons engagés</small></div><div><b>${open.length}</b><small>signalements</small></div><div><b>${alerts.length}</b><small>alertes</small></div></div>
         <p class="muted small">Achats ${d.economy.purchases ? "ouverts" : "fermés"} (web ${d.economy.stripe ? "✓" : "—"}, iOS ${d.economy.apple ? "✓" : "—"}, Android ${d.economy.google ? "✓" : "—"}) · Push navigateur ${d.push.web ? "✓" : "—"} · Push natif ${d.push.native ? "✓" : "—"} · Entrées ${d.settings.maintenance ? "suspendues" : "ouvertes"}</p>
         ${backupCard(d.backup)}
         ${d.metrics ? metricsCard(d.metrics) : ""}
@@ -3656,7 +3656,7 @@ async function adminRequest(data) {
       ${panel("tables", `<h2>Tables</h2>${d.tables.map((t) => row(`${e(t.name)} · ${e(t.status)}${t.stake ? ` · 🪙 ${t.stake}` : ""}`, t.engaged ? btn("Annuler (incident)", "cancelGame", "chip-btn danger", `data-id="${t.id}"`) : btn("Supprimer", "deleteTable", "chip-btn", `data-id="${t.id}"`, t.status === "Partie en cours"))).join("") || "<p>Aucune table.</p>"}`)}
       ${panel("settings", `<h2>Réglages</h2>
         <div class="admin-card"><b>Nouvelles entrées</b><small>Bloque l’arrivée de nouveaux joueurs aux tables (maintenance).</small>${btn(d.settings.maintenance ? "Rouvrir les entrées" : "Suspendre les nouvelles entrées", "maintenance", "chip-btn", `data-enabled="${!d.settings.maintenance}"`)}</div>
-        <div class="admin-card"><form id="bonus-form" class="form inline"><label>Bonus de connexion (crédits / 24 h)<input name="amount" type="number" min="0" max="100000" step="1" value="${d.settings.loginBonus ?? d.economy.loginBonus}" required></label><button class="pill small">Enregistrer</button></form></div>`)}
+        <div class="admin-card"><form id="bonus-form" class="form inline"><label>Bonus de connexion (jetons / 24 h)<input name="amount" type="number" min="0" max="100000" step="1" value="${d.settings.loginBonus ?? d.economy.loginBonus}" required></label><button class="pill small">Enregistrer</button></form></div>`)}
       </div>`;
     if (adminClient) await openClient(adminClient);
     return true;
