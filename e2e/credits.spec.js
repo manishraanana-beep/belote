@@ -189,11 +189,18 @@ test("crédits et social : portefeuille, boutique, amis, invitation, mise, engag
   for (const p of [B, C, D]) {
     const me = await st(p);
     if (me.player.wallet.available < 400) {
-      await p.locator('[data-action="rematchYes"]').click();
-      await expect(p.locator("#modal")).toContainText("Solde insuffisant");
-      await p.screenshot({ path: `${shots}revanche-solde-insuffisant.png` });
-      await p.locator('#modal .menu-item[data-action="shop"]').click();
-      await p.locator('.pack [data-pack="pack-1000"]').click();
+      if (await p.locator('[data-action="rematchYes"]').isDisabled()) {
+        // Partie perdue, solde trop bas : « Rejouer » verrouillé, le gratuit puis le plus petit pack qui suffit.
+        await expect(p.locator(".lost-funds")).toContainText("Plus que");
+        await p.screenshot({ path: `${shots}defaite-solde-insuffisant.png` });
+        await p.locator('.lost-funds [data-action="buy"]').click();
+      } else {
+        await p.locator('[data-action="rematchYes"]').click();
+        await expect(p.locator("#modal")).toContainText("Solde insuffisant");
+        await p.screenshot({ path: `${shots}revanche-solde-insuffisant.png` });
+        await p.locator('#modal .menu-item[data-action="shop"]').click();
+        await p.locator('.pack [data-pack="pack-1000"]').click();
+      }
       await expect.poll(async () => (await st(p)).player.wallet.available).toBeGreaterThanOrEqual(400);
     }
     await p.locator('[data-action="rematchYes"]').click();

@@ -1761,6 +1761,8 @@ function finalResult(g, t, me) {
   const votes = t.rematch?.votes ?? {};
   const mine = votes[state.player.id];
   const blocked = t.rematch?.blocked ?? [];
+  // Solde inférieur à la mise : « Rejouer » verrouillé, le gratuit d'abord, puis le plus petit pack qui suffit.
+  const short = !won && state.player.account && t.stake && !t.tournament ? Math.max(0, Math.ceil(t.stake + feeOf(t.stake) - state.player.wallet.available / 2)) : 0;
   return `<div class="overlay-page final ${won ? "win" : "lose"}"><div class="op-inner">
     ${won ? '<div class="confetti" aria-hidden="true">' + "<i></i>".repeat(14) + "</div>" : ""}
     ${won ? '<img class="art final-art-img" src="/decor/victoire.webp" alt="" draggable="false">' : `<div class="final-art">${avatar(t.seats[me]?.avatar, "xl")}${avatar(t.seats[(me + 2) % 4]?.avatar, "xl")}</div>`}
@@ -1783,11 +1785,23 @@ function finalResult(g, t, me) {
         : `<div class="votes">${t.seats.map((s) => `<span class="vote ${s && votes[s.id] ? "ok" : ""}" title="${e(s?.name ?? "")}">${avatar(s?.avatar)}<i>${s && votes[s.id] ? "✓" : "…"}</i></span>`).join("")}</div>
     ${t.stake ? `<p class="op-note">${e(stakeRisk(t.stake))}</p>` : ""}
     ${blocked.length ? `<p class="warn">Solde insuffisant pour ${blocked.map(e).join(", ")}. ${btn("Boutique", "shop", "inline-link")} · ${btn("Tables moins chères", "cheaper", "inline-link")}</p>` : ""}
-    ${mine ? '<p class="waiting-vote">En attente des autres joueurs…</p>' : btn(`${icon("refresh")} Rejouer avec cette table`, "rematchYes", "gold-btn wide")}
+    ${short ? lostFunds(t.stake, short) : ""}
+    ${mine ? '<p class="waiting-vote">En attente des autres joueurs…</p>' : btn(`${short ? icon("lock") : icon("refresh")} Rejouer avec cette table`, "rematchYes", "gold-btn wide", "", !!short)}
     ${btn(`${icon("home")} Retour au salon`, "rematchNo", "line-btn wide")}
     ${btn(`${icon("logout")} Quitter la table`, "leave", "line-btn wide small")}`
     }
   </div></div>`;
+}
+// Fin de partie perdue sans assez de jetons : « Plus que X jetons pour jouer à (ville) ».
+function lostFunds(stake, miss) {
+  const w = state.player.wallet;
+  const city = STAKE_LOOK[stake]?.[1];
+  const free = [
+    w.loginBonus && (wheelReady() || w.loginBonus.next <= Date.now()) ? btn("🎡 Roue du jour : un tour vous attend", "wheel", "menu-item") : "",
+    btn("🎯 Défis du jour", "challenges", "menu-item"),
+    btn("⚡ Partie rapide gratuite (sans mise)", "quick", "menu-item"),
+  ].join("");
+  return `<div class="lost-funds"><p class="missing">Plus que <b>${fmt(miss)} jetons</b> pour jouer à ${e(city ?? `la table à ${fmt(stake)}`)}.</p><div class="menu-list wide">${free}</div>${packSuggest(miss)}</div>`;
 }
 // Mise affichée avec le droit de table : « Mise 1 000 + droit de table 100 ».
 const stakeLabel = (stake, fee) => `Mise ${fmt(stake)}${fee ? ` + droit de table ${fmt(fee)}` : ""} jetons`;

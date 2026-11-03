@@ -2258,3 +2258,4 @@ table.metrics .minus { color: #ff8f8f; }
 .art-pack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; width: min(100%, 140px); }
 .art-pack img { width: 100%; height: auto; }
 .shop-modal-art.small .art-emoji { font-size: 56px; }
+.lost-funds { display: grid; gap: 8px; width: 100%; margin: 6px 0; }
