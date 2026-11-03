@@ -57,7 +57,7 @@ Documentation détaillée (à lire seulement si besoin) : `docs/DOCUMENTATION-CO
 
 ## Règles de développement
 
-1. Une branche par sujet → PR GitHub → fusion **squash** ; Railway déploie `main` automatiquement.
+1. Une branche par sujet → PR GitHub → tests automatiques (`.github/workflows/tests.yml`, unitaires + e2e) verts → fusion **squash** ; Railway déploie `main` automatiquement.
 2. Tests avant chaque mise en ligne ; 1–2 tests serveur parfois instables : relancer.
 3. **Changement visuel : montrer une capture** (avec le compte rendu).
 3b. **Mise en ligne automatique** (consigne de Jacques, 30/10) : une fois le travail fini et testé, fusionner et mettre en ligne sans redemander. Exceptions inchangées : achats, App Store/Google Play, jetons (section 14.2).
