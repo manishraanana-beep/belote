@@ -15,51 +15,38 @@ test("boutique : catégories, aperçu, achat, solde insuffisant, équipement et 
   const id = await page.evaluate(async () => (await (await fetch("/api/session", { method: "POST" })).json()).id);
   expect(await admin(page, { type: "playerCredit", id, amount: 12000, reason: "Test boutique" })).toBe(200);
   await page.locator('.tabbar [data-page="boutique"]').click();
-  await expect(page.locator(".shop-card")).toHaveCount(6);
-  await expect(page.locator(".shop-chip")).toHaveText(["Avatars", "Cartes", "Table", "Emojis", "Possédés"]);
+  // Accueil de la boutique : 5 collections par ville + 9 autres objets.
+  await expect(page.locator(".shop-card")).toHaveCount(14);
+  await expect(page.locator(".shop-card.ville-card")).toHaveCount(5);
+  await expect(page.locator(".shop-chip")).toHaveText(["Tout", "Classique", "Rare", "Prestige", "Possédés"]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(page.locator(".shop-balance")).toContainText("12 600 jetons");
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${shots}boutique.png` });
-  // Catégorie « Couleur de table » puis aperçu et achat.
-  await page.locator('[data-cat="felt"]').click();
-  await expect(page.locator(".shop-card.item")).toHaveCount(4);
-  await page.locator('[data-action="shopItem"][data-id="tapis-violet"]').click();
-  await expect(page.locator(".shop-modal")).toContainText("3 000 jetons");
+  // Collection Cannes : aperçu puis achat du tapis.
+  await page.locator('[data-action="shopCat"][data-cat="cannes"]').click();
+  await expect(page.locator(".shop-card.item")).toHaveCount(3);
+  await page.locator('[data-action="shopItem"][data-id="felt-cannes"]').click();
+  await expect(page.locator(".shop-modal")).toContainText("4 000 jetons");
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${shots}boutique-apercu.png` });
   await page.locator('[data-action="shopBuyAsk"]').click();
-  await expect(page.locator(".buy-lines")).toContainText("9 600 jetons");
-  // Double appui : un seul débit.
+  await expect(page.locator(".buy-lines")).toContainText("8 600 jetons");
+  // Double appui : un seul débit ; objet équipable acheté = équipé aussitôt.
   await page.locator('[data-action="shopBuy"]').dblclick();
-  await expect(page.locator(".shop-modal [data-action='shopUse']")).toBeVisible();
-  await page.locator(".shop-modal [data-action='shopUse']").click();
-  await expect(page.locator(".shop-modal")).toContainText("Équipé");
-  // Retour au tapis vert d'origine, puis on remet le violet.
-  await page.locator('.shop-modal [data-action="feltDefault"]').click();
-  await page.locator('[data-action="shopItem"][data-id="tapis-violet"]').click();
-  await expect(page.locator(".shop-modal .status")).toContainText("Possédé");
-  await expect(page.locator(".shop-modal [data-action='shopUse']")).toBeVisible();
-  await page.locator(".shop-modal [data-action='shopUse']").click();
   await expect(page.locator(".shop-modal")).toContainText("Équipé");
   await page.keyboard.press("Escape");
-  await expect(page.locator(".shop-balance")).toContainText("9 600 jetons");
-  // Avatars couronnés : un premier achat, puis solde insuffisant pour le second.
-  await page.locator('[data-f="avatars"]').click();
-  await page.screenshot({ path: `${shots}boutique-avatars.png`, fullPage: true });
-  await page.locator('[data-action="shopItem"][data-id="av-roi-2"]').click();
+  await expect(page.locator(".shop-balance")).toContainText("8 600 jetons");
+  // Solde insuffisant : cadre Prestige à 50 000 jetons.
+  await page.locator('[data-action="shopFilter"][data-f="Prestige"]').first().click();
+  await page.locator('[data-action="shopItem"][data-id="frame-etoile"]').click();
   await page.locator('[data-action="shopBuyAsk"]').click();
-  await page.locator('[data-action="shopBuy"]').click();
-  await page.locator(".shop-modal [data-action='shopUse']").click();
-  await expect(page.locator(".shop-modal")).toContainText("Équipé");
-  await page.keyboard.press("Escape");
-  await page.locator('[data-action="shopItem"][data-id="av-roi-3"]').click();
-  await page.locator('[data-action="shopBuyAsk"]').click();
-  await expect(page.locator(".confirm")).toContainText("Il vous manque 400 jetons");
-  await expect(page.locator('.confirm [data-action="shop"]')).toBeVisible();
+  await expect(page.locator(".confirm")).toContainText("Il vous manque 41 400 jetons");
+  await expect(page.locator('.confirm [data-action="challenges"]')).toBeVisible();
   await page.keyboard.press("Escape");
   await page.locator('[data-f="owned"]').click();
-  await expect(page.locator(".shop-card.item")).toHaveCount(2);
+  await expect(page.locator(".shop-card.item")).toHaveCount(1);
+  await expect(page.locator('.shop-card.item [data-id="felt-cannes"]')).toBeVisible();
   // Même compte sur un autre appareil : achats synchronisés.
   const desk = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
   await desk.addInitScript(() => sessionStorage.setItem("discover", "1"));
@@ -68,14 +55,14 @@ test("boutique : catégories, aperçu, achat, solde insuffisant, équipement et 
   await desk.reload();
   await desk.locator('.tabbar [data-page="boutique"]').click();
   await desk.locator('[data-f="owned"]').click();
-  await expect(desk.locator(".shop-card.item")).toHaveCount(2);
+  await expect(desk.locator(".shop-card.item")).toHaveCount(1);
   await desk.screenshot({ path: `${shots}boutique-ordinateur.png` });
-  // Table personnalisée : entraînement avec le tapis violet.
+  // Table personnalisée : entraînement avec le tapis de Cannes.
   await page.locator('.tabbar [data-page="home"]').click();
   await page.screenshot({ path: `${shots}accueil.png` });
   await page.evaluate(() => { const b = document.createElement("button"); b.dataset.action = "practice"; document.body.append(b); b.click(); b.remove(); }); // entraînement (retiré de l'accueil)
   await page.locator('[data-action="confirmPractice"]').click();
-  await expect(page.locator(".screen.game.tapis-violet")).toBeVisible({ timeout: 15000 });
+  await expect(page.locator(".screen.game.felt-cannes")).toBeVisible({ timeout: 15000 });
   await page.waitForTimeout(2500);
   await page.screenshot({ path: `${shots}table-personnalisee.png` });
 });
