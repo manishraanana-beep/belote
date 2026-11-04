@@ -2298,7 +2298,14 @@ export function createApp({
         }),
       );
     }
-    const rel = url.pathname === "/" || url.pathname === "/admin" ? "index.html" : url.pathname.slice(1);
+    const rel =
+      url.pathname === "/" || url.pathname === "/admin"
+        ? "index.html"
+        : url.pathname === "/confidentialite"
+          ? "confidentialite.html"
+          : url.pathname === "/assistance"
+            ? "assistance.html"
+            : url.pathname.slice(1);
     const allowed = [
       "index.html",
       "app.js",
@@ -2308,6 +2315,8 @@ export function createApp({
       "cards-LICENSE.txt",
       "sw.js",
       "manifest.webmanifest",
+      "confidentialite.html",
+      "assistance.html",
     ];
     const cardFile =
       /^cards\/(?:[789]|10|[JQKA])[SHCD]\.(?:svg|webp)$/.test(rel) ||
