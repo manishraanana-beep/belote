@@ -867,7 +867,7 @@ body.in-game #toast.visible { transform: translate(-50%, 0); }
 }
 @media (min-width: 900px) {
   .screen.game { --av: 96px; }
-  .felt { width: min(92vw, 1900px, 190vh); }
+  .felt { width: 92vw; }
   .seat.p1 { left: max(20px, 5vw); }
   .seat.p3 { right: max(20px, 5vw); }
 }
@@ -1174,7 +1174,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 /* Ordinateur : on agrandit l'interface autour du tapis */
 @media (min-width: 900px) and (min-height: 600px) {
   .screen.game { --av: clamp(64px, 9.5vh, 92px); --cw: clamp(84px, 12.5vh, 118px); --tc: clamp(80px, 13vh, 112px); }
-  .felt { width: min(118vw, 1900px, 190vh); }
+  .felt { width: 118vw; }
   .gt-logo .logo .emblem { font-size: 12px; }
   .gt-logo .logo b { font-size: 34px; }
   .gt-logo .logo b + .orn { font-size: 11px; }
