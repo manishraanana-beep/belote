@@ -1492,7 +1492,7 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
   .gt-chips { visibility: visible; justify-content: flex-end; padding: 0 8px 0 0; }
   .gt-chip { font-size: 14px; padding: 5px 12px; }
   /* « À vous de jouer » : au-dessus de son avatar, à gauche de la main, plus sur les cartes */
-  .turn-pill, .turn-pill.on { position: absolute; left: 8px; bottom: calc(100% + 6px); display: flex; flex-direction: column; align-items: center; gap: 2px; max-width: max(104px, calc(50vw - (var(--step) * 7 + var(--cw)) / 2 - 34px)); padding: 5px 10px; font-size: 14px; line-height: 1.1; white-space: normal; text-align: center; border-radius: 16px; }
+  .turn-pill, .turn-pill.on { position: absolute; left: 8px; bottom: calc(100% + 6px + var(--cw) * 0.3); display: flex; flex-direction: column; align-items: center; gap: 2px; max-width: max(104px, calc(50vw - (var(--step) * 7 + var(--cw)) / 2 - 34px)); padding: 5px 10px; font-size: 14px; line-height: 1.1; white-space: normal; text-align: center; border-radius: 16px; }
   .turn-pill::before, .turn-pill::after { display: none; }
   /* Panneau d'annonce plus compact : il ne recouvre plus la main */
   .bid-zone { top: 0; }
