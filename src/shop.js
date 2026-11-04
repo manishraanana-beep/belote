@@ -47,6 +47,9 @@ export const SHOP_ITEMS = [
   { id: "emo-02", cat: "emoji", ville: null, gamme: "Classique", name: "Clin d’œil", price: 500, img: "/shop/emoji/emo-02.webp" },
   { id: "pack-bistrot", cat: "reaction", ville: null, gamme: "Classique", name: "Pack Bistrot", price: 2000, includes: [1, 3, 4, 6, 7, 8, 9, 10] },
   { id: "pack-champion", cat: "reaction", ville: null, gamme: "Rare", name: "Pack Champion", price: 12000, includes: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20] },
+  // Emoji compris dans un pack : jamais vendus seuls (masqués du catalogue), mais il leur faut une
+  // fiche pour s'afficher une fois possédés (favoris, réactions à table).
+  ...EMOJI_NAMES.map((name, i) => ({ id: `emo-${pad(i + 1)}`, cat: "emoji", ville: null, gamme: null, name, price: 0, img: `/shop/emoji/emo-${pad(i + 1)}.webp`, hidden: true })).filter((it) => it.id !== "emo-02"),
 ].map((it, order) => {
   const c = SHOP_CATEGORIES.find((x) => x.id === it.cat);
   return { ...it, kind: c.kind, order, includes: it.includes ? it.includes.map((n) => `emo-${pad(n)}`) : undefined };
@@ -74,8 +77,20 @@ export function createShop({ db, economy }) {
     catalog,
     item,
     owns: (p, id) => !!owned(p)[id],
+    // Objet offert avec un pack de jetons (ville) : attribué sans débit, jamais deux fois.
+    grant(p, id) {
+      if (!SHOP_ITEMS.some((x) => x.id === id)) throw Error("Article inconnu");
+      owned(p)[id] = Date.now();
+    },
     view(p) {
       const mine = owned(p);
+      // Réparation : un pack de réactions acheté avant que ses emoji soient mis en favoris (correctif
+      // ultérieur) laissait des emoji possédés mais invisibles à table. Complété ici, une fois pour toutes.
+      const fav = (p.progress.favorites ??= []);
+      for (const it of SHOP_ITEMS)
+        if (it.kind === "reaction" && mine[it.id])
+          for (const emoId of it.includes ?? [])
+            if (fav.length < FAVORITE_EMOJIS && !fav.includes(emoId)) fav.push(emoId);
       return {
         items: catalog()
           .filter((it) => !it.hidden || mine[it.id])
@@ -96,13 +111,33 @@ export function createShop({ db, economy }) {
       const entry = economy.post(p, `shop:${p.id}:${id}`, "achat", -units, { label: `Boutique : ${it.name}`, item: id });
       if (!entry) fail("Vous possédez déjà cet article", { code: "owned" });
       owned(p)[id] = Date.now();
+      const fav = (p.progress.favorites ??= []);
       if (it.kind === "emoji") {
-        const fav = (p.progress.favorites ??= []);
         if (fav.length < FAVORITE_EMOJIS && !fav.includes(id)) fav.push(id);
       }
-      // Pack de réactions : les emoji qu'il contient deviennent possédés d'un coup.
-      if (it.kind === "reaction") for (const emoId of it.includes ?? []) owned(p)[emoId] = Date.now();
+      // Pack de réactions : les emoji qu'il contient deviennent possédés d'un coup, et ajoutés aux
+      // favoris (seul moyen de les envoyer en partie) dans la limite des 8 favoris.
+      if (it.kind === "reaction")
+        for (const emoId of it.includes ?? []) {
+          owned(p)[emoId] = Date.now();
+          if (fav.length < FAVORITE_EMOJIS && !fav.includes(emoId)) fav.push(emoId);
+        }
       return { item: it, balance: toCredits(economy.wallet(p).balance) };
+    },
+    // Offrir un objet à un ami : débite l'offreur, attribue l'objet à l'ami — jamais de jetons échangés.
+    gift(p, friend, id, note) {
+      const it = item(id);
+      if (!it || it.hidden) fail("Article indisponible");
+      if (!p.accountId) fail("Créez un compte pour offrir dans la boutique");
+      if (!friend) fail("Ami introuvable");
+      if (owned(friend)[id]) fail("Votre ami possède déjà cet article", { code: "owned" });
+      const units = toUnits(it.price);
+      const available = economy.available(p);
+      if (available < units) fail(`Il vous manque ${toCredits(units - available)} jetons`, { code: "shopFunds", missing: toCredits(units - available), price: it.price });
+      const entry = economy.post(p, `gift:${p.id}:${friend.id}:${id}`, "cadeau", -units, { label: `Cadeau pour ${friend.name} : ${it.name}`, item: id, to: friend.id });
+      if (!entry) fail("Offre impossible");
+      owned(friend)[id] = Date.now();
+      return { item: it, balance: toCredits(economy.wallet(p).balance), note: String(note ?? "").trim().slice(0, 140) };
     },
     setFavorites(p, ids) {
       if (!Array.isArray(ids)) fail("Liste invalide");

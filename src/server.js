@@ -353,7 +353,7 @@ export function createApp({
     db.tables[t.id] = t;
     return t;
   }
-  // Tables publiques permanentes : partie gratuite et mises de 200, 500 et 1 000 jetons.
+  // Tables publiques permanentes : partie gratuite et villes Paris 500, Cannes 1 500, Monaco 5 000, Dubaï 15 000, Las Vegas 50 000 jetons (BELOTE_LOBBY_STAKES).
   // Tables permanentes : une ville et un tapis par montant.
   const CITIES = { 500: ["paris", "Paris"], 1500: ["cannes", "Cannes"], 5000: ["monaco", "Monaco"], 15000: ["dubai", "Dubaï"], 50000: ["vegas", "Las Vegas"] };
   const LOBBY = (env.BELOTE_LOBBY_STAKES ?? "500,1500,5000,15000,50000").split(",").map(Number).filter((n) => Number.isInteger(n) && n >= 0);
@@ -559,7 +559,7 @@ export function createApp({
       // Historique des achats (portefeuille) : les 20 derniers.
       founderOffer: founderOk(p),
       prestige: isPrestige(p) ? { until: p.prestige.until, daily: PRESTIGE_DAILY } : null,
-      purchases: registry.list(p.id).slice(0, 20).map((x) => ({ at: x.at, credits: x.credits, amountCents: x.amountCents, currency: x.currency, status: x.status })),
+      purchases: registry.list(p.id).slice(0, 20).map((x) => ({ at: x.at, credits: x.credits, amountCents: x.amountCents, currency: x.currency, status: x.status, pack: x.pack })),
       id: p.id,
       name: p.name,
       avatar: p.avatar,
@@ -1206,7 +1206,7 @@ export function createApp({
         break;
       }
       case "playLobby": {
-        // Mise choisie (200, 500 ou 1 000) : le joueur rejoint la table de ce montant qui a déjà
+        // Mise choisie (500, 1 500, 5 000, 15 000 ou 50 000) : le joueur rejoint la table de ce montant qui a déjà
         // le plus de joueurs, sans invitation ; la partie démarre seule à quatre.
         check(!db.settings.maintenance, "Entrées temporairement fermées");
         const stake = Number(d.stake);
@@ -1504,7 +1504,17 @@ export function createApp({
         break;
       case "shopBuy": {
         const r = shop.buy(p, String(d.id));
+        // Objet équipable (cadre, tapis, dos, effet) : posé tout de suite, comme le joueur s'y attend.
+        if (["back", "felt", "frame", "effect"].includes(r.item.kind)) progression.prog(p).equipped[r.item.kind] = r.item.id;
         reply = { bought: r.item.id, balance: r.balance };
+        break;
+      }
+      case "shopGift": {
+        const friend = db.players[String(d.to)];
+        check(friend && p.friends[friend.id], "Choisissez un ami");
+        const r = shop.gift(p, friend, String(d.id), d.note);
+        deliver(friend.id, { kind: "cadeau", title: `🎁 ${p.name} vous a offert un objet`, body: r.note ? `« ${r.note} »` : `${r.item.name} : à découvrir dans votre boutique.` });
+        reply = { gifted: r.item.id, balance: r.balance };
         break;
       }
       case "shopFavorites":
@@ -1788,10 +1798,15 @@ export function createApp({
     const c = economy.config;
     return !!(p?.accountId && c.founderUntil && Date.now() < c.founderUntil && (p.stats?.games ?? 0) >= c.founderGames && !registry.list(p.id).some((x) => x.pack === "pack-founder"));
   }
+  // Packs ville : une seule fois par compte.
+  function onceOk(p, pack) {
+    return !pack?.once || !registry.list(p.id).some((x) => x.pack === pack.id && x.status === "paid");
+  }
   function creditPurchase(p, purchase) {
     const { credited } = registry.record(p, purchase);
     const pack = economy.config.packs.find((x) => x.id === purchase.packId);
     if (credited && pack?.frame) progression.grant(p, pack.frame); // cadre Fondateur, jamais revendu
+    if (credited && pack?.item) shop.grant(p, pack.item); // tapis offert avec un pack ville
     persist();
     return credited;
   }
@@ -2001,8 +2016,9 @@ export function createApp({
     if (url.pathname === "/api/shop/config") {
       const c = economy.config;
       return json(res, 200, {
-        packs: packBonuses(c.packs).map(({ id, name, credits, price, priceCents, bonus, founder, note }) => ({ id, name, credits, price, priceCents, bonus, founder, note })),
+        packs: packBonuses(c.packs).map(({ id, name, credits, price, priceCents, bonus, founder, item, once, note }) => ({ id, name, credits, price, priceCents, bonus, founder, item, once, note })),
         founderUntil: c.founderUntil,
+        firstPurchaseDoubleAfter: c.firstPurchaseDoubleAfter ?? 0,
         tableFeePct: c.tableFeePct ?? 0,
         commissionPct: c.commissionPct ?? 0,
         piggyCap: c.piggyCap ?? 0,
@@ -2041,6 +2057,7 @@ export function createApp({
           const pack = cfg.packs.find((x) => x.id === d.pack);
           check(pack, "Pack inconnu");
           check(!pack.founder || founderOk(p), "Pack Fondateur indisponible");
+          check(onceOk(p, pack), "Pack déjà acheté : une seule fois par compte");
           const cap = p.settings?.spendCap ?? 0;
           if (cap) {
             const month = new Date().toISOString().slice(0, 7);
@@ -2058,6 +2075,7 @@ export function createApp({
           // Paiement fictif réservé au développement : refusé dès que l'environnement est en production.
           check(cfg.testShop, "Indisponible");
           check(d.pack !== "pack-founder" || founderOk(p), "Pack Fondateur indisponible");
+          check(onceOk(p, cfg.packs.find((x) => x.id === d.pack)), "Pack déjà acheté : une seule fois par compte");
           result = creditPurchase(p, { provider: "test", transactionId: clean(d.transactionId, 80) || id(), packId: d.pack });
         } else throw Object.assign(Error("Action inconnue"), { status: 404 });
         broadcast();

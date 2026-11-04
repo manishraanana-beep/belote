@@ -17,8 +17,12 @@ export function createRegistry({ db, economy, toUnits, packs, now = () => Date.n
     const key = keyOf(purchase.provider, purchase.transactionId);
     const known = db.purchases[key];
     if (known) return { purchase: known, credited: false };
-    const entry = economy.post(p, `purchase:${key}`, "purchase", toUnits(pack.credits), {
-      label: `Pack ${pack.credits} crédits`,
+    // Après le lancement : premier achat doublé, une seule fois par compte (jamais le pack Fondateur).
+    const { firstPurchaseDoubleAfter } = economy.config;
+    const doubled = !pack.founder && firstPurchaseDoubleAfter && now() >= firstPurchaseDoubleAfter && !list(p.id).some((x) => x.status === "paid");
+    const credits = doubled ? pack.credits * 2 : pack.credits;
+    const entry = economy.post(p, `purchase:${key}`, "purchase", toUnits(credits), {
+      label: doubled ? `Pack ${pack.credits} crédits (premier achat doublé)` : `Pack ${pack.credits} crédits`,
       provider: purchase.provider,
       transactionId: purchase.transactionId,
     });
@@ -29,7 +33,8 @@ export function createRegistry({ db, economy, toUnits, packs, now = () => Date.n
       paymentRef: purchase.paymentRef ?? null, // ex. payment_intent Stripe (utile pour les remboursements)
       pid: p.id,
       pack: pack.id,
-      credits: pack.credits,
+      credits,
+      doubled,
       amountCents: purchase.amountCents ?? pack.priceCents ?? null,
       currency: purchase.currency ?? "eur",
       status: "paid",

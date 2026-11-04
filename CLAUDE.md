@@ -25,8 +25,8 @@ Documentation détaillée (à lire seulement si besoin) : `docs/DOCUMENTATION-CO
 - `src/engine.js` : moteur (donne, enchères, contre, jeu, score) et **robots** (`botBid`, `botPlay`, `botAction`).
 - `src/economy.js` jetons · `src/accounts.js` comptes/sessions · `src/tournaments.js` tournois · `src/progression.js` niveaux/badges/défis · `src/shop.js` boutique · `src/purchases.js` vérification des achats (désactivés) · `src/registry.js` registre des achats · `src/push.js` notifications · `src/integrity.js` alertes anti-triche · `src/backup.js` sauvegarde R2.
 - `public/app.js` : toute l'application (pages = fonctions `xxxPage()`, table = `gameView()`, actions = `switch` sur `data-action`, formulaires = `switch` sur l'id du formulaire). `public/style.css` : styles (thème Arcade en fin de fichier, sous `:root[data-skin="arcade"]`).
-- Tests : `test/*.test.js` (`npm test`, ~99) ; `e2e/*.spec.js` (`npx playwright test`, 22 tests, ~7 min).
-- Lancer en local : `PORT=3999 BELOTE_DATA_DIR=$(mktemp -d) node src/server.js`.
+- Tests : `test/*.test.js` (`npm test`, ~107) ; `e2e/*.spec.js` (`npx playwright test`, 22 tests, ~7 min, serveur isolé port 3100). Un seul fichier/test : `node --test test/engine.test.js`, `node --test --test-name-pattern="nom du test" test/server.test.js`, `npx playwright test e2e/boutique.spec.js`. Pas de linter configuré.
+- Lancer en local : `PORT=3999 BELOTE_DATA_DIR=$(mktemp -d) node src/server.js` (ou `npm run dev` pour le rechargement automatique).
 
 ## Fonctionnalités principales
 
@@ -45,18 +45,22 @@ Documentation détaillée (à lire seulement si besoin) : `docs/DOCUMENTATION-CO
 - **Lot 2 (30/10) packs** : Petit 10 000/1,99 €, Moyen 30 000/4,99 €, Grand 65 000/9,99 €, Prestige 140 000/19,99 €, **Royal** (nouveau) 400 000/49,99 € ; Fondateur relevé à 30 000. Étiquette « +N % » et « Meilleure valeur » **calculées** (`economy.packBonuses`, jamais écrites à la main). Écran « Plus de jetons » réordonné : gratuit, Fondateur, packs, **Membre Prestige tout en bas**. Texte légal : rétractation 14 jours (plus « non remboursables en argent »).
 - **Lot 3 (30/10) « Il te manque X »** : cadenas sur une ville trop chère (`stakeGrid`, bouton « Débloquer » → boutique) ; écrans « Il te manque » (tables `fundsModal`, objets `shopFundsModal`) réordonnés gratuit d'abord (roue, défis, table moins chère) puis `packSuggest()` (plus petit pack, solde après achat) — fonction commune, réutilisée.
 - **Lot 4 (30/10) boutique d'objets** : avatars (10 classiques) gratuits, plus vendus ; catalogue refondu en 24 objets (`src/shop.js`) — tapis/dos/cadre par ville (Paris, Cannes, Monaco, Dubaï, Las Vegas, images provisoires réutilisant les tapis/dos/cadres existants), 3 cadres génériques, 3 effets de victoire, 1 emoji + 2 packs de réactions. Collection ville complète (tapis+dos+cadre) → titre (`progression.js`, règle `unlock.type:"collection"`), via `CITY_COLLECTION` partagé. Page boutique : « Collections par ville » (cartes de progression) + « Autres objets » ; fiche objet avec aperçu (cadre sur avatar, icône d'effet, emojis du pack).
+- **Lot 5 (30/10) packs ville, offrir, premier achat doublé** : 3 packs ville (Monaco 4,99 €/30 000+tapis, Dubaï 9,99 €/65 000+tapis, Las Vegas 19,99 €/140 000+tapis, une fois par compte (`once`, refus serveur, masqué une fois acheté), `src/economy.js`, champ `item` sur le pack → objet attribué par `shop.grant()` dans `creditPurchase()`) ; exclus de `packBonuses` (jetons + objet, pas comparable). Après `BELOTE_FIRST_PURCHASE_DOUBLE_AFTER` (31/01/2027 par défaut) : premier achat doublé, une seule fois par compte (`registry.js`, jamais le pack Fondateur). Bouton « Offrir à un ami » dans la fiche objet (`shop.gift()`) : débite l'offreur, attribue l'objet à l'ami choisi parmi ses amis, jamais de jetons transférés, notification avec le petit mot.
+- **Cadres de la boutique** : image du cadre posée sur l'avatar (`--frame-img` + `::before` sur `.seat-avatar`, `.me-av`, `.fr-wrap`), visible à table, accueil, profil ; objet équipable acheté = équipé aussitôt. Position/taille de chaque cadre calées sur le trou de son image (mesuré, variables `--fw`/`--fh`/`--fl`/`--ft` par cadre) : sans ça le cadre était décalé par rapport à l'avatar. **Cannes** : tapis bleu ciel `felt-ciel.webp` (`CITY_FELT.cannes`).
 - **Tournois payants** : droit d'entrée prélevé au départ sur les seuls joueurs présents ; cagnotte = entrées − part Maison (10–20 %), 70 / 30.
 - **Parrainage** versé après 10 parties et e-mail vérifié ; **Gmail normalisé** (points et « + ») ; connexion d'abord à l'adresse exacte.
 - **Achats fermés** ; registre `db.purchases` (clé `provider:ref`), reprise des jetons si remboursement/opposition ; plafond mensuel ; **Pack Fondateur** une fois, après 3 parties, jusqu'à `BELOTE_FOUNDER_UNTIL`.
 - **Membre Prestige** attribué depuis le back-office (`p.prestige.until`) : jetons du jour avec la roue, cadre/étoile, voix d'annonce ; objets Prestige invalides à la fin de l'abonnement (`progression.shown`).
 - Attente avant robots **15 s** ; « en ligne » = autres joueurs connectés, masqué à 0.
+- **Animation des cartes : validée par Jacques le 30/10, ne plus y toucher** (`animateTrick`, `.tcard`/`playIn`, ramassage). Le saut à la pose venait de `playIn` rejoué en fin de vol ; corrigé par la classe `seen` (PR #171).
 - Écartés par Jacques (ne pas refaire) : explication des annonces des robots, Classique sur les villes, accessibilité (taille du texte, 4 couleurs), tournoi quotidien, ligues, classement par équipe.
 
 ## Règles de développement
 
-1. Une branche par sujet → PR GitHub → fusion **squash** ; Railway déploie `main` automatiquement.
+1. Une branche par sujet → PR GitHub → tests automatiques (`.github/workflows/tests.yml`, unitaires + e2e) verts → fusion **squash** ; Railway déploie `main` automatiquement.
 2. Tests avant chaque mise en ligne ; 1–2 tests serveur parfois instables : relancer.
-3. **Changement visuel : montrer une capture avant la mise en ligne.**
+3. **Changement visuel : montrer une capture** (avec le compte rendu).
+3b. **Mise en ligne automatique** (consigne de Jacques, 30/10) : une fois le travail fini et testé, fusionner et mettre en ligne sans redemander. Exceptions inchangées : achats, App Store/Google Play, jetons (section 14.2).
 4. Textes de l'application et messages **en français**.
 5. **CSP stricte** : aucun style en ligne ; styles dynamiques via `style.setProperty` ou classes.
 6. **Aucun secret dans le dépôt** (variables Railway uniquement).

@@ -49,7 +49,7 @@ const REPORT_REASONS = {
 const fmt = (n) => Number(n).toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 const coins = (n, cls = "") => `<span class="coins ${cls}"><i class="coin"></i>${fmt(n)}</span>`;
 const signed = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n));
-const stakeRisk = (s) => `Mise : ${fmt(s)} crédits. Vous ne pouvez perdre que votre mise. Quitter la partie en cours fait perdre la mise.`;
+const stakeRisk = (s) => `Mise : ${fmt(s)} jetons. Vous ne pouvez perdre que votre mise. Quitter la partie en cours fait perdre la mise.`;
 const DEFAULT_RULES = {
   target: 1000,
   turnSeconds: 20,
@@ -78,6 +78,12 @@ const avatarUrl = (v) =>
         : `/avatars/${AVATARS.includes(v) ? v : "jacques"}.webp`;
 // Les avatars de la boutique ont déjà leur propre cadre (doré, couronne) : on n'y ajoute pas d'anneau.
 const avatar = (v, cls = "") => `<img class="avatar ${cls} ${/^av-/.test(v ?? "") ? "framed" : ""}" src="${avatarUrl(v)}" alt="" draggable="false">`;
+// Cadre de la boutique équipé par le joueur (posé autour de son avatar : accueil, profil, table).
+const myFrame = () => {
+  const f = state?.player?.progress?.equipped?.frame;
+  return state?.player?.shop?.items?.some((x) => x.id === f && x.owned && x.kind === "frame") ? f : "";
+};
+const framed = (html) => (myFrame() ? `<span class="fr-wrap ${myFrame()}">${html}</span>` : html);
 const btn = (text, action, cls = "", data = "", disabled = false) =>
   `<button type="button" class="${cls}" data-action="${action}" ${data} ${disabled ? "disabled" : ""}>${text}</button>`;
 const suitHtml = (s) => `<span class="suit ${isRed(s) ? "red" : ""}">${SUITS[s]}</span>`;
@@ -331,33 +337,32 @@ function countUp() {
 let lastPlayRect = null;
 function animateTrick() {
   if (!state.player.settings.animations) return;
-  // Mesure des positions (getBoundingClientRect) reportée à la frame suivante : juste après le
-  // remplacement du HTML de la table, un calcul de mise en page synchrone fait saccader la carte
-  // posée sur iPhone (le navigateur n'a pas encore eu l'occasion de peindre la nouvelle image).
-  requestAnimationFrame(() => {
-    for (const el of document.querySelectorAll(".trick:not(.collecting) .tcard:not(.seen)")) {
-      const rel = Number(/p(\d)/.exec(el.className)?.[1] ?? 0);
-      let from = null;
-      if (rel === 0 && lastPlayRect && performance.now() - lastPlayRect.at < 1500) from = lastPlayRect;
-      else from = document.querySelector(rel === 0 ? ".hand" : `.seat.p${rel} .seat-avatar`)?.getBoundingClientRect();
-      const to = el.getBoundingClientRect();
-      if (!from || !to.width) continue;
-      const dx = from.left + from.width / 2 - (to.left + to.width / 2),
-        dy = from.top + from.height / 2 - (to.top + to.height / 2);
-      const start = rel === 0 ? Math.min(1.25, (from.width || to.width) / to.width) : 0.45;
-      el.style.animation = "none";
-      const anim = el.animate(
-        [
-          { transform: `translate(${dx}px, ${dy}px) rotate(${rel === 0 ? -8 : rel === 1 ? -25 : 25}deg) scale(${start})`, opacity: rel === 0 ? 1 : 0.4 },
-          { transform: "translate(0, -6px) rotate(0deg) scale(1.04)", opacity: 1, offset: 0.82 },
-          { transform: "none", opacity: 1 },
-        ],
-        { duration: rel === 0 ? 360 : 420, easing: "cubic-bezier(.2,.75,.25,1)" },
-      );
-      anim.onfinish = anim.oncancel = () => el.style.removeProperty("animation"); // l'élément est gardé : le ramassage doit pouvoir s'animer
-      cardSound(rel === 0 ? 1 : 0.55);
-    }
-  });
+  for (const el of document.querySelectorAll(".trick:not(.collecting) .tcard:not(.seen)")) {
+    const rel = Number(/p(\d)/.exec(el.className)?.[1] ?? 0);
+    let from = null;
+    if (rel === 0 && lastPlayRect && performance.now() - lastPlayRect.at < 1500) from = lastPlayRect;
+    else from = document.querySelector(rel === 0 ? ".hand" : `.seat.p${rel} .seat-avatar`)?.getBoundingClientRect();
+    const to = el.getBoundingClientRect();
+    if (!from || !to.width) continue;
+    const dx = from.left + from.width / 2 - (to.left + to.width / 2),
+      dy = from.top + from.height / 2 - (to.top + to.height / 2);
+    const start = rel === 0 ? Math.min(1.25, (from.width || to.width) / to.width) : 0.45;
+    el.style.animation = "none";
+    const anim = el.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) rotate(${rel === 0 ? -8 : rel === 1 ? -25 : 25}deg) scale(${start})`, opacity: rel === 0 ? 1 : 0.4 },
+        { transform: "translate(0, -6px) rotate(0deg) scale(1.04)", opacity: 1, offset: 0.82 },
+        { transform: "none", opacity: 1 },
+      ],
+      { duration: rel === 0 ? 360 : 420, easing: "cubic-bezier(.2,.75,.25,1)" },
+    );
+    // Carte posée : marquée « seen » avant de retirer le blocage, sinon l'animation CSS playIn se rejoue (saut).
+    anim.onfinish = anim.oncancel = () => {
+      el.classList.add("seen");
+      el.style.removeProperty("animation"); // l'élément est gardé : le ramassage doit pouvoir s'animer
+    };
+    cardSound(rel === 0 ? 1 : 0.55);
+  }
 }
 function tone(freqs, dur = 0.12, vol = 0.06) {
   return; // bips désactivés : seul le bruit de carte est conservé
@@ -458,10 +463,20 @@ function itemStatus(it) {
   const on = it.kind === "emoji" ? p.shop.favorites.includes(it.id) : p.progress.equipped[it.kind] === it.id;
   return on ? "equipped" : "owned";
 }
+const EFFECT_ICON = { "effect-confettis": "🎉", "effect-jetons": "🪙", "effect-feu": "🎆" };
+// Visuel d'un objet : son image, sinon une icône (effets) ou les emojis du pack (réactions).
+const itemArt = (it) =>
+  it.img
+    ? `<img src="${it.img}" alt="">`
+    : it.kind === "effect"
+      ? `<b class="art-emoji">${EFFECT_ICON[it.id] ?? "✨"}</b>`
+      : it.kind === "reaction"
+        ? `<span class="art-pack">${(it.includes ?? []).slice(0, 4).map((id) => `<img src="/shop/emoji/${id}.webp" alt="">`).join("")}</span>`
+        : "";
 const STATUS_LABEL = { available: "Disponible", owned: "Possédé", equipped: "Équipé" };
 const itemCard = (it) => {
   const st = itemStatus(it);
-  return `<article class="shop-card item k-${it.kind} st-${st}"><h3>${e(it.name)}</h3><span class="sart sa-${it.cat}"><img src="${it.img}" alt=""></span>${st === "available" ? `<p class="price"><i class="coin"></i>${jetons(it.price)}${euroOf(it.price)}</p>` : `<p class="status ${st}">${st === "equipped" ? icon("check", "tiny") : ""}${STATUS_LABEL[st]}</p>`}${btn("Voir", "shopItem", "shop-voir", `data-id="${it.id}"`)}</article>`;
+  return `<article class="shop-card item k-${it.kind} st-${st}"><h3>${e(it.name)}</h3><span class="sart sa-${it.cat}">${itemArt(it)}</span>${st === "available" ? `<p class="price"><i class="coin"></i>${jetons(it.price)}${euroOf(it.price)}</p>` : `<p class="status ${st}">${st === "equipped" ? icon("check", "tiny") : ""}${STATUS_LABEL[st]}</p>`}${btn("Voir", "shopItem", "shop-voir", `data-id="${it.id}"`)}</article>`;
 };
 // Carte « collection » d'une ville : tapis + dos + cadre, progression et titre une fois complète.
 function cityCard(v) {
@@ -512,7 +527,7 @@ function shopPreview(it) {
   // Cadre : sur la table, aperçu avec son avatar — visible par toute la table, comme en jeu.
   if (it.kind === "frame") return `<div class="pv-scene felt-scene"><div class="pv-avatar ${it.id}"><div class="seat-avatar">${avatar(p.avatar)}</div></div><b>${e(p.name)}</b></div>`;
   if (it.kind === "effect") return `<div class="pv-scene felt-scene pv-effect"><span class="pv-effect-icon">${it.id === "effect-jetons" ? "🪙" : it.id === "effect-feu" ? "🎆" : "🎉"}</span></div>`;
-  if (it.kind === "reaction") return "";
+  if (it.kind === "reaction") return `<div class="pack-emojis">${(it.includes ?? []).map((emoId) => `<img src="/shop/emoji/${emoId}.webp" alt="">`).join("")}</div>`;
   return `<div class="pv-scene felt-scene"><div class="pv-seat">${avatar(p.avatar, "pv-av")}<b>${e(p.name)}</b><span class="pv-emo"><img src="${it.img}" alt=""></span></div></div>`;
 }
 function shopItemModal(id) {
@@ -528,16 +543,17 @@ function shopItemModal(id) {
           ? btn("Retirer de mes favoris", "shopUse", "line-btn wide", `data-id="${it.id}"`)
           : btn(fav.length >= 8 ? "Favoris complets (8 au maximum)" : "Utiliser · ajouter aux favoris", "shopUse", "gold-btn wide", `data-id="${it.id}"`, fav.length >= 8)
         : it.kind === "reaction"
-          ? `<p class="status owned big">${icon("check", "tiny")} Réactions débloquées</p><div class="pack-emojis">${(it.includes ?? []).map((id) => `<img src="/shop/emoji/${id}.webp" alt="">`).join("")}</div>`
+          ? `<p class="status owned big">${icon("check", "tiny")} Réactions débloquées</p>`
           : st === "equipped"
             ? `<p class="status equipped big">${icon("check", "tiny")} Équipé</p>`
             : btn("Utiliser", "shopUse", "gold-btn wide", `data-id="${it.id}"`);
   modal(
     `<div class="shop-modal"><h2>${e(it.name)}</h2><p class="muted">${e(state.player.shop.categories.find((c) => c.id === it.cat)?.name ?? "")}</p>
-      ${it.kind === "felt" || it.kind === "reaction" ? "" : `<div class="shop-modal-art sa-${it.cat}"><img src="${it.img}" alt=""></div>`}
+      ${it.kind === "felt" || it.kind === "reaction" || it.kind === "effect" || it.kind === "frame" ? "" : `<div class="shop-modal-art sa-${it.cat}"><img src="${it.img}" alt=""></div>`}
       ${shopPreview(it)}
       <div class="shop-modal-meta"><span><i class="coin"></i>${jetons(it.price)}${euroOf(it.price)}</span><span class="status ${st}">${STATUS_LABEL[st]}</span></div>
       ${action}
+      ${it.kind !== "reaction" && state.player.account ? btn("🎁 Offrir à un ami", "shopGiftAsk", "line-btn wide", `data-id="${it.id}"`) : ""}
       ${it.kind === "felt" && state.player.progress.equipped.felt?.startsWith("tapis-") ? btn("Revenir au tapis vert d’origine", "feltDefault", "line-btn wide") : ""}
       <p class="muted small">${it.kind === "back" || it.kind === "felt" ? "Visible uniquement sur votre écran : les autres joueurs gardent leurs propres choix." : it.kind === "emoji" || it.kind === "reaction" ? "Apparaît quelques secondes près de votre avatar, sans masquer les cartes." : it.kind === "effect" ? "Joué à la table en cas de victoire, visible par tous les joueurs." : "Visible par tous les joueurs à votre table."} Purement cosmétique, aucun avantage de jeu.</p></div>`,
     "sheet-modal shop-item-modal",
@@ -560,6 +576,26 @@ function shopFundsModal(it, missing) {
     "confirm-modal",
   );
 }
+// Offrir un objet à un ami : jamais de jetons envoyés, juste un objet (+ un petit mot).
+function shopGiftAsk(id) {
+  const it = shopItem(id);
+  const friends = state.player.friends ?? [];
+  modal(
+    `<div class="confirm"><div class="shop-modal-art sa-${it.cat} small">${itemArt(it)}</div><h2>Offrir ${e(it.name)}</h2>
+    <p class="muted small">${jetons(it.price)}${euroOf(it.price)} débités de votre solde ; votre ami reçoit l’objet, jamais des jetons.</p>
+    ${
+      friends.length
+        ? `<form id="gift-form" class="stack" data-id="${it.id}">
+        <label>À qui ?<select name="to" required>${friends.map((f) => `<option value="${f.id}">${e(f.name)}</option>`).join("")}</select></label>
+        <label>Petit mot <small>facultatif</small><textarea name="note" maxlength="140" rows="2" placeholder="Pour toi !"></textarea></label>
+        <button class="gold-btn wide">Offrir</button>
+      </form>`
+        : `<p class="muted">Ajoutez des amis pour pouvoir leur offrir un objet.</p>${btn("Mes amis", "friends", "line-btn wide")}`
+    }
+    ${btn("Annuler", "close", "line-btn wide")}</div>`,
+    "confirm-modal",
+  );
+}
 function shopBuyAsk(id) {
   const it = shopItem(id),
     p = state.player;
@@ -570,7 +606,7 @@ function shopBuyAsk(id) {
   const avail = p.wallet.available / 2;
   if (avail < it.price) return shopFundsModal(it, it.price - avail);
   modal(
-    `<div class="confirm"><div class="shop-modal-art sa-${it.cat} small"><img src="${it.img}" alt=""></div><h2>Acheter ${e(it.name)} ?</h2>
+    `<div class="confirm"><div class="shop-modal-art sa-${it.cat} small">${itemArt(it)}</div><h2>Acheter ${e(it.name)} ?</h2>
     <div class="buy-lines"><div><span>Prix</span><b>${jetons(it.price)}</b></div><div><span>Solde disponible</span><b>${jetons(avail)}</b></div><div class="after"><span>Solde après achat</span><b>${jetons(avail - it.price)}</b></div></div>
     <div class="stack">${btn("Confirmer l’achat", "shopBuy", "gold-btn wide", `data-id="${it.id}"`)}${btn("Annuler", "close", "line-btn wide")}</div></div>`,
     "confirm-modal",
@@ -684,7 +720,7 @@ function playerSheet(id) {
       ${btn(hidden ? "👁️ Afficher ses messages et réactions" : "🙈 Masquer ses messages et réactions", "hide", "menu-item", `data-id="${id}" data-on="${!hidden}"`)}
       ${btn(blocked ? "✅ Débloquer" : "⛔ Bloquer", "block", "menu-item", `data-id="${id}" data-on="${!blocked}"`)}
       ${btn("🚩 Signaler", "reportPlayer", "menu-item danger", `data-id="${id}" data-name="${e(name)}"`)}
-    </div><p class="muted small">Bloquer n’interrompt pas la partie en cours et ne change rien aux crédits engagés.</p>`;
+    </div><p class="muted small">Bloquer n’interrompt pas la partie en cours et ne change rien aux jetons engagés.</p>`;
 }
 // ———————————————————————————————————————————————————————————— pages (maquettes « Contrée »)
 const ICONS = {
@@ -912,7 +948,7 @@ function arcadeHome() {
     </div>
     <img class="a-logo" src="/decor/logo.webp" alt="Belote Prestige" draggable="false">
     ${needVerify() ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
-    ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 crédits offerts ${icon("chevron", "tiny")}</button>`}
+    ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 jetons offerts ${icon("chevron", "tiny")}</button>`}
     ${invitesBlock()}
     ${playHero()}
     ${friendsOnline()}
@@ -941,11 +977,11 @@ function homePage() {
   return shell(
     `<div class="shop-head home-head">${coinHead()}</div>
     <div class="me-row">
-      <button type="button" class="me" data-action="go" data-page="profile">${avatar(p.avatar, "lg ring")}<span><b>${e(p.name)} ${icon("chevron", "tiny")}</b><small>${levelTitle()}</small></span></button>
+      <button type="button" class="me" data-action="go" data-page="profile">${framed(avatar(p.avatar, "lg ring"))}<span><b>${e(p.name)} ${icon("chevron", "tiny")}</b><small>${levelTitle()}</small></span></button>
     </div>
     ${p.account && p.wallet.loginBonus?.amount > 0 ? (wheelReady() ? `<p class="bonus-line">${btn("🎡 La roue du jour vous attend ! Tourner", "wheel", "inline-link")}</p>` : `<p class="bonus-line">🎡 Prochaine roue du jour dans <b data-countdown="${p.wallet.loginBonus.next}"></b>${p.wallet.loginBonus.streak ? ` · série ${p.wallet.loginBonus.streak} j 🔥` : ""}</p>`) : ""}
     ${needVerify() ? `<button type="button" class="notice-row" data-action="go" data-page="verify">${icon("mail")} Confirmez votre adresse e-mail ${icon("chevron", "tiny")}</button>` : ""}
-    ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 crédits offerts ${icon("chevron", "tiny")}</button>`}
+    ${p.account ? "" : `<button type="button" class="notice-row" data-action="go" data-page="register">${icon("user")} Créez votre compte : 2 000 jetons offerts ${icon("chevron", "tiny")}</button>`}
     ${playHero()}
     ${live ? `<p class="live-now"><i class="live-dot"></i>${live} partie${live > 1 ? "s" : ""} en cours en ce moment</p>` : ""}
     ${invitesBlock()}
@@ -982,7 +1018,7 @@ function tablesPage() {
 // Tables permanentes avec mise : une carte par montant, « Jouer » regroupe les joueurs sans invitation.
 const STAKE_LOOK = { 500: ["paris", "Paris"], 1500: ["cannes", "Cannes"], 5000: ["monaco", "Monaco"], 15000: ["dubai", "Dubaï"], 50000: ["vegas", "Las Vegas"] };
 // Tapis de chaque ville (vert, violet, bordeaux, ivoire).
-const CITY_FELT = { paris: "vert", monaco: "violet", dubai: "rouge", vegas: "ivoire" };
+const CITY_FELT = { paris: "vert", cannes: "ciel", monaco: "violet", dubai: "rouge", vegas: "ivoire" };
 // Prochain objectif après une victoire : la ville suivante que le solde ne permet pas encore.
 function nextGoal() {
   const bal = Math.floor(state.player.wallet.available / 2);
@@ -1018,9 +1054,6 @@ const stakeLevels = () => [...new Set(state.tables.filter((t) => t.lobby && t.st
 function stakeGrid(levels) {
   return `<div class="stake-grid">${levels
     .map((stake) => {
-      const open = state.tables.filter((t) => t.lobby && t.stake === stake && t.status !== "Partie en cours");
-      const waiting = Math.max(0, ...open.map((t) => 4 - t.available));
-      const playing = state.tables.filter((t) => t.lobby && t.stake === stake && t.status === "Partie en cours").length;
       const [cls, title] = STAKE_LOOK[stake] ?? ["royale", `Table à ${fmt(stake)}`];
       const gain = state.tables.find((t) => t.stake === stake)?.gain ?? stake;
       // Ville trop chère : cadenas, « Il te manque X jetons », bouton qui ouvre directement la boutique.
@@ -1029,8 +1062,7 @@ function stakeGrid(levels) {
       return `<button type="button" class="stake-card ${cls} ${locked ? "locked" : ""}" data-action="${locked ? "shop" : "playLobby"}" ${locked ? "" : `data-stake="${stake}"`}>
         <span class="sc-photo" aria-hidden="true"></span>
         <span class="sc-chip">${locked ? icon("lock") : `<b>${fmt(stake)}</b><small>jetons</small>`}</span>
-        <span class="sc-main"><b>${title}<i class="sc-flag" aria-hidden="true"></i></b><small>${locked ? `Il te manque <b>${fmt(stake - bal)}</b> jetons` : `Mise ${fmt(stake)} · gain +${fmt(gain)}`}</small>
-        <span class="sc-meta"><span class="sc-seats">${[0, 1, 2, 3].map((i) => `<i class="${i < waiting ? "on" : ""}"></i>`).join("")}</span>${waiting ? `${waiting}/4 joueurs` : "Table libre"}${playing ? ` · ${playing} en jeu` : ""}</span></span>
+        <span class="sc-main"><b>${title}<i class="sc-flag" aria-hidden="true"></i></b><small>${locked ? `Il te manque <b>${fmt(stake - bal)}</b> jetons` : `Mise ${fmt(stake)} · gain +${fmt(gain)}`}</small></span>
         <span class="sc-go">${locked ? "Débloquer" : "Jouer"}</span>
       </button>`;
     })
@@ -1049,7 +1081,7 @@ function profilePage() {
   const p = state.player;
   const rate = p.stats.games ? Math.round((100 * p.stats.wins) / p.stats.games) : 0;
   return shell(
-    `<div class="profile-hero"><div class="ph-avatar">${avatar(p.avatar, "xxl ring")}<label class="cam" aria-label="Ajouter une photo">${icon("camera")}<input type="file" accept="image/*" id="photo-input" hidden></label></div>
+    `<div class="profile-hero"><div class="ph-avatar">${framed(avatar(p.avatar, "xxl ring"))}<label class="cam" aria-label="Ajouter une photo">${icon("camera")}<input type="file" accept="image/*" id="photo-input" hidden></label></div>
       <h1>${e(p.name)}</h1><small>${levelTitle()} · ${e(p.tag)}</small>${p.account?.email ? `<small class="ph-mail">✉️ ${e(p.account.email)}${p.account.verified ? "" : " · non vérifiée"}</small>` : ""}</div>
     <div class="stack tight">${btn(`${icon("pen")} Modifier mon pseudo`, "editName", "line-btn wide")}${btn(`${icon("users")} Choisir un avatar`, "go", "line-btn wide", 'data-page="avatar"')}<label class="line-btn wide">${icon("camera")} Ajouter une photo<input type="file" accept="image/*" id="photo-input-2" hidden></label></div>
     <div class="stat-card"><div>${icon("trophy")}<b>${p.stats.games}</b><small>Parties</small></div><div>${icon("crown")}<b>${p.stats.wins}</b><small>Victoires</small></div><div>${icon("chart")}<b>${rate} %</b><small>Réussite</small></div></div>
@@ -1185,7 +1217,7 @@ function vipCreatePage() {
       <label class="toggle-row">${icon("bolt")}<span>Contrée à la volée</span><input type="checkbox" name="flyingCounter" checked><i class="sw"></i></label>
       <label class="toggle-row">${icon("robot")}<span>Compléter avec des robots</span><input type="checkbox" name="fillBots" checked><i class="sw"></i></label>
       <label class="toggle-row">${icon("clock")}<span>Temps de réflexion par tour</span><select name="turnSeconds">${[15, 20, 30, 45, 60].map((n) => `<option value="${n}" ${n === r.turnSeconds ? "selected" : ""}>${n} s</option>`).join("")}</select></label>
-      <div class="lbl">Mise par joueur<div class="seg radio wrap">${[0, ...STAKES].map((n) => `<label><input type="radio" name="stake" value="${n}" ${n ? "" : "checked"}><span>${n ? fmt(n) : "Gratuit"}</span></label>`).join("")}</div><small class="hint">Avec crédits : quatre joueurs humains, perte limitée à la mise.</small></div>
+      <div class="lbl">Mise par joueur<div class="seg radio wrap">${[0, ...STAKES].map((n) => `<label><input type="radio" name="stake" value="${n}" ${n ? "" : "checked"}><span>${n ? fmt(n) : "Gratuit"}</span></label>`).join("")}</div><small class="hint">Avec jetons : quatre joueurs humains, perte limitée à la mise.</small></div>
       <input type="hidden" name="counterWindowSeconds" value="${r.counterWindowSeconds}"><input type="hidden" name="reconnectSeconds" value="${r.reconnectSeconds}"><input type="hidden" name="capotValue" value="${r.capotValue}"><input type="hidden" name="scoring" value="${r.scoring}"><input type="hidden" name="allPass" value="${r.allPass}">${r.beloteRetained ? '<input type="hidden" name="beloteRetained" value="on">' : ""}<input type="hidden" name="beloteCountsContract" value="on">
       <button class="gold-btn wide">${icon("crown")} Créer ma table</button>
     </form>
@@ -1206,8 +1238,8 @@ function rewardsText(t) {
   const names = (ids) => ids.map((x) => REWARD_NAMES[x] ?? x).join(", ");
   if (t.entryFee) lines.push(`🎟️ Droit d’entrée : ${t.entryFee} jetons par joueur, payé au départ (rien si vous ne jouez pas)`);
   if (t.entryFee) lines.push(`🏦 Cagnotte${t.pot != null ? ` : ${t.pot} jetons` : ""} — droits d’entrée moins ${t.houseCut} % pour la Maison ; 70 % aux vainqueurs, 30 % aux finalistes`);
-  if (t.prizes?.winner) lines.push(`💰 Enjeu vainqueurs : ${t.prizes.winner} crédits par joueur`);
-  if (t.prizes?.finalist) lines.push(`💰 Enjeu finalistes : ${t.prizes.finalist} crédits par joueur`);
+  if (t.prizes?.winner) lines.push(`💰 Enjeu vainqueurs : ${t.prizes.winner} jetons par joueur`);
+  if (t.prizes?.finalist) lines.push(`💰 Enjeu finalistes : ${t.prizes.finalist} jetons par joueur`);
   if (t.rewards.winner.length) lines.push(`🏆 Vainqueurs : ${names(t.rewards.winner)}`);
   if (t.rewards.finalist.length) lines.push(`🥈 Finalistes : ${names(t.rewards.finalist)}`);
   if (t.rewards.participant.length) lines.push(`🎟️ Participants : ${names(t.rewards.participant)}`);
@@ -1315,7 +1347,8 @@ function tournamentPage() {
   const lobby =
     ["closed", "ready"].includes(t.stage) || (t.me && Date.now() >= t.confirmOpen && t.stage === "open")
       ? `<h2 class="section orn-title">Salon d’attente</h2>
-        <div class="lobby-card"><div><b>${t.ready}</b><small>équipes prêtes</small></div><div><b>${t.confirmedCount}</b><small>présences confirmées</small></div><div><b>${free}</b><small>places restantes</small></div><div><b data-countdown="${t.start}"></b><small>avant le départ</small></div></div>`
+        <div class="lobby-card"><div><b>${t.ready}</b><small>équipes prêtes</small></div><div><b>${t.confirmedCount}</b><small>présences confirmées</small></div><div><b>${free}</b><small>places restantes</small></div><div><b data-countdown="${t.start}"></b><small>avant le départ</small></div></div>
+        <p class="tour-soon" hidden data-deadline="${t.start}">Le tournoi commence dans <b></b></p>`
       : "";
   const pause = t.nextRoundAt ? `<div class="notice-box">${icon("clock")} <span><b>${e(t.nextRoundName ?? "Tour suivant")}</b> dans <b data-countdown="${t.nextRoundAt}"></b> · restez connectés</span></div>` : "";
   const mine = t.next
@@ -1721,13 +1754,15 @@ function dealResult(g, t, me) {
     ${tipLine(`deal:${t.gameId}:${h.deal}`)}
   </div></div>`;
 }
-// Maquette « Victoire ! » + règlement des crédits + revanche.
+// Maquette « Victoire ! » + règlement des jetons + revanche.
 function finalResult(g, t, me) {
   const won = g.scores[me % 2] > g.scores[1 - (me % 2)];
   const r = t.result;
   const votes = t.rematch?.votes ?? {};
   const mine = votes[state.player.id];
   const blocked = t.rematch?.blocked ?? [];
+  // Solde inférieur à la mise : « Rejouer » verrouillé, le gratuit d'abord, puis le plus petit pack qui suffit.
+  const short = !won && state.player.account && t.stake && !t.tournament ? Math.max(0, Math.ceil(t.stake + feeOf(t.stake) - state.player.wallet.available / 2)) : 0;
   return `<div class="overlay-page final ${won ? "win" : "lose"}"><div class="op-inner">
     ${won ? '<div class="confetti" aria-hidden="true">' + "<i></i>".repeat(14) + "</div>" : ""}
     ${won ? '<img class="art final-art-img" src="/decor/victoire.webp" alt="" draggable="false">' : `<div class="final-art">${avatar(t.seats[me]?.avatar, "xl")}${avatar(t.seats[(me + 2) % 4]?.avatar, "xl")}</div>`}
@@ -1750,11 +1785,23 @@ function finalResult(g, t, me) {
         : `<div class="votes">${t.seats.map((s) => `<span class="vote ${s && votes[s.id] ? "ok" : ""}" title="${e(s?.name ?? "")}">${avatar(s?.avatar)}<i>${s && votes[s.id] ? "✓" : "…"}</i></span>`).join("")}</div>
     ${t.stake ? `<p class="op-note">${e(stakeRisk(t.stake))}</p>` : ""}
     ${blocked.length ? `<p class="warn">Solde insuffisant pour ${blocked.map(e).join(", ")}. ${btn("Boutique", "shop", "inline-link")} · ${btn("Tables moins chères", "cheaper", "inline-link")}</p>` : ""}
-    ${mine ? '<p class="waiting-vote">En attente des autres joueurs…</p>' : btn(`${icon("refresh")} Rejouer avec cette table`, "rematchYes", "gold-btn wide")}
+    ${short ? lostFunds(t.stake, short) : ""}
+    ${mine ? '<p class="waiting-vote">En attente des autres joueurs…</p>' : btn(`${short ? icon("lock") : icon("refresh")} Rejouer avec cette table`, "rematchYes", "gold-btn wide", "", !!short)}
     ${btn(`${icon("home")} Retour au salon`, "rematchNo", "line-btn wide")}
     ${btn(`${icon("logout")} Quitter la table`, "leave", "line-btn wide small")}`
     }
   </div></div>`;
+}
+// Fin de partie perdue sans assez de jetons : « Plus que X jetons pour jouer à (ville) ».
+function lostFunds(stake, miss) {
+  const w = state.player.wallet;
+  const city = STAKE_LOOK[stake]?.[1];
+  const free = [
+    w.loginBonus && (wheelReady() || w.loginBonus.next <= Date.now()) ? btn("🎡 Roue du jour : un tour vous attend", "wheel", "menu-item") : "",
+    btn("🎯 Défis du jour", "challenges", "menu-item"),
+    btn("⚡ Partie rapide gratuite (sans mise)", "quick", "menu-item"),
+  ].join("");
+  return `<div class="lost-funds"><p class="missing">Plus que <b>${fmt(miss)} jetons</b> pour jouer à ${e(city ?? `la table à ${fmt(stake)}`)}.</p><div class="menu-list wide">${free}</div>${packSuggest(miss)}</div>`;
 }
 // Mise affichée avec le droit de table : « Mise 1 000 + droit de table 100 ».
 const stakeLabel = (stake, fee) => `Mise ${fmt(stake)}${fee ? ` + droit de table ${fmt(fee)}` : ""} jetons`;
@@ -1879,7 +1926,7 @@ function handView(g, me, t) {
     ${hand.map((c, i) => `<button type="button" class="hcard c${i} ${c === selected ? "selected" : ""}" data-action="pick" data-card="${c}" aria-label="${cardName(c)}" aria-pressed="${c === selected}"><img src="${cardImage(c)}" alt="" draggable="false"></button>`).join("")}
   </div>
   <div class="status-row">
-    <span class="me-mini"><span class="me-seat"><span class="me-av ${["bidding", "playing"].includes(g.phase) && g.turn === me && t.deadline ? "ring" : ""}" ${["bidding", "playing"].includes(g.phase) && g.turn === me && t.deadline ? `data-ring="${t.deadline}" data-ring-total="${(t.rules.turnSeconds ?? 20) * 1000}"` : ""}>${avatar(state.player.avatar)}</span><b>${e(state.player.name)}</b>${takerBadge(g, me)}${seatBubble(g, me) ? `<span class="me-bub">${seatBubble(g, me)}</span>` : ""}</span>${t.money ? `<small>${fmt(mine?.engaged ?? 0)} engagés</small>` : ""}</span>
+    <span class="me-mini"><span class="me-seat"><span class="me-av ${myFrame()} ${["bidding", "playing"].includes(g.phase) && g.turn === me && t.deadline ? "ring" : ""}" ${["bidding", "playing"].includes(g.phase) && g.turn === me && t.deadline ? `data-ring="${t.deadline}" data-ring-total="${(t.rules.turnSeconds ?? 20) * 1000}"` : ""}>${avatar(state.player.avatar)}</span><b>${e(state.player.name)}</b>${takerBadge(g, me)}${seatBubble(g, me) ? `<span class="me-bub">${seatBubble(g, me)}</span>` : ""}</span>${t.money ? `<small>${fmt(mine?.engaged ?? 0)} engagés</small>` : ""}</span>
     ${status}
     <span class="status-btns">${btn("😊", "react", "round-btn", 'aria-label="Réactions"')}${btn(`${icon("chat")}${t.chat.length > seenChat && sheet !== "chat" ? '<i class="dot"></i>' : ""}`, "chat", "round-btn gold-round", 'aria-label="Discussion"')}</span>
   </div>`;
@@ -1889,9 +1936,12 @@ function gameView() {
     g = t.game,
     me = Math.max(0, t.seats.findIndex((s) => s?.id === state.player.id));
   const myBid = g.phase === "bidding" && g.turn === me;
+  // Classe posée directement (plutôt que :has(.bid-zone.watching) en CSS, coûteux à recalculer à
+  // chaque carte jouée puisque toute la table est reconstruite à chaque mise à jour).
+  const watchingBid = g.phase === "bidding" && g.turn !== me;
   const eq = state.player.progress.equipped;
   const vip = t.vip && !t.practice;
-  return `<div class="screen game phase-${g.phase} ${vip ? "theme-vip" : "theme-club"} ${myBid ? "bidding-me" : ""} ${eq.back} ${t.city ? `tapis tapis-${CITY_FELT[t.city]} city city-${t.city}` : eq.felt?.startsWith("tapis-") || eq.felt?.startsWith("felt-") ? `${eq.felt} tapis` : vip ? "" : eq.felt}">
+  return `<div class="screen game phase-${g.phase} ${vip ? "theme-vip" : "theme-club"} ${myBid ? "bidding-me" : ""} ${watchingBid ? "watching-bid" : ""} ${eq.back} ${t.city ? `tapis tapis-${CITY_FELT[t.city]} city city-${t.city}` : eq.felt?.startsWith("tapis-") || eq.felt?.startsWith("felt-") ? `${eq.felt} tapis` : vip ? "" : eq.felt}">
     <div class="ambient" aria-hidden="true"><i class="lamp l1"></i><i class="lamp l2"></i><i class="leaf f1"></i><i class="leaf f2"></i></div>
     ${topBar(g, t, me)}
     <main class="arena">
@@ -2023,16 +2073,22 @@ function render() {
   const log = $(".chat-log");
   if (log) log.scrollTop = log.scrollHeight;
   // Ramassage : chaque carte se retourne puis file jusqu'à l'avatar du gagnant (l'animation reprend où elle en était).
-  const pile = $(".collecting");
-  if (collection && pile) {
-    const rel = (collection.winner - (state.table.seats.findIndex((x) => x?.id === state.player.id) + 4)) % 4;
-    const target = $(rel === 0 ? ".me-seat .avatar, .me-mini .avatar" : `.seat.p${(rel + 4) % 4} .seat-avatar`)?.getBoundingClientRect();
-    if (target) for (const c of pile.querySelectorAll(".tcard")) {
-      if (c.style.getPropertyValue("--to")) continue; // trajectoire calculée une seule fois, avant que la carte ne bouge
-      const r = c.getBoundingClientRect();
-      c.style.setProperty("--to", `${Math.round(target.left + target.width / 2 - (r.left + r.width / 2))}px ${Math.round(target.top + target.height / 2 - (r.top + r.height / 2))}px`);
-    }
-    pile.getAnimations({ subtree: true }).forEach((a) => (a.currentTime = performance.now() - (collection.collectAt ?? performance.now())));
+  // Mesure reportée à la frame suivante, comme pour la carte jouée : sinon le calcul de mise en page
+  // (getBoundingClientRect) juste après le remplacement du HTML fait saccader sur iPhone.
+  if (collection) {
+    const snapshot = collection;
+    requestAnimationFrame(() => {
+      const pile = $(".collecting");
+      if (snapshot !== collection || !pile) return;
+      const rel = (collection.winner - (state.table.seats.findIndex((x) => x?.id === state.player.id) + 4)) % 4;
+      const target = $(rel === 0 ? ".me-seat .avatar, .me-mini .avatar" : `.seat.p${(rel + 4) % 4} .seat-avatar`)?.getBoundingClientRect();
+      if (target) for (const c of pile.querySelectorAll(".tcard")) {
+        if (c.style.getPropertyValue("--to")) continue; // trajectoire calculée une seule fois, avant que la carte ne bouge
+        const r = c.getBoundingClientRect();
+        c.style.setProperty("--to", `${Math.round(target.left + target.width / 2 - (r.left + r.width / 2))}px ${Math.round(target.top + target.height / 2 - (r.top + r.height / 2))}px`);
+      }
+      pile.getAnimations({ subtree: true }).forEach((a) => (a.currentTime = performance.now() - (collection.collectAt ?? performance.now())));
+    });
   }
   clock();
   fitBidZone();
@@ -2074,6 +2130,12 @@ function clock() {
   document.querySelectorAll("[data-deadline]").forEach((el) => {
     const d = Number(el.dataset.deadline);
     const n = Math.max(0, Math.ceil((d - Date.now()) / 1000));
+    if (el.classList.contains("tour-soon")) {
+      el.hidden = !(d && n > 0 && n <= 10);
+      const b = el.querySelector("b");
+      if (b) b.textContent = `${n} s`;
+      return;
+    }
     el.textContent = d ? `${n} s` : "";
     el.classList.toggle("urgent", d > 0 && n <= 5);
   });
@@ -2099,14 +2161,14 @@ setInterval(() => {
   if (m && state.table.game && Date.now() - m.at > 5000 && Date.now() - m.at < 5600) render();
 }, 500);
 
-// Petite pluie de pièces : « Bonus de connexion : +200 crédits ! » et nouveau solde.
+// Petite pluie de pièces : « Bonus de connexion : +200 jetons ! » et nouveau solde.
 function showBonus(m) {
   document.querySelector(".bonus-pop")?.remove();
   const el = document.createElement("div");
   el.className = "bonus-pop";
   el.setAttribute("role", "status");
   el.innerHTML = `<div class="bp-coins" aria-hidden="true">${Array.from({ length: 10 }, (_, i) => `<i class="k${i}"></i>`).join("")}</div>
-    <div class="bp-card"><span class="big-coin"></span><b>Bonus de connexion : +${fmt(m.amount)} crédits !</b><small>Nouveau solde : ${fmt(m.balance)} crédits</small></div>`;
+    <div class="bp-card"><span class="big-coin"></span><b>Bonus de connexion : +${fmt(m.amount)} jetons !</b><small>Nouveau solde : ${fmt(m.balance)} jetons</small></div>`;
   document.body.append(el);
   tone([523, 659, 784, 1046], 0.09, 0.05);
   el.addEventListener("click", () => el.remove());
@@ -2362,7 +2424,7 @@ function spinWheel() {
         clearInterval(tickT);
         wheelBusy = false;
         const out = document.getElementById("wheel-out");
-        if (out) out.innerHTML = `<div class="wheel-win"><b>+${fmt(r.amount)} crédits !</b><small>Série : ${r.streak} jour${r.streak > 1 ? "s" : ""} · ×${String(r.mult).replace(".", ",")} · nouveau solde ${fmt(r.balance)}</small></div>`;
+        if (out) out.innerHTML = `<div class="wheel-win"><b>+${fmt(r.amount)} jetons !</b><small>Série : ${r.streak} jour${r.streak > 1 ? "s" : ""} · ×${String(r.mult).replace(".", ",")} · nouveau solde ${fmt(r.balance)}</small></div>`;
         document.querySelector('button[data-action="spin"]')?.remove();
         document.querySelector('.wheel-wrap')?.removeAttribute("data-action");
         SFX.win();
@@ -2478,7 +2540,7 @@ async function oidc(provider) {
   }
 }
 
-// ———————————————————————————————————————————————————————————— crédits, progression, social
+// ———————————————————————————————————————————————————————————— jetons, progression, social
 function levelBar(l) {
   return `<div class="level"><div class="level-head"><b>${e(l.name)}</b><small>${l.next ? `${fmt(l.xp)} / ${fmt(l.next)} XP` : `${fmt(l.xp)} XP`}</small></div><div class="bar"><i class="w${Math.round(l.progress * 20) * 5}"></i></div></div>`;
 }
@@ -2492,13 +2554,13 @@ function walletModal() {
     acc = state.player.account;
   modal(
     `<div class="wallet">
-      <div class="wallet-hero"><span class="big-coin"></span><div><small>Solde</small><b>${fmt(w.balance / 2)}</b><span>crédits de jeu</span></div></div>
+      <div class="wallet-hero"><span class="big-coin"></span><div><small>Solde</small><b>${fmt(w.balance / 2)}</b><span>jetons de jeu</span></div></div>
       <div class="wallet-split"><div><small>Disponible</small><b>${fmt(w.available / 2)}</b></div><div><small>Engagé en partie</small><b>${fmt(w.reserved / 2)}</b></div></div>
-      ${acc ? `<p class="daily-done">🎡 Roue du jour : un tour toutes les 24 h, gains multipliés par votre série (jusqu’à ×4) · prochain tour dans <b data-countdown="${w.loginBonus?.next ?? 0}"></b></p>` : `<div class="account-box guest"><b>Créez un compte</b><p class="muted small">Recevez vos crédits de bienvenue et le bonus quotidien, sur le site et dans l’application.</p>${btn("Créer un compte", "auth", "pill small", 'data-mode="register"')}</div>`}
+      ${acc ? `<p class="daily-done">🎡 Roue du jour : un tour toutes les 24 h, gains multipliés par votre série (jusqu’à ×4) · prochain tour dans <b data-countdown="${w.loginBonus?.next ?? 0}"></b></p>` : `<div class="account-box guest"><b>Créez un compte</b><p class="muted small">Recevez vos jetons de bienvenue et le bonus quotidien, sur le site et dans l’application.</p>${btn("Créer un compte", "auth", "pill small", 'data-mode="register"')}</div>`}
       <div class="row">${btn("🪙 Boutique", "shop", "pill small")}${btn("📜 Historique", "history", "chip-btn")}${btn("🤖 Entraînement gratuit", "practice", "chip-btn")}</div>
       ${acc ? `<label class="cap-row">Plafond de dépenses par mois<select data-setting="spendCap">${[0, 10, 20, 50, 100].map((v) => `<option value="${v}" ${(state.player.settings.spendCap ?? 0) === v ? "selected" : ""}>${v ? `${v} €` : "Aucun"}</option>`).join("")}</select></label>` : ""}
       ${(state.player.purchases ?? []).length ? `<h3 class="wallet-sub">Mes achats</h3><ul class="buy-list">${state.player.purchases.map((x) => `<li><span>${new Date(x.at).toLocaleDateString("fr-FR")}</span><b>${fmt(x.credits)} jetons</b><span>${x.amountCents != null ? (x.amountCents / 100).toLocaleString("fr-FR", { style: "currency", currency: (x.currency || "eur").toUpperCase() }) : ""}</span><em>${{ paid: "Payé", refunded: "Remboursé", disputed: "Contesté" }[x.status] ?? x.status}</em></li>`).join("")}</ul>` : ""}
-      <p class="muted small wallet-note">Les crédits servent uniquement à jouer : ils ne peuvent être ni retirés, ni transférés, ni convertis en argent. ${btn("Conditions de vente", "go", "inline-link", 'data-page="legal"')}</p>
+      <p class="muted small wallet-note">Les jetons servent uniquement à jouer : ils ne peuvent être ni retirés, ni transférés, ni convertis en argent. ${btn("Conditions de vente", "go", "inline-link", 'data-page="legal"')}</p>
     </div>`,
     "wallet-modal",
   );
@@ -2512,7 +2574,10 @@ async function shopModal() {
   const acc = state.player.account;
   const w = state.player.wallet;
   const founder = c.packs.find((x) => x.founder);
-  const packs = c.packs.filter((x) => !x.founder);
+  const packs = c.packs.filter((x) => !x.founder && !x.item);
+  const villePacks = c.packs.filter((x) => x.item && !(x.once && (state.player.purchases ?? []).some((b) => b.pack === x.id && b.status === "paid"))).sort((a, b) => a.priceCents - b.priceCents);
+  // Après l'offre de lancement : premier achat doublé, une seule fois par compte.
+  const firstDouble = c.firstPurchaseDoubleAfter && Date.now() >= c.firstPurchaseDoubleAfter && !(state.player.purchases ?? []).length;
   // Écran « Plus de jetons » : le gratuit d'abord, puis l'offre Fondateur, puis les packs.
   const free = [
     acc && w.loginBonus ? (wheelReady() || w.loginBonus.next <= Date.now() ? btn("🎡 Roue du jour : un tour vous attend", "wheel", "menu-item") : `<p class="free-line">🎡 Prochain tour de roue dans <b data-countdown="${w.loginBonus.next}"></b></p>`) : "",
@@ -2524,9 +2589,17 @@ async function shopModal() {
     <p class="muted">Solde : ${coins(state.player.wallet.balance / 2)}</p>
     <h3 class="wallet-sub">Gratuit</h3><div class="menu-list wide">${free}</div>
     ${founder && state.player.founderOffer ? `<article class="founder-card"><span class="pack-tag">Lancement · jusqu’au ${new Date(c.founderUntil).toLocaleDateString("fr-FR")}</span><b>Pack Fondateur</b><p>${fmt(founder.credits)} jetons + cadre « Fondateur », qui ne sera plus jamais vendu. Une seule fois par compte.</p>${founder.note ? `<small class="pack-note">${e(founder.note)}</small>` : ""}${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(founder.price)) : e(founder.price), "buy", "gold-btn small", `data-pack="${founder.id}"`, !open)}</article>` : ""}
+    ${firstDouble ? `<p class="free-line">🎉 Premier achat doublé : deux fois plus de jetons sur votre tout premier pack.</p>` : ""}
     <h3 class="wallet-sub">Packs de jetons</h3>
-    <div class="packs">${packs.map((pk) => `<article class="pack ${/royal/i.test(pk.name) ? "royal" : ""}">${pk.bonus ? `<span class="pack-tag">${e(pk.bonus)}</span>` : ""}${pk.name ? `<small class="pack-name">${e(pk.name)}</small>` : ""}<span class="pack-coins">${"<i class=\"coin\"></i>".repeat(Math.min(4, 1 + Math.round(Math.log10(pk.credits / 500))))}</span><b>${fmt(pk.credits)}</b><small>jetons</small>${pk.note ? `<small class="pack-note">${e(pk.note)}</small>` : ""}
+    <div class="packs">${packs.map((pk) => `<article class="pack ${/royal/i.test(pk.name) ? "royal" : ""}">${pk.bonus ? `<span class="pack-tag">${e(pk.bonus)}</span>` : ""}${pk.name ? `<small class="pack-name">${e(pk.name)}</small>` : ""}<span class="pack-coins">${"<i class=\"coin\"></i>".repeat(Math.min(4, 1 + Math.round(Math.log10(pk.credits / 500))))}</span><b>${fmt(firstDouble ? pk.credits * 2 : pk.credits)}</b><small>jetons</small>${firstDouble ? `<small class="pack-note">au lieu de ${fmt(pk.credits)}</small>` : pk.note ? `<small class="pack-note">${e(pk.note)}</small>` : ""}
       ${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(pk.price)) : e(pk.price), "buy", "pill small", `data-pack="${pk.id}"`, !open || !state.player.account)}</article>`).join("")}</div>
+    ${
+      villePacks.length
+        ? `<h3 class="wallet-sub">Packs ville</h3><p class="muted small">Jetons + tapis de la ville offert.</p>
+    <div class="packs">${villePacks.map((pk) => `<article class="pack">${pk.name ? `<small class="pack-name">${e(pk.name)}</small>` : ""}<span class="pack-coins">${"<i class=\"coin\"></i>".repeat(Math.min(4, 1 + Math.round(Math.log10(pk.credits / 500))))}</span><b>${fmt(pk.credits)}</b><small>jetons</small>${pk.note ? `<small class="pack-note">${e(pk.note)}</small>` : ""}
+      ${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(pk.price)) : e(pk.price), "buy", "pill small", `data-pack="${pk.id}"`, !open || !state.player.account)}</article>`).join("")}</div>`
+        : ""
+    }
     ${!state.player.account ? '<p class="warn">Créez un compte pour acheter des jetons.</p>' : open ? "" : '<p class="warn">Les achats ne sont pas encore ouverts. En attendant : bonus du jour, défis et entraînement gratuit.</p>'}
     ${c.test && !c.purchases ? '<p class="warn">Mode développement : paiement fictif, jamais disponible en production.</p>' : ""}
     ${prestigeCard()}
@@ -2539,11 +2612,11 @@ async function historyModal() {
   pendingAcks[id] = (m) => {
     const rows = m.wallet
       .map((x) => {
-        const game = x.gameId ? `<small>Partie ${e(x.gameId.slice(0, 6))} · mise ${fmt(x.stake)} · engagé ${fmt(x.engaged)} · ${x.rubicon ? "rubicon" : "simple"}</small>${x.adjusted ? '<small class="adjusted">Gain ajusté aux crédits engagés par les adversaires.</small>' : ""}` : "";
+        const game = x.gameId ? `<small>Partie ${e(x.gameId.slice(0, 6))} · mise ${fmt(x.stake)} · engagé ${fmt(x.engaged)} · ${x.rubicon ? "rubicon" : "simple"}</small>${x.adjusted ? '<small class="adjusted">Gain ajusté aux jetons engagés par les adversaires.</small>' : ""}` : "";
         return `<li class="${x.amount > 0 ? "in" : x.amount < 0 ? "out" : ""}"><div><b>${e(x.label ?? x.type)}</b><small>${when(x.at)}</small>${game}</div><span><b>${x.amount ? signed(x.amount) : "0"}</b><small>solde ${fmt(x.balance)}</small></span></li>`;
       })
       .join("");
-    modal(`<div class="modal-head"><span class="modal-icon">📜</span><h2>Historique des crédits</h2></div><ul class="ledger">${rows || '<li class="empty">Aucun mouvement pour l’instant.</li>'}</ul><p class="muted small">Journal en lecture seule : chaque règlement et chaque récompense ont un identifiant unique.</p>`, "sheet-modal");
+    modal(`<div class="modal-head"><span class="modal-icon">📜</span><h2>Historique des jetons</h2></div><ul class="ledger">${rows || '<li class="empty">Aucun mouvement pour l’instant.</li>'}</ul><p class="muted small">Journal en lecture seule : chaque règlement et chaque récompense ont un identifiant unique.</p>`, "sheet-modal");
   };
   ws.send(JSON.stringify({ id, type: "wallet", data: {} }));
 }
@@ -2591,7 +2664,7 @@ function needFunds(stake) {
   if (!stake) return false;
   if (!state.player.account) {
     go("register");
-    toast("Créez un compte pour jouer avec des crédits");
+    toast("Créez un compte pour jouer avec des jetons");
     return true;
   }
   if (state.player.wallet.available / 2 < stake) {
@@ -2634,7 +2707,7 @@ function progressModal() {
   modal(
     `<div class="modal-head"><span class="modal-icon">🏅</span><h2>Niveau d’activité</h2></div>
     ${levelBar(pr.level)}
-    <p class="muted small">Le niveau récompense la participation : il ne mesure pas la force de jeu et ne se perd jamais, même si vous perdez des crédits.</p>
+    <p class="muted small">Le niveau récompense la participation : il ne mesure pas la force de jeu et ne se perd jamais, même si vous perdez des jetons.</p>
     <div class="stat-row light"><div><b>${pr.finished}</b><small>parties terminées</small></div><div><b>${pr.wins}</b><small>victoires</small></div><div><b>${pr.badges.filter((b) => b.at).length}</b><small>badges</small></div></div>
     <h3>Badges</h3><div class="badges">${pr.badges.map((b) => `<div class="badge ${b.at ? "on" : ""}"><span>${b.icon}</span><b>${e(b.name)}</b><small>${b.at ? new Date(b.at).toLocaleDateString("fr-FR") : e(b.hint)}</small></div>`).join("")}</div>`,
     "sheet-modal",
@@ -2669,7 +2742,7 @@ function reportModal(id, name) {
 function joinConfirm(t, action, data = "") {
   rulesModal(
     t.rules,
-    `${t.stake ? `<div class="stake-warning">${coins(t.stake, "big")}<p>${e(stakeRisk(t.stake))}</p><small>Votre solde disponible : ${fmt(state.player.wallet.available / 2)} crédits</small></div>` : '<p class="free-note">Partie gratuite : aucun crédit engagé.</p>'}${btn(t.stake ? "J’ai compris, rejoindre" : "Accepter et rejoindre", action, "cta small wide", data)}`,
+    `${t.stake ? `<div class="stake-warning">${coins(t.stake, "big")}<p>${e(stakeRisk(t.stake))}</p><small>Votre solde disponible : ${fmt(state.player.wallet.available / 2)} jetons</small></div>` : '<p class="free-note">Partie gratuite : aucun jeton engagé.</p>'}${btn(t.stake ? "J’ai compris, rejoindre" : "Accepter et rejoindre", action, "cta small wide", data)}`,
   );
 }
 function resultModal(r) {
@@ -2694,7 +2767,7 @@ function createModal(r = DEFAULT_RULES, editing = false) {
       ${editing ? "" : `<label>Nom de la table<input name="name" placeholder="Le salon de Sophie" maxlength="40" required></label>
       <div class="seg radio"><label><input type="radio" name="vip" value="true" checked><span>👑 Privée</span></label><label><input type="radio" name="vip" value="false"><span>🌍 Publique</span></label></div>
       <label>Mot de passe <small>facultatif</small><input name="password" type="password" maxlength="128" autocomplete="new-password"></label>`}
-      <fieldset class="stakes"><legend>Mise par joueur</legend><div class="seg radio wrap">${[0, ...STAKES].map((n) => `<label><input type="radio" name="stake" value="${n}" ${n === (editing ? state.table.stake : 0) ? "checked" : ""}><span>${n ? `🪙 ${fmt(n)}` : "Gratuit"}</span></label>`).join("")}</div><small class="muted">Avec crédits : quatre joueurs, perte limitée à la mise.</small></fieldset>
+      <fieldset class="stakes"><legend>Mise par joueur</legend><div class="seg radio wrap">${[0, ...STAKES].map((n) => `<label><input type="radio" name="stake" value="${n}" ${n === (editing ? state.table.stake : 0) ? "checked" : ""}><span>${n ? `🪙 ${fmt(n)}` : "Gratuit"}</span></label>`).join("")}</div><small class="muted">Avec jetons : quatre joueurs, perte limitée à la mise.</small></fieldset>
       <details class="advanced" ${editing ? "open" : ""}><summary>Règles et délais</summary>
       <div class="form-grid">${num("target", "Points pour gagner", 100, 10000)}${num("turnSeconds", "Temps par tour (s)", 5, 120)}${num("counterWindowSeconds", "Délai de surcontre (s)", 2, 30)}${num("capotValue", "Valeur du capot", 160, 500)}${num("reconnectSeconds", "Délai d’absence (s)", 10, 600)}
       <label>Score<select name="scoring"><option value="added" ${r.scoring === "added" ? "selected" : ""}>Points + contrat</option><option value="contract" ${r.scoring === "contract" ? "selected" : ""}>Contrat seul</option></select></label>
@@ -3092,6 +3165,9 @@ document.addEventListener("click", async (ev) => {
     case "shopBuy":
       shopBuy(el.dataset.id);
       break;
+    case "shopGiftAsk":
+      shopGiftAsk(el.dataset.id);
+      break;
     case "feltDefault":
       cmd("equip", { id: "felt-emeraude" });
       toast("Tapis vert d’origine remis");
@@ -3111,7 +3187,7 @@ document.addEventListener("click", async (ev) => {
           location.href = r.url;
         } else if (c.test) {
           await api("/api/shop/test", { pack: el.dataset.pack });
-          toast("Crédits ajoutés (paiement de test)");
+          toast("Jetons ajoutés (paiement de test)");
           closeModal();
         }
       } catch (err) {
@@ -3378,7 +3454,7 @@ document.addEventListener("click", async (ev) => {
       await adminRequest({ type: "suspend", id: el.dataset.id, enabled: el.dataset.enabled === "true" });
       break;
     case "clientDelete":
-      if (confirm(`Supprimer définitivement « ${el.dataset.name} » ? Compte, crédits et historique seront effacés.`)) {
+      if (confirm(`Supprimer définitivement « ${el.dataset.name} » ? Compte, jetons et historique seront effacés.`)) {
         adminClient = null;
         if (await adminRequest({ type: "playerDelete", id: el.dataset.id })) toast("Client supprimé");
       }
@@ -3408,7 +3484,7 @@ document.addEventListener("click", async (ev) => {
       await adminRequest({ type: "reviewAlert", id: el.dataset.id });
       break;
     case "cancelGame":
-      if (confirm("Annuler cette partie ? Les crédits engagés seront libérés sans gain ni perte.")) await adminRequest({ type: "cancelGame", id: el.dataset.id });
+      if (confirm("Annuler cette partie ? Les jetons engagés seront libérés sans gain ni perte.")) await adminRequest({ type: "cancelGame", id: el.dataset.id });
       break;
     case "resolveReport":
       await adminRequest({ type: "resolve", id: el.dataset.id });
@@ -3512,16 +3588,16 @@ async function openClient(id) {
       <div class="row">${btn("← Liste des clients", "clientBack", "chip-btn ghost")}</div>
       <div class="client-head">${avatar(c.avatar)}<div><b>${e(c.name)}</b><small>${e(c.tag ?? "")} · ${c.online ? "en ligne" : "hors ligne"}${c.banned ? " · <b>suspendu</b>" : ""}</small><small>${c.account ? `${e(c.account.email)} · ${c.account.verified ? "e-mail vérifié" : "e-mail non vérifié"}${c.account.providers.length ? " · " + c.account.providers.map(e).join(", ") : ""}` : "Invité sans compte"}</small></div></div>
       <div class="admin-stats"><div><b>${fmt(w.balance / 2)}</b><small>solde</small></div><div><b>${fmt(w.reserved / 2)}</b><small>engagés</small></div><div><b>${c.stats.games}</b><small>parties</small></div><div><b>${c.stats.wins ?? 0}</b><small>victoires</small></div></div>
-      <h4>Créditer / débiter</h4>
+      <h4>Ajouter / retirer des jetons</h4>
       <div class="row">${c.account ? `${c.prestige ? `<small>⭐ Prestige jusqu’au ${new Date(c.prestige.until).toLocaleDateString("fr-FR")}</small>` : ""}${btn("⭐ Prestige +30 j", "adminPrestige", "chip-btn", `data-id="${c.id}" data-days="30"`)}${c.prestige ? btn("Retirer Prestige", "adminPrestige", "chip-btn", `data-id="${c.id}" data-days="0"`) : ""}` : ""}</div>
-      <form id="client-credit-form" class="form inline"><input type="hidden" name="cid" value="${c.id}"><label>Montant (crédits, négatif pour retirer)<input name="amount" type="number" step="0.5" min="-1000000" max="1000000" required></label><label>Motif<input name="reason" maxlength="120" placeholder="Geste commercial, correction…"></label><button class="pill small">Valider</button></form>
+      <form id="client-credit-form" class="form inline"><input type="hidden" name="cid" value="${c.id}"><label>Montant (jetons, négatif pour retirer)<input name="amount" type="number" step="0.5" min="-1000000" max="1000000" required></label><label>Motif<input name="reason" maxlength="120" placeholder="Geste commercial, correction…"></label><button class="pill small">Valider</button></form>
       <h4>Fiche</h4>
       <form id="client-edit-form" class="form"><input type="hidden" name="cid" value="${c.id}">
         <div class="form-grid"><label>Pseudo<input name="name" value="${e(c.name)}" minlength="2" maxlength="24" required></label><label>Avatar<input name="avatar" value="${e(c.avatar)}" maxlength="8"></label>
         ${c.account ? `<label>E-mail<input name="email" type="email" value="${e(c.account.email)}" required></label><label class="check-line"><input type="checkbox" name="verified" ${c.account.verified ? "checked" : ""}>E-mail vérifié</label><label>Nouveau mot de passe <small class="muted">(laisser vide pour ne pas changer)</small><input name="password" type="text" minlength="8" maxlength="128" autocomplete="off"></label>` : ""}</div>
         <button class="pill small">Enregistrer la fiche</button></form>
       <div class="row">${btn(c.banned ? "Réactiver le compte" : "Suspendre le compte", "clientSuspend", "chip-btn", `data-id="${c.id}" data-enabled="${!c.banned}"`)}${btn("Supprimer le client", "clientDelete", "chip-btn danger", `data-id="${c.id}" data-name="${e(c.name)}"`)}</div>
-      <h4>Journal des crédits</h4>
+      <h4>Journal des jetons</h4>
       <div class="client-ledger">${c.ledger.map((x) => `<div class="admin-row"><span>${when(x.at)} · ${e(x.label ?? x.type)}</span><span class="${x.amount < 0 ? "neg" : "pos"}">${x.amount > 0 ? "+" : ""}${fmt(x.amount)} → ${fmt(x.balance)}</span></div>`).join("") || "<p class='muted small'>Aucun mouvement.</p>"}</div>
       <h4>Dernières parties</h4>
       <div>${(c.history ?? []).slice(0, 15).map((h) => `<div class="admin-row"><span>${h.at ? when(h.at) : ""} ${e(h.table ?? h.name ?? "")}</span><span>${h.won ? "Gagnée" : "Perdue"}${h.score ? ` · ${e(String(h.score))}` : ""}</span></div>`).join("") || "<p class='muted small'>Aucune partie.</p>"}</div>
@@ -3577,7 +3653,7 @@ async function adminRequest(data) {
       <nav class="admin-tabs">${tabs.map(([id, ic, label, n]) => `<button type="button" class="admin-tab ${adminTab === id ? "on" : ""}" data-action="adminTab" data-tab="${id}"><span>${ic}</span>${label}${n ? `<i>${n}</i>` : ""}</button>`).join("")}</nav>
       <div class="admin-body">
       ${panel("dash", `<h2>Tableau de bord</h2>
-        <div class="admin-stats"><div><b>${d.players.length}</b><small>clients</small></div><div><b>${online}</b><small>en ligne</small></div><div><b>${d.tables.length}</b><small>tables</small></div><div><b>${upcoming.length}</b><small>tournois à venir</small></div><div><b>${fmt(d.economy.circulating)}</b><small>crédits en circulation</small></div><div><b>${fmt(d.economy.reserved)}</b><small>crédits engagés</small></div><div><b>${open.length}</b><small>signalements</small></div><div><b>${alerts.length}</b><small>alertes</small></div></div>
+        <div class="admin-stats"><div><b>${d.players.length}</b><small>clients</small></div><div><b>${online}</b><small>en ligne</small></div><div><b>${d.tables.length}</b><small>tables</small></div><div><b>${upcoming.length}</b><small>tournois à venir</small></div><div><b>${fmt(d.economy.circulating)}</b><small>jetons en circulation</small></div><div><b>${fmt(d.economy.reserved)}</b><small>jetons engagés</small></div><div><b>${open.length}</b><small>signalements</small></div><div><b>${alerts.length}</b><small>alertes</small></div></div>
         <p class="muted small">Achats ${d.economy.purchases ? "ouverts" : "fermés"} (web ${d.economy.stripe ? "✓" : "—"}, iOS ${d.economy.apple ? "✓" : "—"}, Android ${d.economy.google ? "✓" : "—"}) · Push navigateur ${d.push.web ? "✓" : "—"} · Push natif ${d.push.native ? "✓" : "—"} · Entrées ${d.settings.maintenance ? "suspendues" : "ouvertes"}</p>
         ${backupCard(d.backup)}
         ${d.metrics ? metricsCard(d.metrics) : ""}
@@ -3594,7 +3670,7 @@ async function adminRequest(data) {
       ${panel("tables", `<h2>Tables</h2>${d.tables.map((t) => row(`${e(t.name)} · ${e(t.status)}${t.stake ? ` · 🪙 ${t.stake}` : ""}`, t.engaged ? btn("Annuler (incident)", "cancelGame", "chip-btn danger", `data-id="${t.id}"`) : btn("Supprimer", "deleteTable", "chip-btn", `data-id="${t.id}"`, t.status === "Partie en cours"))).join("") || "<p>Aucune table.</p>"}`)}
       ${panel("settings", `<h2>Réglages</h2>
         <div class="admin-card"><b>Nouvelles entrées</b><small>Bloque l’arrivée de nouveaux joueurs aux tables (maintenance).</small>${btn(d.settings.maintenance ? "Rouvrir les entrées" : "Suspendre les nouvelles entrées", "maintenance", "chip-btn", `data-enabled="${!d.settings.maintenance}"`)}</div>
-        <div class="admin-card"><form id="bonus-form" class="form inline"><label>Bonus de connexion (crédits / 24 h)<input name="amount" type="number" min="0" max="100000" step="1" value="${d.settings.loginBonus ?? d.economy.loginBonus}" required></label><button class="pill small">Enregistrer</button></form></div>`)}
+        <div class="admin-card"><form id="bonus-form" class="form inline"><label>Bonus de connexion (jetons / 24 h)<input name="amount" type="number" min="0" max="100000" step="1" value="${d.settings.loginBonus ?? d.economy.loginBonus}" required></label><button class="pill small">Enregistrer</button></form></div>`)}
       </div>`;
     if (adminClient) await openClient(adminClient);
     return true;
@@ -3631,6 +3707,15 @@ document.addEventListener("submit", async (ev) => {
         if (f.id === "create-form" && needFunds(Number(d.stake))) return;
         cmd(f.id === "create-form" ? "create" : "rules", { name: d.name, password: d.password || undefined, vip: d.vip === "true", rules: r, stake: Number(d.stake ?? 0), fillBots: d.fillBots === "on" });
         break;
+      }
+      case "gift-form": {
+        if (!d.to) return toast("Choisissez un ami");
+        ask("shopGift", { id: f.dataset.id, to: d.to, note: d.note }, () => {
+          tone([523, 659, 784], 0.08, 0.05);
+          toast("Cadeau envoyé !");
+          closeModal();
+        });
+        return;
       }
       case "search-form": {
         const id = crypto.randomUUID();
