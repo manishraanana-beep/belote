@@ -10,6 +10,7 @@ import { createApp } from "../src/server.js";
 
 const arg = (k, d) => process.argv.find((a) => a.startsWith(`--${k}=`))?.split("=")[1] ?? d;
 const deflate = arg("deflate", "1");
+const delta = arg("delta", "1"); // 1 : messages partiels table/player/lobby ; 0 : ancien état complet
 const target = Number(arg("target", 250));
 const extra = Number(arg("extra-tables", 60));
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -23,11 +24,14 @@ async function client() {
   const r = await fetch(base + "/api/session", { method: "POST" });
   const cookie = r.headers.get("set-cookie").split(";")[0];
   const c = { state: null, sizes: [], acks: [], pending: new Map() };
-  c.ws = new WebSocket(base.replace("http", "ws") + "/ws", { headers: { Cookie: cookie, Origin: base } });
+  c.ws = new WebSocket(base.replace("http", "ws") + (delta === "1" ? "/ws?delta=1" : "/ws"), { headers: { Cookie: cookie, Origin: base } });
   c.ws.on("message", (raw) => {
     const m = JSON.parse(raw);
     c.sizes.push(raw.length);
     if (m.type === "state") c.state = m;
+    else if (c.state && m.type === "table") Object.assign(c.state, { table: m.table, online: m.online });
+    else if (c.state && m.type === "player") c.state.player = m.player;
+    else if (c.state && m.type === "lobby") Object.assign(c.state, { ...m, type: "state" });
     if (m.id && c.pending.has(m.id)) {
       c.acks.push(performance.now() - c.pending.get(m.id));
       c.pending.delete(m.id);
@@ -58,6 +62,7 @@ const wire0 = wsSock().bytesRead;
 const n0 = p.sizes.length;
 p.sizes.length = 0;
 p.acks.length = 0;
+const cpu0 = (process.cpuUsage().user + process.cpuUsage().system) / 1000;
 const t0 = performance.now();
 p.send("practice", { rules: { target } });
 let guard = 0;
@@ -77,6 +82,8 @@ console.log(
   JSON.stringify(
     {
       deflate: deflate !== "0",
+      delta: delta === "1",
+      cpuServeurEtClientsMs: Math.round((process.cpuUsage().user + process.cpuUsage().system) / 1000 - cpu0),
       tablesDansLobby: lobbyTables,
       dureeS: +secs.toFixed(1),
       messages: p.sizes.length,
