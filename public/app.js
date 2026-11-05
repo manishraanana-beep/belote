@@ -3097,6 +3097,8 @@ document.addEventListener("click", async (ev) => {
       try {
         await api("/api/auth/logout");
         closeModal();
+        pageStack = [];
+        go("welcome");
         toast("Vous êtes déconnecté");
       } catch (err) {
         toast(err.message);
