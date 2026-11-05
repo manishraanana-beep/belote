@@ -2337,7 +2337,25 @@ export function createApp({
     );
     res.end(readFileSync(path.join(root, "public", rel)));
   });
-  const wss = new WebSocketServer({ noServer: true, maxPayload: 8192 });
+  // Compression permessage-deflate : seuls les messages > 1 Ko sont compressés (états de ~60 Ko).
+  // Sans « context takeover » ni fenêtre étendue : mémoire bornée par connexion (~100 Ko) ;
+  // `concurrencyLimit` évite de saturer le processeur lors d'une diffusion générale.
+  // Retour arrière : BELOTE_WS_DEFLATE=0.
+  const wss = new WebSocketServer({
+    noServer: true,
+    maxPayload: 8192,
+    perMessageDeflate:
+      env.BELOTE_WS_DEFLATE === "0"
+        ? false
+        : {
+            threshold: 1024,
+            zlibDeflateOptions: { level: 3, memLevel: 7 },
+            serverNoContextTakeover: true,
+            clientNoContextTakeover: true,
+            serverMaxWindowBits: 14,
+            concurrencyLimit: 10,
+          },
+  });
   server.on("upgrade", (req, socket, head) => {
     const p = getPlayer(req),
       origin = req.headers.origin;

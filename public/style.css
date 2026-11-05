@@ -2267,3 +2267,4 @@ table.metrics .minus { color: #ff8f8f; }
 .art-pack img { width: 100%; height: auto; }
 .shop-modal-art.small .art-emoji { font-size: 56px; }
 .lost-funds { display: grid; gap: 8px; width: 100%; margin: 6px 0; }
+.perf-hud { position: fixed; left: 6px; bottom: 6px; z-index: 99999; margin: 0; padding: 6px 8px; border-radius: 8px; background: #000c; color: #9f9; font: 11px/1.35 ui-monospace, monospace; pointer-events: none; white-space: pre; }

@@ -131,9 +131,63 @@ function toast(text) {
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => t.classList.remove("visible"), 3800);
 }
+// Mode debug « ?debug=perf » : messages/min, tailles, délai action → réponse, calculs > 50 ms.
+const perf = (() => {
+  try {
+    if (new URLSearchParams(location.search).get("debug") !== "perf") return null;
+  } catch {
+    return null;
+  }
+  const P = { msgs: [], sizes: [], first: [], ack: [], handler: [], long: [], sent: new Map(), awaitingFirst: [] };
+  const hud = document.createElement("pre");
+  hud.className = "perf-hud";
+  document.body.append(hud);
+  const stat = (a) => (a.length ? `${Math.round(a.reduce((x, y) => x + y, 0) / a.length)} moy · ${Math.round(Math.max(...a))} max` : "–");
+  const med = (a) => (a.length ? Math.round([...a].sort((x, y) => x - y)[a.length >> 1]) : "–");
+  try {
+    new PerformanceObserver((l) => l.getEntries().forEach((e) => P.long.push(Math.round(e.duration)))).observe({ type: "longtask", buffered: true });
+  } catch {}
+  const draw = () => {
+    const now = performance.now();
+    P.msgs = P.msgs.filter((t) => now - t < 60000);
+    hud.textContent =
+      `perf · messages/min : ${P.msgs.length}\n` +
+      `taille (Ko) : ${P.sizes.length ? `${(P.sizes.reduce((x, y) => x + y, 0) / P.sizes.length / 1024).toFixed(1)} moy · ${(Math.max(...P.sizes) / 1024).toFixed(1)} max` : "–"} (${P.sizes.length} msg)\n` +
+      `action → 1er message (ms) : méd ${med(P.first)} · ${stat(P.first)}\n` +
+      `action → ack (ms) : méd ${med(P.ack)} · ${stat(P.ack)}\n` +
+      `traitement d’un message (ms) : ${stat(P.handler)}\n` +
+      `calculs > 50 ms : ${P.long.length}${P.long.length ? ` (max ${Math.max(...P.long)} ms)` : ""}`;
+  };
+  setInterval(draw, 1000);
+  window.__perf = P; // pour les mesures automatisées
+  return {
+    sent(id) {
+      P.sent.set(id, performance.now());
+      P.awaitingFirst.push(performance.now());
+    },
+    msg(data) {
+      const now = performance.now();
+      P.msgs.push(now);
+      P.sizes.push(data.length);
+      while (P.awaitingFirst.length) P.first.push(now - P.awaitingFirst.shift());
+    },
+    ack(id) {
+      const t0 = P.sent.get(id);
+      if (t0 !== undefined) {
+        P.ack.push(performance.now() - t0);
+        P.sent.delete(id);
+      }
+    },
+    done(t0) {
+      P.handler.push(performance.now() - t0);
+    },
+  };
+})();
 function cmd(type, data = {}) {
   if (ws?.readyState !== 1) return toast("Connexion en cours…");
-  ws.send(JSON.stringify({ id: crypto.randomUUID(), type, data }));
+  const id = crypto.randomUUID();
+  perf?.sent(id);
+  ws.send(JSON.stringify({ id, type, data }));
 }
 async function api(path, body, raw = false) {
   const res = await fetch(path, {
@@ -2761,6 +2815,7 @@ function ask(type, data, then) {
   if (ws?.readyState !== 1) return toast("Connexion en cours…");
   const id = crypto.randomUUID();
   pendingAcks[id] = then;
+  perf?.sent(id);
   ws.send(JSON.stringify({ id, type, data }));
 }
 
@@ -3907,8 +3962,10 @@ async function connect() {
       if (retry) toast("Connexion rétablie · partie restaurée");
       retry = 0;
     };
-    ws.onmessage = (ev) => {
+    const onWsMessage = (ev) => {
+      perf?.msg(ev.data);
       const msg = JSON.parse(ev.data);
+      if (perf && (msg.type === "ack" || msg.type === "error")) perf.ack(msg.id);
       if (msg.type === "state") {
         const first = !state;
         const prevDeal = state?.table?.game?.deal;
@@ -3996,6 +4053,16 @@ async function connect() {
         if (!/Action périmée/.test(msg.message)) toast(msg.message);
       }
     };
+    ws.onmessage = perf
+      ? (ev) => {
+          const t0 = performance.now();
+          try {
+            onWsMessage(ev);
+          } finally {
+            perf.done(t0);
+          }
+        }
+      : onWsMessage;
     ws.onclose = (ev) => {
       if (ev.code === 4001) return connect(); // session changée (connexion, déconnexion)
       toast("Connexion perdue · reconnexion…");
