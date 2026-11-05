@@ -1,9 +1,11 @@
 import http from "node:http";
 import { WebSocketServer } from "ws";
-import { randomBytes, randomInt, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from "node:crypto";
+import { brotliCompressSync, gzipSync, constants as zc } from "node:zlib";
 import {
   mkdirSync,
   readFileSync,
+  statSync,
   writeFileSync,
   renameSync,
   existsSync,
@@ -1802,6 +1804,19 @@ export function createApp({
     broadcast();
     return reply ?? { ok: true };
   }
+  // Fichiers statiques en mémoire : relus seulement si leur date de modification change.
+  const staticCache = new Map();
+  function staticFile(rel) {
+    const full = path.join(root, "public", rel);
+    const mtime = statSync(full).mtimeMs;
+    let f = staticCache.get(rel);
+    if (!f || f.mtime !== mtime) {
+      const buf = readFileSync(full);
+      f = { mtime, buf, etag: `"${createHash("sha1").update(buf).digest("base64url").slice(0, 22)}"`, text: /\.(?:html|js|css|svg|webmanifest|txt)$/.test(rel) };
+      staticCache.set(rel, f);
+    }
+    return f;
+  }
   const mime = {
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
@@ -2401,12 +2416,29 @@ export function createApp({
       res.writeHead(404);
       return res.end("Introuvable");
     }
+    const file = staticFile(rel);
     res.setHeader("Content-Type", mime[path.extname(rel)]);
     res.setHeader(
       "Cache-Control",
       cardFile ? "public, max-age=86400" : "no-cache",
     );
-    res.end(readFileSync(path.join(root, "public", rel)));
+    // Validateur : le navigateur revalide (« no-cache ») et reçoit un 304 sans corps tant que le fichier n'a pas changé.
+    res.setHeader("ETag", file.etag);
+    if (file.text) res.setHeader("Vary", "Accept-Encoding");
+    if (req.headers["if-none-match"]?.split(",").some((t) => t.trim().replace(/^W\//, "") === file.etag)) {
+      res.writeHead(304);
+      return res.end();
+    }
+    // Texte (HTML, JS, CSS, SVG…) compressé par le serveur (Brotli, sinon gzip) ; les images WebP/PNG/polices le sont déjà.
+    const accept = req.headers["accept-encoding"] ?? "";
+    const enc = !file.text || process.env.BELOTE_STATIC_COMPRESS === "0" ? null : /\bbr\b/.test(accept) ? "br" : /\bgzip\b/.test(accept) ? "gzip" : null;
+    if (enc) {
+      file[enc] ??= enc === "br" ? brotliCompressSync(file.buf, { params: { [zc.BROTLI_PARAM_QUALITY]: 5 } }) : gzipSync(file.buf, { level: 6 });
+      res.setHeader("Content-Encoding", enc);
+    }
+    const body = enc ? file[enc] : file.buf;
+    res.setHeader("Content-Length", body.length);
+    res.end(body);
   });
   // Compression permessage-deflate : seuls les messages > 1 Ko sont compressés (états de ~60 Ko).
   // Sans « context takeover » ni fenêtre étendue : mémoire bornée par connexion (~100 Ko) ;
