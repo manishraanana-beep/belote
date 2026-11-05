@@ -66,8 +66,16 @@ async function bid(page, suit, amount) {
   await page.locator(`.suit-btn[data-suit="${suit}"]`).click({ timeout: 4000 });
   await page.locator('#bid-form button[name="go"]').click({ timeout: 4000 });
 }
-async function createVip(page, name) {
+// Plus de partie en invité anonyme : un compte est requis dès l'arrivée.
+async function quickAccount(page) {
   await page.goto("/");
+  await expect(page.locator(".page-welcome")).toBeVisible();
+  await page.evaluate(() => fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: crypto.randomUUID() + "@exemple.fr", password: "motdepasse" }) }));
+  await page.reload();
+  await expect(page.locator(".page-home")).toBeVisible();
+}
+async function createVip(page, name) {
+  await quickAccount(page);
   await page.locator(".feature.f-vip").click();
   await page.locator('[data-page="vipCreate"]').click();
   await page.locator('#create-form [name="name"]').fill(name);
@@ -201,10 +209,10 @@ test("jouer maintenant : recherche, robots ajoutés, départ remplacé par un ro
   const b = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
   await spy(a);
   await spy(b);
-  await a.goto("/");
+  await quickAccount(a);
   await a.locator('.page-home [data-action="quick"]').click();
   await expect(a.locator(".page-room .page-title")).toContainText("On cherche des joueurs");
-  await b.goto("/");
+  await quickAccount(b);
   await b.locator('.page-home [data-action="quick"]').click();
   await expect(a.locator(".slot:not(.empty)")).toHaveCount(2);
   await expect(a.locator(".call-box")).toBeVisible();

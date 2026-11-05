@@ -24,10 +24,11 @@ const send = (page, type, data = {}) =>
   page.evaluate(([type, data]) => window.__ws.send(JSON.stringify({ id: crypto.randomUUID(), type, data })), [type, data]);
 async function register(page, email) {
   await page.goto("/");
-  await expect(page.locator(".page-home")).toBeVisible();
+  await expect(page.locator(".page-welcome")).toBeVisible();
   const ok = await page.evaluate(async (email) => (await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "motdepasse" }) })).ok, email);
   expect(ok).toBe(true);
   await page.reload();
+  await expect(page.locator(".page-home")).toBeVisible();
   // Cadeau de bienvenue (600 en test) (la roue du jour est désactivée en test).
   await expect(page.locator(".shop-balance")).toContainText("600");
 }
