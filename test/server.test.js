@@ -1709,3 +1709,47 @@ test("diffusion partielle : 4 humains en messages partiels jouent une donne, mai
     await f.close();
   }
 });
+
+// ——— Fichiers statiques : ETag / 304 et compression Brotli / gzip.
+import http from "node:http";
+import { brotliDecompressSync, gunzipSync } from "node:zlib";
+const rawGet = (base, p, headers = {}) =>
+  new Promise((resolve, reject) => {
+    http.get(base + p, { headers }, (res) => {
+      const chunks = [];
+      res.on("data", (c) => chunks.push(c));
+      res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+    }).on("error", reject);
+  });
+test("fichiers statiques : ETag et 304, Brotli/gzip pour le texte, rien pour les images", async () => {
+  const f = await fixture();
+  try {
+    const plain = await rawGet(f.base, "/app.js");
+    assert.equal(plain.status, 200);
+    assert.equal(plain.headers["content-encoding"], undefined);
+    assert.ok(plain.headers.etag);
+    assert.match(plain.headers["cache-control"], /no-cache/);
+    // Revalidation : même ETag → 304 sans corps.
+    const again = await rawGet(f.base, "/app.js", { "If-None-Match": plain.headers.etag });
+    assert.equal(again.status, 304);
+    assert.equal(again.body.length, 0);
+    assert.equal((await rawGet(f.base, "/app.js", { "If-None-Match": '"autre"' })).status, 200);
+    // Brotli et gzip : plus petit, identique une fois décompressé.
+    const br = await rawGet(f.base, "/app.js", { "Accept-Encoding": "gzip, deflate, br" });
+    assert.equal(br.headers["content-encoding"], "br");
+    assert.ok(br.body.length < plain.body.length / 3);
+    assert.deepEqual(brotliDecompressSync(br.body), plain.body);
+    const gz = await rawGet(f.base, "/style.css", { "Accept-Encoding": "gzip" });
+    assert.equal(gz.headers["content-encoding"], "gzip");
+    assert.equal(gz.headers.vary, "Accept-Encoding");
+    assert.deepEqual(gunzipSync(gz.body), (await rawGet(f.base, "/style.css")).body);
+    // Images : jamais recompressées.
+    const img = await rawGet(f.base, "/cards/AS-200.webp", { "Accept-Encoding": "gzip, br" });
+    assert.equal(img.status, 200);
+    assert.equal(img.headers["content-encoding"], undefined);
+    assert.match(img.headers["cache-control"], /max-age=86400/);
+    assert.equal((await rawGet(f.base, "/introuvable.js")).status, 404);
+  } finally {
+    await f.close();
+  }
+});
