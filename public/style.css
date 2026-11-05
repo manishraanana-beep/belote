@@ -1748,15 +1748,19 @@ body.in-game .screen.game { position: fixed; inset: 0; overflow: clip; }
 @media (max-width: 400px) { .rk-row { grid-template-columns: 26px 32px 1fr repeat(3, 48px); gap: 5px; } .rk-row .avatar { width: 32px; height: 32px; } }
 /* ———————— Tables des villes : maquette « photos » (remplace les filigranes) */
 .stake-card.paris::before, .stake-card.cannes::before, .stake-card.monaco::before, .stake-card.dubai::before, .stake-card.vegas::before { content: none; }
-.stake-card.paris { --sc-1: #0f5a43; --sc-2: #062a22; --sc-edge: #4ff0b0; --chip: #18a072; --glow: #2fe6a080; --dot: #4ff0b0; --photo: url(/decor/ville-paris-hd.webp); --flag: url(/decor/drapeau-paris.svg); }
+.stake-card.paris { --sc-1: #0f5a43; --sc-2: #062a22; --sc-edge: #4ff0b0; --chip: #18a072; --glow: #2fe6a080; --dot: #4ff0b0; --photo: url(/decor/ville-paris-740.webp); --flag: url(/decor/drapeau-paris.svg); }
 /* Cannes : image provisoire (à remplacer), drapeau français comme Paris */
 .stake-card.cannes { --sc-1: #0e5a86; --sc-2: #062c42; --sc-edge: #5fc8ff; --chip: #1f8fc9; --glow: #4fb6ff80; --dot: #9adcff; --photo: url(/decor/ville-cannes-hd.webp); --flag: url(/decor/drapeau-paris.svg); }
-.stake-card.monaco { --sc-1: #4a1d6e; --sc-2: #1d0a30; --sc-edge: #c58bff; --chip: #7b35b8; --glow: #b46bff80; --dot: #d9a8ff; --photo: url(/decor/ville-monaco-hd.webp); --flag: url(/decor/drapeau-monaco.svg); }
-.stake-card.dubai { --sc-1: #7a0f1d; --sc-2: #2e0409; --sc-edge: #ff4d61; --chip: #d61f35; --glow: #ff334f80; --dot: #ff6b7c; --photo: url(/decor/ville-dubai-hd.webp); --flag: url(/decor/drapeau-dubai.svg); }
-.stake-card.vegas { --sc-1: #4a3410; --sc-2: #1a1206; --sc-edge: #ffd36a; --chip: #1b1b1b; --glow: #ffc84a80; --dot: #ffd36a; --photo: url(/decor/ville-vegas-hd.webp); --flag: url(/decor/drapeau-vegas.svg); color: #fff; }
+.stake-card.monaco { --sc-1: #4a1d6e; --sc-2: #1d0a30; --sc-edge: #c58bff; --chip: #7b35b8; --glow: #b46bff80; --dot: #d9a8ff; --photo: url(/decor/ville-monaco-740.webp); --flag: url(/decor/drapeau-monaco.svg); }
+.stake-card.dubai { --sc-1: #7a0f1d; --sc-2: #2e0409; --sc-edge: #ff4d61; --chip: #d61f35; --glow: #ff334f80; --dot: #ff6b7c; --photo: url(/decor/ville-dubai-740.webp); --flag: url(/decor/drapeau-dubai.svg); }
+.stake-card.vegas { --sc-1: #4a3410; --sc-2: #1a1206; --sc-edge: #ffd36a; --chip: #1b1b1b; --glow: #ffc84a80; --dot: #ffd36a; --photo: url(/decor/ville-vegas-740.webp); --flag: url(/decor/drapeau-vegas.svg); color: #fff; }
+/* Images des villes adaptées à l'écran : 740 px (standard), 1100 px (dense), HD 1481 px (très dense). Cannes : une seule image. */
+@media (min-resolution: 1.5dppx) { .stake-card.paris { --photo: url(/decor/ville-paris-1100.webp); } .stake-card.monaco { --photo: url(/decor/ville-monaco-1100.webp); } .stake-card.dubai { --photo: url(/decor/ville-dubai-1100.webp); } .stake-card.vegas { --photo: url(/decor/ville-vegas-1100.webp); } }
+@media (min-resolution: 2.5dppx) { .stake-card.paris { --photo: url(/decor/ville-paris-hd.webp); } .stake-card.monaco { --photo: url(/decor/ville-monaco-hd.webp); } .stake-card.dubai { --photo: url(/decor/ville-dubai-hd.webp); } .stake-card.vegas { --photo: url(/decor/ville-vegas-hd.webp); } }
 .stake-card.vegas small { color: #ffffffd0; }
 .stake-card:is(.paris, .cannes, .monaco, .dubai, .vegas) { min-height: 112px; isolation: isolate; border-width: 2.5px; background: linear-gradient(90deg, var(--sc-1), var(--sc-2)); box-shadow: 0 0 0 1px #0008, 0 0 18px var(--glow), 0 10px 24px #0008, inset 0 1px 0 #ffffff30; }
-.stake-card .sc-photo { position: absolute; z-index: 0; top: 0; right: 0; bottom: 0; left: 0; background: linear-gradient(90deg, rgba(8,8,12,.88) 0, rgba(8,8,12,.55) 40%, rgba(8,8,12,0) 70%), var(--photo) right center / cover no-repeat; pointer-events: none; }
+.stake-card .sc-photo { position: absolute; z-index: 0; top: 0; right: 0; bottom: 0; left: 0; background: linear-gradient(90deg, rgba(8,8,12,.88) 0, rgba(8,8,12,.55) 40%, rgba(8,8,12,0) 70%); pointer-events: none; }
+.stake-card .sc-photo.on { background: linear-gradient(90deg, rgba(8,8,12,.88) 0, rgba(8,8,12,.55) 40%, rgba(8,8,12,0) 70%), var(--photo) right center / cover no-repeat; }
 .stake-card:is(.paris, .cannes, .monaco, .dubai, .vegas) .sc-chip { width: 82px; height: 82px; background: radial-gradient(circle, var(--chip) 0 50%, #fff 51% 53%, var(--chip) 54% 62%, transparent 63%), repeating-conic-gradient(#fff 0 15deg, var(--chip) 15deg 45deg); box-shadow: 0 0 0 3px #fff, 0 8px 18px #000a; }
 .stake-card.vegas .sc-chip { --chip: #151515; background: radial-gradient(circle, #151515 0 50%, #ffd36a 51% 53%, #151515 54% 62%, transparent 63%), repeating-conic-gradient(#ffd36a 0 15deg, #151515 15deg 45deg); box-shadow: 0 0 0 3px #ffd36a, 0 8px 18px #000a; }
 .stake-card.vegas .sc-chip b, .stake-card.vegas .sc-chip small { color: #ffd36a; }
@@ -2267,3 +2271,4 @@ table.metrics .minus { color: #ff8f8f; }
 .art-pack img { width: 100%; height: auto; }
 .shop-modal-art.small .art-emoji { font-size: 56px; }
 .lost-funds { display: grid; gap: 8px; width: 100%; margin: 6px 0; }
+.perf-hud { position: fixed; left: 6px; bottom: 6px; z-index: 99999; margin: 0; padding: 6px 8px; border-radius: 8px; background: #000c; color: #9f9; font: 11px/1.35 ui-monospace, monospace; pointer-events: none; white-space: pre; }

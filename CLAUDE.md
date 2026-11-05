@@ -53,6 +53,7 @@ Documentation détaillée (à lire seulement si besoin) : `docs/DOCUMENTATION-CO
 - **Membre Prestige** attribué depuis le back-office (`p.prestige.until`) : jetons du jour avec la roue, cadre/étoile, voix d'annonce ; objets Prestige invalides à la fin de l'abonnement (`progression.shown`).
 - Attente avant robots **15 s** ; « en ligne » = autres joueurs connectés, masqué à 0.
 - **Animation des cartes : validée par Jacques le 30/10, ne plus y toucher** (`animateTrick`, `.tcard`/`playIn`, ramassage). Le saut à la pose venait de `playIn` rejoué en fin de vol ; corrigé par la classe `seen` (PR #171).
+- **Fluidité réseau (nov.)** : WebSocket `permessage-deflate` (seuil 1 Ko, `BELOTE_WS_DEFLATE=0` = retour arrière) ; client sur `/ws?delta=1` = état complet à la connexion puis messages `table` / `player` (si changé) / `lobby` (liste des tables hors table, ≤ 1/s), un client sans `?delta=1` reçoit toujours l'état complet ; `?debug=perf` = mesures ; cartes légères `*-200.webp` (`scripts/build-cards-small.py`, `?v=` dans `cards.js`), villes `-740/-1100/-hd` selon la densité d'écran ; `node scripts/bench-ws.mjs` = mesure du trafic.
 - Écartés par Jacques (ne pas refaire) : explication des annonces des robots, Classique sur les villes, accessibilité (taille du texte, 4 couleurs), tournoi quotidien, ligues, classement par équipe.
 
 ## Règles de développement

@@ -1,4 +1,4 @@
-import { cardImage } from "./cards.js";
+import { cardImage, cardSrcset, cardAttrs, CARD_SIZES } from "./cards.js";
 import { nextTip } from "./tips.js";
 // Les 32 cartes sont chargées et décodées d'avance : une carte jouée s'affiche aussitôt, jamais en rectangle blanc.
 const CARD_CACHE = [];
@@ -6,6 +6,8 @@ setTimeout(() => {
   for (const s of "SHDC") for (const r of ["7", "8", "9", "10", "J", "Q", "K", "A"]) {
     const img = new Image();
     img.decoding = "async";
+    img.sizes = CARD_SIZES;
+    img.srcset = cardSrcset(r + s); // précharge la taille adaptée à l'écran (légère ou HD)
     img.src = cardImage(r + s);
     img.decode?.().catch(() => {});
     CARD_CACHE.push(img);
@@ -131,9 +133,63 @@ function toast(text) {
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => t.classList.remove("visible"), 3800);
 }
+// Mode debug « ?debug=perf » : messages/min, tailles, délai action → réponse, calculs > 50 ms.
+const perf = (() => {
+  try {
+    if (new URLSearchParams(location.search).get("debug") !== "perf") return null;
+  } catch {
+    return null;
+  }
+  const P = { msgs: [], sizes: [], first: [], ack: [], handler: [], long: [], sent: new Map(), awaitingFirst: [] };
+  const hud = document.createElement("pre");
+  hud.className = "perf-hud";
+  document.body.append(hud);
+  const stat = (a) => (a.length ? `${Math.round(a.reduce((x, y) => x + y, 0) / a.length)} moy · ${Math.round(Math.max(...a))} max` : "–");
+  const med = (a) => (a.length ? Math.round([...a].sort((x, y) => x - y)[a.length >> 1]) : "–");
+  try {
+    new PerformanceObserver((l) => l.getEntries().forEach((e) => P.long.push(Math.round(e.duration)))).observe({ type: "longtask", buffered: true });
+  } catch {}
+  const draw = () => {
+    const now = performance.now();
+    P.msgs = P.msgs.filter((t) => now - t < 60000);
+    hud.textContent =
+      `perf · messages/min : ${P.msgs.length}\n` +
+      `taille (Ko) : ${P.sizes.length ? `${(P.sizes.reduce((x, y) => x + y, 0) / P.sizes.length / 1024).toFixed(1)} moy · ${(Math.max(...P.sizes) / 1024).toFixed(1)} max` : "–"} (${P.sizes.length} msg)\n` +
+      `action → 1er message (ms) : méd ${med(P.first)} · ${stat(P.first)}\n` +
+      `action → ack (ms) : méd ${med(P.ack)} · ${stat(P.ack)}\n` +
+      `traitement d’un message (ms) : ${stat(P.handler)}\n` +
+      `calculs > 50 ms : ${P.long.length}${P.long.length ? ` (max ${Math.max(...P.long)} ms)` : ""}`;
+  };
+  setInterval(draw, 1000);
+  window.__perf = P; // pour les mesures automatisées
+  return {
+    sent(id) {
+      P.sent.set(id, performance.now());
+      P.awaitingFirst.push(performance.now());
+    },
+    msg(data) {
+      const now = performance.now();
+      P.msgs.push(now);
+      P.sizes.push(data.length);
+      while (P.awaitingFirst.length) P.first.push(now - P.awaitingFirst.shift());
+    },
+    ack(id) {
+      const t0 = P.sent.get(id);
+      if (t0 !== undefined) {
+        P.ack.push(performance.now() - t0);
+        P.sent.delete(id);
+      }
+    },
+    done(t0) {
+      P.handler.push(performance.now() - t0);
+    },
+  };
+})();
 function cmd(type, data = {}) {
   if (ws?.readyState !== 1) return toast("Connexion en cours…");
-  ws.send(JSON.stringify({ id: crypto.randomUUID(), type, data }));
+  const id = crypto.randomUUID();
+  perf?.sent(id);
+  ws.send(JSON.stringify({ id, type, data }));
 }
 async function api(path, body, raw = false) {
   const res = await fetch(path, {
@@ -467,11 +523,11 @@ const EFFECT_ICON = { "effect-confettis": "🎉", "effect-jetons": "🪙", "effe
 // Visuel d'un objet : son image, sinon une icône (effets) ou les emojis du pack (réactions).
 const itemArt = (it) =>
   it.img
-    ? `<img src="${it.img}" alt="">`
+    ? `<img src="${it.img}" alt="" loading="lazy" decoding="async">`
     : it.kind === "effect"
       ? `<b class="art-emoji">${EFFECT_ICON[it.id] ?? "✨"}</b>`
       : it.kind === "reaction"
-        ? `<span class="art-pack">${(it.includes ?? []).slice(0, 4).map((id) => `<img src="/shop/emoji/${id}.webp" alt="">`).join("")}</span>`
+        ? `<span class="art-pack">${(it.includes ?? []).slice(0, 4).map((id) => `<img src="/shop/emoji/${id}.webp" alt="" loading="lazy" decoding="async">`).join("")}</span>`
         : "";
 const STATUS_LABEL = { available: "Disponible", owned: "Possédé", equipped: "Équipé" };
 const itemCard = (it) => {
@@ -484,7 +540,7 @@ function cityCard(v) {
   const done = items.length && items.every((x) => x.owned);
   const n = items.filter((x) => x.owned).length;
   return `<article class="shop-card ville-card ${done ? "done" : ""}"><h3>${e(CITY_NAME_FR[v])}</h3>
-    <span class="sart sa-ville">${items.map((x) => `<img src="${x.img}" alt="" class="${x.owned ? "on" : "off"}">`).join("")}</span>
+    <span class="sart sa-ville">${items.map((x) => `<img src="${x.img}" alt="" loading="lazy" decoding="async" class="${x.owned ? "on" : "off"}">`).join("")}</span>
     <p class="status">${done ? `🏆 ${e(CITY_TITLE[v])}` : `${n} / ${items.length} objets`}</p>
     ${btn("Voir", "shopCat", "shop-voir", `data-cat="${v}"`)}</article>`;
 }
@@ -523,7 +579,7 @@ function shopPreview(it) {
   const p = state.player;
   if (it.kind === "avatar") return `<div class="pv-scene felt-scene"><div class="pv-seat">${avatar(it.id, "pv-av")}<b>${e(p.name)}</b></div></div>`;
   if (it.kind === "back") return `<div class="pv-scene felt-scene"><div class="pv-backs-fan">${[0, 1, 2, 3, 4].map((i) => `<img class="b${i}" src="${it.img}" alt="">`).join("")}</div></div>`;
-  if (it.kind === "felt") return `<div class="pv-scene"><div class="pv-table"><img class="pv-felt-img" src="${it.img}" alt=""><span class="pv-cards">${["AS", "10H", "KD", "9C"].map((c) => `<img src="${cardImage(c)}" alt="">`).join("")}</span></div></div>`;
+  if (it.kind === "felt") return `<div class="pv-scene"><div class="pv-table"><img class="pv-felt-img" src="${it.img}" alt=""><span class="pv-cards">${["AS", "10H", "KD", "9C"].map((c) => `<img ${cardAttrs(c)} alt="">`).join("")}</span></div></div>`;
   // Cadre : sur la table, aperçu avec son avatar — visible par toute la table, comme en jeu.
   if (it.kind === "frame") return `<div class="pv-scene felt-scene"><div class="pv-avatar ${it.id}"><div class="seat-avatar">${avatar(p.avatar)}</div></div><b>${e(p.name)}</b></div>`;
   if (it.kind === "effect") return `<div class="pv-scene felt-scene pv-effect"><span class="pv-effect-icon">${it.id === "effect-jetons" ? "🪙" : it.id === "effect-feu" ? "🎆" : "🎉"}</span></div>`;
@@ -701,7 +757,7 @@ function sheetView(g, t, me) {
     const c = contractInfo(g, t, me);
     body = p
       ? `<h3>Dernier pli</h3>${c ? `<p class="lt-contract ${c.ours ? "us" : "them"}">${c.team} — ${c.amount} ${suitHtml(c.suit)}${c.mult > 1 ? ` · ${multLabel(c.mult)}` : ""}</p>` : ""}
-        <div class="lt-cards">${p.cards.map((x) => `<figure class="${x.seat === p.winner ? "winner" : ""}"><img src="${cardImage(x.card)}" alt="${cardName(x.card)}"><figcaption>${e(t.seats[x.seat]?.name)}</figcaption></figure>`).join("")}</div>
+        <div class="lt-cards">${p.cards.map((x) => `<figure class="${x.seat === p.winner ? "winner" : ""}"><img ${cardAttrs(x.card)} alt="${cardName(x.card)}"><figcaption>${e(t.seats[x.seat]?.name)}</figcaption></figure>`).join("")}</div>
         <p class="lt-winner">★ <b>${e(t.seats[p.winner]?.name)}</b> remporte ${p.points} points</p><p class="muted small">Touchez pour fermer</p>`
       : '<h3>Dernier pli</h3><p class="empty">Aucun pli joué pour l’instant.</p>';
   }
@@ -846,7 +902,7 @@ function welcomePage() {
     `<div class="welcome">
       <img class="art welcome-art" src="/decor/accueil.webp" alt="" draggable="false">
       <h1 class="script">À vous de jouer !</h1><div class="orn-line">✦</div>
-      <div class="mini-fan">${["7S", "8H", "9D", "JC", "QS", "10H", "AC", "KD"].map((c, i) => `<img class="mf${i}" src="${cardImage(c)}" alt="">`).join("")}</div>
+      <div class="mini-fan">${["7S", "8H", "9D", "JC", "QS", "10H", "AC", "KD"].map((c, i) => `<img class="mf${i}" ${cardAttrs(c)} alt="">`).join("")}</div>
       <div class="stack">${btn("Créer un compte", "go", "gold-btn wide", 'data-page="register"')}${btn("Se connecter", "go", "line-btn wide", 'data-page="login"')}</div>
     </div>`,
     { backBtn: false, cls: "page-welcome" },
@@ -1672,7 +1728,7 @@ function trickCards(cards, me, cls = "") {
   return `<div class="trick ${cls}">${cards.map((p) => {
     const seen = shownCards.has(p.card);
     shownCards.add(p.card);
-    return `<div class="tcard p${(p.seat - me + 4) % 4} ${seen && !cls ? "seen" : ""}"><img src="${cardImage(p.card)}" alt="${cardName(p.card)}"></div>`;
+    return `<div class="tcard p${(p.seat - me + 4) % 4} ${seen && !cls ? "seen" : ""}"><img ${cardAttrs(p.card)} alt="${cardName(p.card)}"></div>`;
   }).join("")}</div>`;
 }
 function contractBanner(c, g) {
@@ -1690,7 +1746,7 @@ function centerView(g, t, me) {
   if (collection && sentCard && Date.now() < sentCard.until && !collection.cards.some((x) => x.card === sentCard.card)) collection = null;
   if (collection) return collection.stage === "hold" ? trickCards(collection.cards, me) : trickCards(collection.cards, me, `collecting to${(collection.winner - me + 4) % 4}`);
   // Belote classique : la carte retournée au centre pendant la prise.
-  if (g.phase === "bidding" && g.turnUp && g.turn !== me) return `<div class="turnup"><img src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}"><small>${g.round === 1 ? "Carte retournée" : "2e tour"}</small></div>`;
+  if (g.phase === "bidding" && g.turnUp && g.turn !== me) return `<div class="turnup"><img ${cardAttrs(g.turnUp)} alt="${cardName(g.turnUp)}"><small>${g.round === 1 ? "Carte retournée" : "2e tour"}</small></div>`;
   const c = contractInfo(g, t, me);
   if (g.phase === "counter") return contractBanner(c, g);
   if (g.phase === "playing") {
@@ -1833,7 +1889,7 @@ function arcadeBid(g, me, t) {
     const up = g.turnUp ? g.turnUp.slice(-1) : null;
     const body =
       g.round === 1
-        ? `<div class="a-classic">${g.turnUp ? `<img class="a-turnup" src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}">` : ""}<p>Prenez-vous à <b class="${isRed(up) ? "a-red" : ""}">${SUIT_NAMES[up]?.toLowerCase() ?? ""}</b> ?</p></div>${btn("Je prends", "take", "gold-btn wide a-bigbtn", `data-suit="${up}"`)}`
+        ? `<div class="a-classic">${g.turnUp ? `<img class="a-turnup" ${cardAttrs(g.turnUp)} alt="${cardName(g.turnUp)}">` : ""}<p>Prenez-vous à <b class="${isRed(up) ? "a-red" : ""}">${SUIT_NAMES[up]?.toLowerCase() ?? ""}</b> ?</p></div>${btn("Je prends", "take", "gold-btn wide a-bigbtn", `data-suit="${up}"`)}`
         : `<p class="a-q">Une autre couleur ?</p><div class="bid-suits a-suits">${HAND_ORDER.filter((x) => x !== up).map((x) => btn(`${SUITS[x]}`, "take", `suit-btn ${isRed(x) ? "red" : ""}`, `data-suit="${x}" aria-label="Atout ${SUIT_NAMES[x]}"`)).join("")}</div>`;
     return `<div class="bid-zone a-bidzone"><div class="bid-panel a-sheet"><div class="a-sh-head"><b>À vous d’annoncer</b><small>${lastTxt}</small></div>${body}${btn("Je passe", "pass", "teal-btn wide")}</div></div>`;
   }
@@ -1866,7 +1922,7 @@ function bidPanel(g, me, t) {
       g.round === 1
         ? btn(`Je prends ${suitHtml(up)}`, "take", "gold-btn", `data-suit="${up}"`)
         : HAND_ORDER.filter((x) => x !== up).map((x) => btn(`${suitHtml(x)}`, "take", `suit-btn big ${isRed(x) ? "red" : ""}`, `data-suit="${x}"`)).join("");
-    return `<div class="bid-zone">${auctionStrip(g, t, me)}<div class="bid-panel classic-panel"><b class="bp-title"><i>⟡</i>${g.round === 1 ? "Prenez-vous ?" : "Une autre couleur ?"}<i>⟡</i></b><div class="cp-body">${g.turnUp ? `<div class="turnup in-panel"><img src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}"></div>` : ""}
+    return `<div class="bid-zone">${auctionStrip(g, t, me)}<div class="bid-panel classic-panel"><b class="bp-title"><i>⟡</i>${g.round === 1 ? "Prenez-vous ?" : "Une autre couleur ?"}<i>⟡</i></b><div class="cp-body">${g.turnUp ? `<div class="turnup in-panel"><img ${cardAttrs(g.turnUp)} alt="${cardName(g.turnUp)}"></div>` : ""}
       <div class="cp-side"><div class="cp-choices ${g.round === 1 ? "" : "suits"}">${choices}</div>${btn("Je passe", "pass", "teal-btn wide")}</div></div></div></div>`;
   }
   const options = BIDS.filter((n) => !g.contract || n > g.contract.amount);
@@ -1923,7 +1979,7 @@ function handView(g, me, t) {
         : "";
   const mine = t.money?.seats.find((x) => x.seat === me);
   return `<div class="hand n${hand.length} ${dealing ? "dealing" : ""} ${glow ? "glow" : ""} ${myTurn ? "my-turn" : ""}" aria-label="Votre main">
-    ${hand.map((c, i) => `<button type="button" class="hcard c${i} ${c === selected ? "selected" : ""}" data-action="pick" data-card="${c}" aria-label="${cardName(c)}" aria-pressed="${c === selected}"><img src="${cardImage(c)}" alt="" draggable="false"></button>`).join("")}
+    ${hand.map((c, i) => `<button type="button" class="hcard c${i} ${c === selected ? "selected" : ""}" data-action="pick" data-card="${c}" aria-label="${cardName(c)}" aria-pressed="${c === selected}"><img ${cardAttrs(c)} alt="" draggable="false"></button>`).join("")}
   </div>
   <div class="status-row">
     <span class="me-mini"><span class="me-seat"><span class="me-av ${myFrame()} ${["bidding", "playing"].includes(g.phase) && g.turn === me && t.deadline ? "ring" : ""}" ${["bidding", "playing"].includes(g.phase) && g.turn === me && t.deadline ? `data-ring="${t.deadline}" data-ring-total="${(t.rules.turnSeconds ?? 20) * 1000}"` : ""}>${avatar(state.player.avatar)}</span><b>${e(state.player.name)}</b>${takerBadge(g, me)}${seatBubble(g, me) ? `<span class="me-bub">${seatBubble(g, me)}</span>` : ""}</span>${t.money ? `<small>${fmt(mine?.engaged ?? 0)} engagés</small>` : ""}</span>
@@ -2006,10 +2062,23 @@ const release = () =>
   }, 0);
 document.addEventListener("pointerup", release, true);
 document.addEventListener("pointercancel", release, true);
+// Photos des villes (fond des cartes de mise) : chargées seulement quand la carte approche de l'écran.
+let photoObserver = null;
+function lazyPhotos() {
+  const list = document.querySelectorAll("#app .sc-photo:not(.on)");
+  if (!list.length) return;
+  photoObserver ??= "IntersectionObserver" in window ? new IntersectionObserver((entries) => entries.forEach((en) => en.isIntersecting && (en.target.classList.add("on"), photoObserver.unobserve(en.target))), { rootMargin: "300px 0px" }) : null;
+  for (const el of list) {
+    const r = el.getBoundingClientRect();
+    if (!photoObserver || r.top < innerHeight + 300) el.classList.add("on"); // déjà proche : pas de clignotement
+    else photoObserver.observe(el);
+  }
+}
 let lastShape = "",
   lastShapeNode = null;
 function render() {
   if (!state) return;
+  if (renderRaf) (cancelAnimationFrame(renderRaf), (renderRaf = 0));
   if (pressing) {
     pendingRender = true;
     return;
@@ -2064,6 +2133,7 @@ function render() {
     lastShapeNode = app.firstElementChild;
   }
   if (g) animateTrick();
+  lazyPhotos();
   if (state.player.avatar) localStorage.setItem("lastAvatar", state.player.avatar);
   document.querySelectorAll("#app form[id] input:not([type=hidden])").forEach((el) => {
     const v = fields[key(el)];
@@ -2761,6 +2831,7 @@ function ask(type, data, then) {
   if (ws?.readyState !== 1) return toast("Connexion en cours…");
   const id = crypto.randomUUID();
   pendingAcks[id] = then;
+  perf?.sent(id);
   ws.send(JSON.stringify({ id, type, data }));
 }
 
@@ -3896,20 +3967,39 @@ function handleHash() {
   }
   if (["#verified", "#verify-failed"].includes(h)) history.replaceState(null, "", "/");
 }
+// Roue : échéance recalculée sur l'horloge du serveur (changer l'heure du téléphone n'y change rien).
+function fixWheel(player) {
+  const lb = player?.wallet?.loginBonus;
+  if (lb && typeof lb.wait === "number") lb.next = Date.now() + lb.wait;
+}
+// Mises à jour « profil » ou « accueil » : un seul affichage même si plusieurs messages se suivent
+// (un message `table` qui arrive juste après affiche aussitôt et annule celui-ci).
+let renderRaf = 0;
+function scheduleRender() {
+  if (renderRaf) return;
+  renderRaf = requestAnimationFrame(() => {
+    renderRaf = 0;
+    render();
+  });
+}
 async function connect() {
   try {
     const session = await fetch("/api/session", { method: "POST" });
     if (!session.ok) return toast("Accès au profil indisponible. Contactez l’administrateur.");
     if (!shopConfig) fetch("/api/shop/config").then((r) => r.json()).then((c) => (shopConfig = c)).catch(() => {});
-    ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
+    ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?delta=1`); // delta : messages table / player / lobby
     ws.onopen = () => {
       ws.send(JSON.stringify({ id: crypto.randomUUID(), type: "timezone", data: { timeZone: myTz() } }));
       if (retry) toast("Connexion rétablie · partie restaurée");
       retry = 0;
     };
-    ws.onmessage = (ev) => {
+    const onWsMessage = (ev) => {
+      perf?.msg(ev.data);
       const msg = JSON.parse(ev.data);
-      if (msg.type === "state") {
+      if (perf && (msg.type === "ack" || msg.type === "error")) perf.ack(msg.id);
+      // `state` : état complet (connexion, reconnexion, ancien serveur). `table` / `player` / `lobby` : mises à jour
+      // partielles, fusionnées dans `state`.
+      if (msg.type === "state" || (msg.type === "table" && state)) {
         const first = !state;
         const prevDeal = state?.table?.game?.deal;
         const ng = msg.table?.game;
@@ -3920,13 +4010,24 @@ async function connect() {
         lastMultiplier = m;
         if (msg.table?.game?.trick.length > (state?.table?.game?.trick.length ?? 0)) tone([300], 0.05, 0.05);
         const prevTable = state?.table;
-        // Roue : échéance recalculée sur l'horloge du serveur (changer l'heure du téléphone n'y change rien).
-        const lb = msg.player?.wallet?.loginBonus;
-        if (lb && typeof lb.wait === "number") lb.next = Date.now() + lb.wait;
-        state = msg;
+        if (msg.type === "state") {
+          fixWheel(msg.player);
+          state = msg;
+        } else {
+          state.table = msg.table;
+          state.online = msg.online;
+        }
         gameEffects(prevTable, msg.table);
         render();
         if (first && pendingInvite && !state.table) joinModal(pendingInvite);
+      } else if (msg.type === "player" && state) {
+        fixWheel(msg.player);
+        state.player = msg.player;
+        scheduleRender();
+      } else if (msg.type === "lobby" && state) {
+        const { type, ...rest } = msg;
+        Object.assign(state, rest);
+        scheduleRender();
       }
       if (msg.type === "bonus") showBonus(msg);
       if (msg.type === "tableCall") showCall(msg);
@@ -3945,7 +4046,7 @@ async function connect() {
         pendingAcks[msg.id](msg);
         delete pendingAcks[msg.id];
       }
-      if (msg.type === "state") {
+      if (["state", "table", "player", "lobby"].includes(msg.type) && state) {
         if (pendingName && state.player.account) {
           cmd("profile", { name: pendingName });
           pendingName = null;
@@ -3979,6 +4080,12 @@ async function connect() {
       if (msg.type === "ack" && msg.invitation)
         rulesModal(msg.invitation.rules, `<p class="muted small">Table « ${e(msg.invitation.name)} »</p>${btn("Accepter et demander une place", "confirmVip", "cta small wide")}`);
       if (msg.type === "error") {
+        // Coup refusé : la carte affichée par anticipation revient dans la main aussitôt.
+        if (sentCard) {
+          sentCard = null;
+          playedOnDown = null;
+          render();
+        }
         shopBuying = false;
         if (msg.code === "shopFunds") {
           shopBuying = false;
@@ -3996,6 +4103,16 @@ async function connect() {
         if (!/Action périmée/.test(msg.message)) toast(msg.message);
       }
     };
+    ws.onmessage = perf
+      ? (ev) => {
+          const t0 = performance.now();
+          try {
+            onWsMessage(ev);
+          } finally {
+            perf.done(t0);
+          }
+        }
+      : onWsMessage;
     ws.onclose = (ev) => {
       if (ev.code === 4001) return connect(); // session changée (connexion, déconnexion)
       toast("Connexion perdue · reconnexion…");
