@@ -1178,7 +1178,7 @@ function legalPage() {
     <div class="text-card"><h3>Conditions de vente des jetons</h3>
     <p>Les prix sont indiqués en euros, toutes taxes comprises, avant chaque achat. Un achat crédite immédiatement le nombre de jetons affiché.</p>
     <p><b>Droit de rétractation :</b> vous disposez de 14 jours après l’achat pour demander le remboursement des jetons achetés qui n’ont pas encore été utilisés, en écrivant à l’aide (Réglages › Aide & contact). Les jetons remboursés sont retirés de votre solde.</p>
-    <p>En cas de remboursement ou d’opposition bancaire, les jetons correspondants sont repris.</p>
+    <p>Sur iPhone, les achats passent par l’App Store (paiement et remboursement gérés par Apple, via reportaproblem.apple.com).</p><p>En cas de remboursement ou d’opposition bancaire, les jetons correspondants sont repris.</p>
     <p><b>Plafond de dépenses :</b> vous pouvez fixer un plafond mensuel dans votre portefeuille. L’historique de vos achats y est consultable à tout moment.</p></div>
     <div class="stack">${btn("⚖️ Jeu équitable", "go", "line-btn wide", 'data-page="fair"')}${btn("Fermer", "back", "gold-btn wide")}</div>`,
   );
@@ -2527,6 +2527,13 @@ async function oidc(provider) {
         window.google.accounts.id.initialize({ client_id: authConfig.google, callback: (r) => resolve(r.credential) });
         window.google.accounts.id.prompt((n) => n.isNotDisplayed?.() && reject(Error("Connexion Google indisponible dans ce navigateur")));
       });
+    } else if (window.Capacitor?.isNativePlatform?.() && window.Capacitor.getPlatform?.() === "ios" && window.Capacitor.Plugins?.SocialLogin) {
+      // iPhone : Sign in with Apple natif (la fenêtre web d’Apple ne marche pas dans l’appli).
+      const sl = window.Capacitor.Plugins.SocialLogin;
+      await sl.initialize({ apple: {} });
+      const r = await sl.login({ provider: "apple", options: { scopes: ["email", "name"] } });
+      idToken = r?.result?.idToken;
+      if (!idToken) throw Error("Connexion Apple annulée");
     } else {
       await loadScript("https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/fr_FR/appleid.auth.js");
       window.AppleID.auth.init({ clientId: authConfig.apple, scope: "name email", redirectURI: location.origin + "/", usePopup: true });
