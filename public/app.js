@@ -3187,7 +3187,18 @@ document.addEventListener("click", async (ev) => {
     case "buy": {
       try {
         const c = shopConfig ?? {};
-        if (c.stripe && c.purchases) {
+        const cap = window.Capacitor;
+        if (cap?.isNativePlatform?.() && cap.getPlatform?.() === "ios") {
+          // iPhone : achat intégré Apple obligatoire (règle 3.1.1), jamais de paiement externe.
+          const plugin = cap.Plugins?.NativePurchases;
+          if (!plugin || !c.apple) throw Error("Achat indisponible pour le moment");
+          const tx = await plugin.purchaseProduct({ productIdentifier: el.dataset.pack, productType: "inapp", quantity: 1 });
+          const signedTransaction = tx?.jwsRepresentation ?? tx?.signedTransaction;
+          if (!signedTransaction) throw Error("Achat non confirmé par l’App Store");
+          await api("/api/shop/apple", { signedTransaction });
+          toast("Jetons ajoutés");
+          closeModal();
+        } else if (c.stripe && c.purchases) {
           const r = await api("/api/shop/checkout", { pack: el.dataset.pack });
           location.href = r.url;
         } else if (c.test) {
