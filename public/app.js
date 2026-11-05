@@ -847,7 +847,7 @@ function welcomePage() {
       <img class="art welcome-art" src="/decor/accueil.webp" alt="" draggable="false">
       <h1 class="script">À vous de jouer !</h1><div class="orn-line">✦</div>
       <div class="mini-fan">${["7S", "8H", "9D", "JC", "QS", "10H", "AC", "KD"].map((c, i) => `<img class="mf${i}" src="${cardImage(c)}" alt="">`).join("")}</div>
-      <div class="stack">${btn("Créer un compte", "go", "gold-btn wide", 'data-page="register"')}${btn("Se connecter", "go", "line-btn wide", 'data-page="login"')}${btn(`${icon("cards")} Découvrir le jeu`, "discover", "text-link")}</div>
+      <div class="stack">${btn("Créer un compte", "go", "gold-btn wide", 'data-page="register"')}${btn("Se connecter", "go", "line-btn wide", 'data-page="login"')}</div>
     </div>`,
     { backBtn: false, cls: "page-welcome" },
   );
@@ -1482,9 +1482,9 @@ async function ensurePush() {
 
 function pageView() {
   const guest = !state.player.account;
-  // Visiteur non connecté : à chaque arrivée, choix « Se connecter » / « Créer un compte » / « Découvrir ».
+  // Visiteur non connecté : à chaque arrivée, choix « Se connecter » / « Créer un compte » (plus de partie en invité anonyme).
   // Un joueur déjà connecté est reconnu (session d'un an) et arrive directement à l'accueil.
-  if (!page.name) page = { name: guest && !sessionStorage.getItem("discover") ? "welcome" : "home", params: {} };
+  if (!page.name) page = { name: guest ? "welcome" : "home", params: {} };
   const views = { welcome: welcomePage, register: registerPage, login: loginPage, forgot: forgotPage, reset: resetPage, verify: verifyPage, home: homePage, tables: tablesPage, profile: profilePage, avatar: avatarPage, history: historyPage, rules: () => rulesPage(), settings: settingsPage, legal: legalPage, fair: fairPage, vip: vipPage, vipCreate: vipCreatePage, tournaments: tournamentsPage, tournament: tournamentPage, boutique: boutiquePage, classement: classementPage };
   return (views[page.name] ?? homePage)();
 }
@@ -2977,10 +2977,6 @@ document.addEventListener("click", async (ev) => {
     case "back":
       if (state.table) cmd("leave");
       else back();
-      break;
-    case "discover":
-      sessionStorage.setItem("discover", "1");
-      go("home");
       break;
     case "peek": {
       const input = el.parentElement.querySelector("input");
