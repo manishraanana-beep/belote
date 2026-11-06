@@ -1,9 +1,11 @@
 import http from "node:http";
 import { WebSocketServer } from "ws";
-import { randomBytes, randomInt, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from "node:crypto";
+import { brotliCompressSync, gzipSync, constants as zc } from "node:zlib";
 import {
   mkdirSync,
   readFileSync,
+  statSync,
   writeFileSync,
   renameSync,
   existsSync,
@@ -554,6 +556,19 @@ export function createApp({
       nextAt: t.game?.phase === "summary" ? (t.nextAt ?? Date.now() + summaryMs) : null,
     };
   }
+  // Notifications de tournoi périmées : le tournoi n'existe plus, ou sa date de départ est passée depuis plus
+  // de 24 h (on garde un jour de délai pour « fin du parcours », « forfait », « gain »…). Les autres notifications restent.
+  const NOTICE_GRACE_MS = 24 * 3600_000;
+  function pruneInbox(p) {
+    const list = p.inbox ?? [];
+    const keep = list.filter((n) => {
+      if (!n.tournament) return true;
+      const tour = db.tournaments[n.tournament];
+      return !!tour && !(tour.start + NOTICE_GRACE_MS < Date.now());
+    });
+    if (keep.length !== list.length) p.inbox = keep;
+    return p.inbox ?? [];
+  }
   function playerView(p) {
     return {
       // Historique des achats (portefeuille) : les 20 derniers.
@@ -575,7 +590,7 @@ export function createApp({
         .map((t) => ({ id: t.id, name: t.name, vip: !!t.vip, code: t.code, stake: t.stake ?? 0, players: t.seats.filter(Boolean).length, avatars: t.seats.filter(Boolean).map((s) => s.avatar), playing: !!t.game && t.game.phase !== "finished" })),
       wallet: economy.view(p),
       timeZone: p.timeZone ?? null,
-      inbox: (p.inbox ?? []).slice(0, 20),
+      inbox: pruneInbox(p).slice(0, 20),
       push: { web: p.push?.web?.length ?? 0, native: p.push?.fcm?.length ?? 0 },
       progress: progression.view(p),
       shop: shop.view(p),
@@ -609,29 +624,100 @@ export function createApp({
         }),
     };
   }
+  // Diffusion de l'état. Deux modes selon la connexion :
+  //  - ancien (sans `?delta=1`) : message `state` complet à chaque fois (clients non mis à jour) ;
+  //  - delta : `state` complet à la connexion/reconnexion, puis seulement ce qui a changé :
+  //      `table` (la table du joueur + « en ligne » du salon), `player` (profil/portefeuille),
+  //      `lobby` (liste des tables, au plus 1 par seconde et seulement hors table ; demandes, maintenance,
+  //      tournois, joueurs en ligne). Les valeurs inchangées ne sont pas renvoyées.
+  const LOBBY_MS = 1000;
+  let lobbyTimer = null;
+  const sendRaw = (ws, str) => {
+    if (ws.readyState === 1) ws.send(str);
+  };
   function broadcast() {
     if (closing) return;
     persist();
+    push();
+  }
+  function push() {
+    if (closing) return;
+    const now = Date.now();
+    const tablesList = Object.values(db.tables)
+      .filter((t) => !t.vip)
+      .map(publicTable);
+    let tablesStr = null;
+    let lobbyPending = false;
     for (const [pid, set] of connections) {
       const p = db.players[pid];
       if (!p) continue;
       const t = db.tables[p.tableId];
-      for (const ws of set)
-        send(ws, {
-          type: "state",
-          player: playerView(p),
-          tables: Object.values(db.tables)
-            .filter((t) => !t.vip)
-            .map(publicTable),
-          table: t ? snapshot(t, pid) : null,
-          requests: Object.values(db.tables)
-            .filter((t) => t.pending.includes(pid))
-            .map((t) => ({ id: t.id, name: t.name })),
-          maintenance: db.settings.maintenance,
-          tournaments: tournaments.list(pid),
-          online: t && !t.game ? onlinePlayers(p, t) : [],
-          onlineCount: connections.size - (connections.has(pid) ? 1 : 0), // autres joueurs connectés (vous non compris)
-        });
+      const common = {
+        requests: Object.values(db.tables)
+          .filter((t) => t.pending.includes(pid))
+          .map((t) => ({ id: t.id, name: t.name })),
+        maintenance: db.settings.maintenance,
+        tournaments: tournaments.list(pid),
+        onlineCount: connections.size - (connections.has(pid) ? 1 : 0), // autres joueurs connectés (vous non compris)
+      };
+      const online = t && !t.game ? onlinePlayers(p, t) : [];
+      const pv = playerView(p);
+      const table = t ? snapshot(t, pid) : null;
+      // Signature du profil : le décompte de la roue (`wait`) varie seul avec l'horloge, le client le recalcule.
+      const lb = pv.wallet?.loginBonus,
+        wait = lb?.wait;
+      if (lb) lb.wait = 0;
+      const playerSig = JSON.stringify(pv);
+      if (lb) lb.wait = wait;
+      const tableStr = JSON.stringify({ type: "table", table, online });
+      const metaStr = JSON.stringify(common);
+      let playerStr = null;
+      for (const ws of set) {
+        if (!ws.delta) {
+          send(ws, { type: "state", player: pv, tables: tablesList, table, ...common, online });
+          continue;
+        }
+        const L = ws.last;
+        if (!L) {
+          // Première diffusion sur cette connexion (connexion ou reconnexion) : état complet.
+          send(ws, { type: "state", player: pv, tables: tablesList, table, ...common, online });
+          ws.last = { player: playerSig, table: tableStr, meta: metaStr, tables: t ? undefined : (tablesStr ??= JSON.stringify(tablesList)), tablesAt: now };
+          continue;
+        }
+        // 1. Liste des tables : seulement hors table, au plus 1 fois par seconde (envoi immédiat en revenant à l'accueil).
+        let withTables = false;
+        if (t) L.tables = undefined;
+        else {
+          tablesStr ??= JSON.stringify(tablesList);
+          if (L.tables === undefined) withTables = true;
+          else if (tablesStr !== L.tables) {
+            if (now - L.tablesAt >= LOBBY_MS - 50) withTables = true;
+            else lobbyPending = true;
+          }
+        }
+        const withMeta = metaStr !== L.meta;
+        if (withTables || withMeta) {
+          sendRaw(ws, `{"type":"lobby"${withTables ? `,"tables":${tablesStr}` : ""}${withMeta ? "," + metaStr.slice(1, -1) : ""}}`);
+          if (withTables) (L.tables = tablesStr), (L.tablesAt = now);
+          if (withMeta) L.meta = metaStr;
+        }
+        // 2. Profil, puis 3. table en dernier (c'est elle qui déclenche l'affichage côté client).
+        if (playerSig !== L.player) {
+          sendRaw(ws, (playerStr ??= JSON.stringify({ type: "player", player: pv })));
+          L.player = playerSig;
+        }
+        if (tableStr !== L.table) {
+          sendRaw(ws, tableStr);
+          L.table = tableStr;
+        }
+      }
+    }
+    if (lobbyPending && !lobbyTimer) {
+      lobbyTimer = setTimeout(() => {
+        lobbyTimer = null;
+        push();
+      }, LOBBY_MS);
+      lobbyTimer.unref?.();
     }
   }
   function schedule(t) {
@@ -1731,6 +1817,19 @@ export function createApp({
     broadcast();
     return reply ?? { ok: true };
   }
+  // Fichiers statiques en mémoire : relus seulement si leur date de modification change.
+  const staticCache = new Map();
+  function staticFile(rel) {
+    const full = path.join(root, "public", rel);
+    const mtime = statSync(full).mtimeMs;
+    let f = staticCache.get(rel);
+    if (!f || f.mtime !== mtime) {
+      const buf = readFileSync(full);
+      f = { mtime, buf, etag: `"${createHash("sha1").update(buf).digest("base64url").slice(0, 22)}"`, text: /\.(?:html|js|css|svg|webmanifest|txt)$/.test(rel) };
+      staticCache.set(rel, f);
+    }
+    return f;
+  }
   const mime = {
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
@@ -2311,6 +2410,9 @@ export function createApp({
       "app.js",
       "cards.js",
       "tips.js",
+      "store.js",
+      "ui.js",
+      "admin.js",
       "style.css",
       "cards-LICENSE.txt",
       "sw.js",
@@ -2319,7 +2421,7 @@ export function createApp({
       "assistance.html",
     ];
     const cardFile =
-      /^cards\/(?:[789]|10|[JQKA])[SHCD]\.(?:svg|webp)$/.test(rel) ||
+      /^cards\/(?:[789]|10|[JQKA])[SHCD](?:-200)?\.(?:svg|webp)$/.test(rel) ||
       (/^avatars\/[a-z-]+\.webp$/.test(rel) && AVATARS.includes(rel.slice(8, -5))) ||
       (/^avatars\/[a-z-]+\.svg$/.test(rel) && BOT_AVATARS.includes(rel.slice(8, -4))) ||
       /^fonts\/[a-z0-9-]+\.woff2$/.test(rel) && existsSync(path.join(root, "public", rel)) ||
@@ -2330,19 +2432,54 @@ export function createApp({
       res.writeHead(404);
       return res.end("Introuvable");
     }
+    const file = staticFile(rel);
     res.setHeader("Content-Type", mime[path.extname(rel)]);
     res.setHeader(
       "Cache-Control",
       cardFile ? "public, max-age=86400" : "no-cache",
     );
-    res.end(readFileSync(path.join(root, "public", rel)));
+    // Validateur : le navigateur revalide (« no-cache ») et reçoit un 304 sans corps tant que le fichier n'a pas changé.
+    res.setHeader("ETag", file.etag);
+    if (file.text) res.setHeader("Vary", "Accept-Encoding");
+    if (req.headers["if-none-match"]?.split(",").some((t) => t.trim().replace(/^W\//, "") === file.etag)) {
+      res.writeHead(304);
+      return res.end();
+    }
+    // Texte (HTML, JS, CSS, SVG…) compressé par le serveur (Brotli, sinon gzip) ; les images WebP/PNG/polices le sont déjà.
+    const accept = req.headers["accept-encoding"] ?? "";
+    const enc = !file.text || process.env.BELOTE_STATIC_COMPRESS === "0" ? null : /\bbr\b/.test(accept) ? "br" : /\bgzip\b/.test(accept) ? "gzip" : null;
+    if (enc) {
+      file[enc] ??= enc === "br" ? brotliCompressSync(file.buf, { params: { [zc.BROTLI_PARAM_QUALITY]: 5 } }) : gzipSync(file.buf, { level: 6 });
+      res.setHeader("Content-Encoding", enc);
+    }
+    const body = enc ? file[enc] : file.buf;
+    res.setHeader("Content-Length", body.length);
+    res.end(body);
   });
-  const wss = new WebSocketServer({ noServer: true, maxPayload: 8192 });
+  // Compression permessage-deflate : seuls les messages > 1 Ko sont compressés (états de ~60 Ko).
+  // Sans « context takeover » ni fenêtre étendue : mémoire bornée par connexion (~100 Ko) ;
+  // `concurrencyLimit` évite de saturer le processeur lors d'une diffusion générale.
+  // Retour arrière : BELOTE_WS_DEFLATE=0.
+  const wss = new WebSocketServer({
+    noServer: true,
+    maxPayload: 8192,
+    perMessageDeflate:
+      env.BELOTE_WS_DEFLATE === "0"
+        ? false
+        : {
+            threshold: 1024,
+            zlibDeflateOptions: { level: 3, memLevel: 7 },
+            serverNoContextTakeover: true,
+            clientNoContextTakeover: true,
+            serverMaxWindowBits: 14,
+            concurrencyLimit: 10,
+          },
+  });
   server.on("upgrade", (req, socket, head) => {
     const p = getPlayer(req),
       origin = req.headers.origin;
     if (
-      req.url !== "/ws" ||
+      !/^\/ws(\?|$)/.test(req.url) ||
       !p ||
       p.banned ||
       (origin &&
@@ -2353,7 +2490,11 @@ export function createApp({
       socket.destroy();
       return;
     }
-    wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, p));
+    const delta = new URL(req.url, "http://x").searchParams.get("delta") === "1";
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      ws.delta = delta; // client capable de fusionner `table` / `player` / `lobby`
+      wss.emit("connection", ws, p);
+    });
   });
   wss.on("connection", (ws, p) => {
     let set = connections.get(p.id);
@@ -2587,6 +2728,7 @@ export function createApp({
     db,
     payReferral, // utilisé par les tests
     sweepGuests, // utilisé par les tests
+    pruneInbox, // utilisé par les tests
     close: () =>
       new Promise((resolve) => {
         closing = true;

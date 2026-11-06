@@ -1,11 +1,15 @@
-import { cardImage } from "./cards.js";
+import { cardImage, cardSrcset, cardAttrs, CARD_SIZES } from "./cards.js";
 import { nextTip } from "./tips.js";
+import { $, e, SUITS, SUIT_NAMES, HAND_ORDER, TRUMP_STRENGTH, PLAIN_STRENGTH, RANKS, BIDS, REACTIONS, REPORT_REASONS, fmt, coins, signed, stakeRisk, DEFAULT_RULES, isRed, amountLabel, cardName, avatarUrl, avatar, myFrame, framed, btn, suitHtml, toast, perf, cmd, api, cardSound, chime, buzz, SFX, tone, modal, closeModal, icon, readLocal, writeLocal, ask, AVATARS, STAKES, unlockAudio, when, myTz } from "./ui.js";
+import { state, setState, ws, setWs, page, setPage, authConfig, setAuthConfig, shopConfig, setShopConfig, sound, setSound, vibra, setVibra, pendingAcks } from "./store.js";
 // Les 32 cartes sont chargées et décodées d'avance : une carte jouée s'affiche aussitôt, jamais en rectangle blanc.
 const CARD_CACHE = [];
 setTimeout(() => {
   for (const s of "SHDC") for (const r of ["7", "8", "9", "10", "J", "Q", "K", "A"]) {
     const img = new Image();
     img.decoding = "async";
+    img.sizes = CARD_SIZES;
+    img.srcset = cardSrcset(r + s); // précharge la taille adaptée à l'écran (légère ou HD)
     img.src = cardImage(r + s);
     img.decode?.().catch(() => {});
     CARD_CACHE.push(img);
@@ -13,94 +17,9 @@ setTimeout(() => {
 }, 300);
 
 // ———————————————————————————————————————————————————————————— utilitaires
-const $ = (s) => document.querySelector(s);
-const e = (v) =>
-  String(v ?? "").replace(
-    /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
-  );
-const SUITS = { S: "♠", H: "♥", C: "♣", D: "♦" };
-const SUIT_NAMES = { S: "Pique", H: "Cœur", C: "Trèfle", D: "Carreau" };
-const HAND_ORDER = ["S", "H", "C", "D"];
-const TRUMP_STRENGTH = ["J", "9", "A", "10", "K", "Q", "8", "7"];
-const PLAIN_STRENGTH = ["A", "10", "K", "Q", "J", "9", "8", "7"];
-const RANKS = ["7", "8", "9", "10", "J", "Q", "K", "A"];
-const RANK_NAMES = { J: "Valet", Q: "Dame", K: "Roi", A: "As" };
-const AVATARS = ["jacques", "sophie", "camille", "emma", "malik", "henri", "leo", "chat", "chien"];
-const BIDS = [80, 90, 100, 110, 120, 130, 140, 150, 160, 250];
-const STAKES = [100, 200, 500, 1000, 2500, 10000];
-const REACTIONS = [
-  { id: "bravo", text: "Bien joué !", emoji: "👏" },
-  { id: "merci", text: "Merci partenaire !", emoji: "🤝" },
-  { id: "belle", text: "Belle partie !", emoji: "🎉" },
-  { id: "dommage", text: "Pas de chance !", emoji: "🍀" },
-  { id: "rire", text: "", emoji: "😂" },
-  { id: "feu", text: "", emoji: "🔥" },
-  { id: "wow", text: "", emoji: "😮" },
-  { id: "coeur", text: "", emoji: "❤️" },
-];
-const REPORT_REASONS = {
-  abuse: "Insultes ou harcèlement",
-  spam: "Spam",
-  cheat: "Suspicion de triche ou d’arrangement",
-  profile: "Pseudo ou photo inappropriés",
-  other: "Autre",
-};
-const fmt = (n) => Number(n).toLocaleString("fr-FR", { maximumFractionDigits: 1 });
-const coins = (n, cls = "") => `<span class="coins ${cls}"><i class="coin"></i>${fmt(n)}</span>`;
-const signed = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n));
-const stakeRisk = (s) => `Mise : ${fmt(s)} jetons. Vous ne pouvez perdre que votre mise. Quitter la partie en cours fait perdre la mise.`;
-const DEFAULT_RULES = {
-  target: 1000,
-  turnSeconds: 20,
-  counterWindowSeconds: 8,
-  reconnectSeconds: 90,
-  capotValue: 250,
-  scoring: "added",
-  allPass: "rotate",
-  flyingCounter: true,
-  beloteRetained: false,
-  beloteCountsContract: true,
-};
-const isRed = (s) => s === "H" || s === "D";
-const amountLabel = (n) => (n === 250 ? "Capot" : n === 0 ? "Pris" : String(n));
-const cardName = (c) => {
-  const r = c.slice(0, -1);
-  return `${RANK_NAMES[r] ?? r} de ${SUIT_NAMES[c.slice(-1)].toLowerCase()}`;
-};
-const avatarUrl = (v) =>
-  typeof v === "string" && v.startsWith("u:")
-    ? `/u/${v.slice(2)}.jpg`
-    : /^robot-[a-z]+$/.test(v ?? "")
-      ? `/avatars/${v}.svg`
-      : /^av-(?:\d\d|or-\d|roi-\d)$/.test(v ?? "")
-        ? `/shop/avatars/${v}.webp`
-        : `/avatars/${AVATARS.includes(v) ? v : "jacques"}.webp`;
-// Les avatars de la boutique ont déjà leur propre cadre (doré, couronne) : on n'y ajoute pas d'anneau.
-const avatar = (v, cls = "") => `<img class="avatar ${cls} ${/^av-/.test(v ?? "") ? "framed" : ""}" src="${avatarUrl(v)}" alt="" draggable="false">`;
-// Cadre de la boutique équipé par le joueur (posé autour de son avatar : accueil, profil, table).
-const myFrame = () => {
-  const f = state?.player?.progress?.equipped?.frame;
-  return state?.player?.shop?.items?.some((x) => x.id === f && x.owned && x.kind === "frame") ? f : "";
-};
-const framed = (html) => (myFrame() ? `<span class="fr-wrap ${myFrame()}">${html}</span>` : html);
-const btn = (text, action, cls = "", data = "", disabled = false) =>
-  `<button type="button" class="${cls}" data-action="${action}" ${data} ${disabled ? "disabled" : ""}>${text}</button>`;
-const suitHtml = (s) => `<span class="suit ${isRed(s) ? "red" : ""}">${SUITS[s]}</span>`;
 
 // ———————————————————————————————————————————————————————————— état local
-let state = null,
-  ws = null,
-  retry = 0,
-  authConfig = { google: null, apple: null, mail: false },
-  sound = localStorage.getItem("beloteSound") !== "false",
-  vibra = (() => {
-    try {
-      return localStorage.getItem("beloteVibra") !== "false";
-    } catch {
-      return true;
-    }
-  })(),
+let retry = 0,
   sheet = null, // menu | chat | auction | scores | lastTrick
   selected = null,
   bidAmount = null,
@@ -115,7 +34,6 @@ let state = null,
   cropper = null,
   bidSuit = null,
   resetToken = null,
-  shopConfig = null,
   seenInvites = 0,
   lastReactionSeen = null,
   pendingName = null; // pseudo choisi à l'inscription, envoyé dès la nouvelle session ouverte
@@ -124,96 +42,6 @@ try {
   if (raw.startsWith("{")) pendingInvite = JSON.parse(raw);
 } catch {}
 
-function toast(text) {
-  const t = $("#toast");
-  t.textContent = text;
-  t.classList.add("visible");
-  clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => t.classList.remove("visible"), 3800);
-}
-function cmd(type, data = {}) {
-  if (ws?.readyState !== 1) return toast("Connexion en cours…");
-  ws.send(JSON.stringify({ id: crypto.randomUUID(), type, data }));
-}
-async function api(path, body, raw = false) {
-  const res = await fetch(path, {
-    method: "POST",
-    headers: raw ? { "Content-Type": "image/jpeg" } : { "Content-Type": "application/json" },
-    body: raw ? body : JSON.stringify(body ?? {}),
-  });
-  const d = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(Error(d.error ?? "Une erreur est survenue"), { status: res.status });
-  return d;
-}
-// Bruit de carte posée : court froissement filtré (sans fichier son).
-let audioCtx = null;
-function cardSound(vol = 0.5) {
-  if (!sound) return;
-  try {
-    audioCtx ??= new AudioContext();
-    const ctx = audioCtx,
-      len = Math.floor(ctx.sampleRate * 0.09),
-      buf = ctx.createBuffer(1, len, ctx.sampleRate),
-      data = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
-    const src = ctx.createBufferSource(),
-      bp = ctx.createBiquadFilter(),
-      g = ctx.createGain();
-    src.buffer = buf;
-    bp.type = "bandpass";
-    bp.frequency.value = 2600;
-    bp.Q.value = 0.8;
-    g.gain.value = 0.35 * vol;
-    src.connect(bp).connect(g).connect(ctx.destination);
-    src.start();
-  } catch {}
-}
-// Petits sons doux (cloche, sans fichier) et vibrations, pour les moments clés de la partie.
-function chime(notes, { gap = 0.11, vol = 0.07, type = "sine", decay = 0.9 } = {}) {
-  if (!sound) return;
-  try {
-    audioCtx ??= new AudioContext();
-    const ctx = audioCtx;
-    notes.forEach((f, i) => {
-      const o = ctx.createOscillator(),
-        o2 = ctx.createOscillator(),
-        g = ctx.createGain();
-      o.type = type;
-      o2.type = "sine";
-      o.frequency.value = f;
-      o2.frequency.value = f * 2; // harmonique légère : timbre de clochette
-      const g2 = ctx.createGain();
-      g2.gain.value = 0.25;
-      o.connect(g);
-      o2.connect(g2).connect(g);
-      g.connect(ctx.destination);
-      const t0 = ctx.currentTime + i * gap;
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(vol, t0 + 0.015);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + decay);
-      o.start(t0);
-      o2.start(t0);
-      o.stop(t0 + decay + 0.05);
-      o2.stop(t0 + decay + 0.05);
-    });
-  } catch {}
-}
-function buzz(pattern) {
-  if (!vibra) return;
-  try {
-    navigator.vibrate?.(pattern);
-  } catch {}
-}
-const SFX = {
-  myTurn: () => (chime([880], { vol: 0.035, decay: 0.35 }), buzz(25)),
-  trickUs: () => chime([660, 990], { gap: 0.08, vol: 0.04, decay: 0.5 }),
-  belote: () => (chime([784, 988, 1175], { gap: 0.09, vol: 0.05 }), buzz([20, 40, 20])),
-  counter: () => (chime([392, 330], { gap: 0.12, vol: 0.06, type: "triangle" }), buzz([40, 30, 40])),
-  win: () => (chime([523, 659, 784, 1046, 1318], { gap: 0.12, vol: 0.07, decay: 1.4 }), buzz([60, 50, 60, 50, 140])),
-  lose: () => chime([392, 330, 262], { gap: 0.18, vol: 0.04, decay: 1 }),
-  capot: () => (chime([523, 784, 1046, 1568], { gap: 0.1, vol: 0.08, decay: 1.6 }), buzz([80, 40, 80, 40, 200])),
-  coin: () => chime([1568, 2093], { gap: 0.05, vol: 0.03, decay: 0.3 }),
-};
 // Compare l'état précédent et le nouveau pour jouer le bon effet.
 // Carte jouée pour vous : la seule carte possible, ou celle présélectionnée avant votre tour.
 function autoPlay(tries = 0) {
@@ -364,36 +192,8 @@ function animateTrick() {
     cardSound(rel === 0 ? 1 : 0.55);
   }
 }
-function tone(freqs, dur = 0.12, vol = 0.06) {
-  return; // bips désactivés : seul le bruit de carte est conservé
-  if (!sound) return;
-  try {
-    const ctx = new AudioContext();
-    freqs.forEach((f, i) => {
-      const o = ctx.createOscillator(),
-        g = ctx.createGain();
-      o.type = "triangle";
-      o.connect(g);
-      g.connect(ctx.destination);
-      const t0 = ctx.currentTime + i * dur;
-      o.frequency.setValueAtTime(f, t0);
-      g.gain.setValueAtTime(vol, t0);
-      g.gain.exponentialRampToValueAtTime(0.001, t0 + dur * 1.6);
-      o.start(t0);
-      o.stop(t0 + dur * 1.7);
-    });
-    setTimeout(() => ctx.close(), (freqs.length + 2) * dur * 1000);
-  } catch {}
-}
 
 // ———————————————————————————————————————————————————————————— modales
-function modal(content, cls = "") {
-  const m = $("#modal");
-  m.className = cls;
-  m.innerHTML = `<button type="button" class="modal-close" data-action="close" aria-label="Fermer">✕</button>${content}`;
-  if (!m.open) m.showModal();
-}
-const closeModal = () => $("#modal").open && $("#modal").close();
 
 function ruleText(r) {
   return [
@@ -467,11 +267,11 @@ const EFFECT_ICON = { "effect-confettis": "🎉", "effect-jetons": "🪙", "effe
 // Visuel d'un objet : son image, sinon une icône (effets) ou les emojis du pack (réactions).
 const itemArt = (it) =>
   it.img
-    ? `<img src="${it.img}" alt="">`
+    ? `<img src="${it.img}" alt="" loading="lazy" decoding="async">`
     : it.kind === "effect"
       ? `<b class="art-emoji">${EFFECT_ICON[it.id] ?? "✨"}</b>`
       : it.kind === "reaction"
-        ? `<span class="art-pack">${(it.includes ?? []).slice(0, 4).map((id) => `<img src="/shop/emoji/${id}.webp" alt="">`).join("")}</span>`
+        ? `<span class="art-pack">${(it.includes ?? []).slice(0, 4).map((id) => `<img src="/shop/emoji/${id}.webp" alt="" loading="lazy" decoding="async">`).join("")}</span>`
         : "";
 const STATUS_LABEL = { available: "Disponible", owned: "Possédé", equipped: "Équipé" };
 const itemCard = (it) => {
@@ -484,7 +284,7 @@ function cityCard(v) {
   const done = items.length && items.every((x) => x.owned);
   const n = items.filter((x) => x.owned).length;
   return `<article class="shop-card ville-card ${done ? "done" : ""}"><h3>${e(CITY_NAME_FR[v])}</h3>
-    <span class="sart sa-ville">${items.map((x) => `<img src="${x.img}" alt="" class="${x.owned ? "on" : "off"}">`).join("")}</span>
+    <span class="sart sa-ville">${items.map((x) => `<img src="${x.img}" alt="" loading="lazy" decoding="async" class="${x.owned ? "on" : "off"}">`).join("")}</span>
     <p class="status">${done ? `🏆 ${e(CITY_TITLE[v])}` : `${n} / ${items.length} objets`}</p>
     ${btn("Voir", "shopCat", "shop-voir", `data-cat="${v}"`)}</article>`;
 }
@@ -523,7 +323,7 @@ function shopPreview(it) {
   const p = state.player;
   if (it.kind === "avatar") return `<div class="pv-scene felt-scene"><div class="pv-seat">${avatar(it.id, "pv-av")}<b>${e(p.name)}</b></div></div>`;
   if (it.kind === "back") return `<div class="pv-scene felt-scene"><div class="pv-backs-fan">${[0, 1, 2, 3, 4].map((i) => `<img class="b${i}" src="${it.img}" alt="">`).join("")}</div></div>`;
-  if (it.kind === "felt") return `<div class="pv-scene"><div class="pv-table"><img class="pv-felt-img" src="${it.img}" alt=""><span class="pv-cards">${["AS", "10H", "KD", "9C"].map((c) => `<img src="${cardImage(c)}" alt="">`).join("")}</span></div></div>`;
+  if (it.kind === "felt") return `<div class="pv-scene"><div class="pv-table"><img class="pv-felt-img" src="${it.img}" alt=""><span class="pv-cards">${["AS", "10H", "KD", "9C"].map((c) => `<img ${cardAttrs(c)} alt="">`).join("")}</span></div></div>`;
   // Cadre : sur la table, aperçu avec son avatar — visible par toute la table, comme en jeu.
   if (it.kind === "frame") return `<div class="pv-scene felt-scene"><div class="pv-avatar ${it.id}"><div class="seat-avatar">${avatar(p.avatar)}</div></div><b>${e(p.name)}</b></div>`;
   if (it.kind === "effect") return `<div class="pv-scene felt-scene pv-effect"><span class="pv-effect-icon">${it.id === "effect-jetons" ? "🪙" : it.id === "effect-feu" ? "🎆" : "🎉"}</span></div>`;
@@ -701,7 +501,7 @@ function sheetView(g, t, me) {
     const c = contractInfo(g, t, me);
     body = p
       ? `<h3>Dernier pli</h3>${c ? `<p class="lt-contract ${c.ours ? "us" : "them"}">${c.team} — ${c.amount} ${suitHtml(c.suit)}${c.mult > 1 ? ` · ${multLabel(c.mult)}` : ""}</p>` : ""}
-        <div class="lt-cards">${p.cards.map((x) => `<figure class="${x.seat === p.winner ? "winner" : ""}"><img src="${cardImage(x.card)}" alt="${cardName(x.card)}"><figcaption>${e(t.seats[x.seat]?.name)}</figcaption></figure>`).join("")}</div>
+        <div class="lt-cards">${p.cards.map((x) => `<figure class="${x.seat === p.winner ? "winner" : ""}"><img ${cardAttrs(x.card)} alt="${cardName(x.card)}"><figcaption>${e(t.seats[x.seat]?.name)}</figcaption></figure>`).join("")}</div>
         <p class="lt-winner">★ <b>${e(t.seats[p.winner]?.name)}</b> remporte ${p.points} points</p><p class="muted small">Touchez pour fermer</p>`
       : '<h3>Dernier pli</h3><p class="empty">Aucun pli joué pour l’instant.</p>';
   }
@@ -723,46 +523,6 @@ function playerSheet(id) {
     </div><p class="muted small">Bloquer n’interrompt pas la partie en cours et ne change rien aux jetons engagés.</p>`;
 }
 // ———————————————————————————————————————————————————————————— pages (maquettes « Contrée »)
-const ICONS = {
-  home: '<path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
-  cards: '<rect x="3" y="5" width="11" height="15" rx="2" transform="rotate(-10 8 12)"/><rect x="10" y="4" width="11" height="15" rx="2" transform="rotate(8 15 11)"/>',
-  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.5-6.5 8-6.5s7 2 8 6.5"/>',
-  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.8 3.5-5.5 6.5-5.5s5.7 1.7 6.5 5.5"/><circle cx="17" cy="9" r="2.8"/><path d="M16.5 14.5c2.6.2 4.4 1.8 5 4.5"/>',
-  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
-  lock: '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
-  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
-  pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m14 6 4 4"/>',
-  camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
-  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
-  share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.6 6.8-4M8.6 13.4l6.8 4"/>',
-  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
-  sound: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>',
-  star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
-  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
-  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/>',
-  help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/>',
-  doc: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
-  logout: '<path d="M10 4H5v16h5"/><path d="m15 8 4 4-4 4M19 12H9"/>',
-  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
-  chevron: '<path d="m9 5 7 7-7 7"/>',
-  back: '<path d="M15 5 8 12l7 7"/>',
-  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
-  chat: '<path d="M4 5h16v11H9l-5 4z"/>',
-  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
-  bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
-  crown: '<path d="m3 8 4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>',
-  robot: '<rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9 16h6"/>',
-  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-  refresh: '<path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/>',
-  trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H4v1a4 4 0 0 0 4 4M16 6h4v1a4 4 0 0 1-4 4M12 13v4M8 21h8M9 17h6"/>',
-  chart: '<path d="M5 20V12M10 20V8M15 20V4M20 20v-6"/>',
-  shield: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/>',
-  check: '<path d="m5 12 5 5 9-10"/>',
-  gift: '<rect x="4" y="9" width="16" height="11" rx="1"/><path d="M3 9h18v-3H3zM12 6v14M12 6c-2-3-6-3-6 0M12 6c2-3 6-3 6 0"/>',
-  coin: '<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4"/>',
-  shop: '<path d="M4 9h16l-1.5-4h-13zM5 9v10h14V9M9 19v-5h6v5M4 9c0 1.7 1.3 3 3 3s2.7-1.3 2.7-3c0 1.7 1.2 3 2.3 3s2.3-1.3 2.3-3c0 1.7 1 3 2.7 3s3-1.3 3-3"/>',
-  smile: '<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c1.8 2 5.2 2 7 0M9 9.5h.01M15 9.5h.01"/>',
-};
 // Raccourcis de l'accueil : médaillon doré avec une icône dessinée, libellé dessous.
 const QICONS = {
   gift: '<rect x="9" y="22" width="30" height="20" rx="3" fill="#c0392b"/><rect x="7" y="15" width="34" height="9" rx="2.5" fill="#e74c3c"/><rect x="21" y="15" width="6" height="27" fill="#ffd36a"/><path d="M24 15c-3-7-11-8-11-3s7 3 11 3zm0 0c3-7 11-8 11-3s-7 3-11 3z" fill="none" stroke="#ffd36a" stroke-width="3" stroke-linejoin="round"/>',
@@ -772,39 +532,25 @@ const QICONS = {
 };
 const qtile = (name, label, action, attrs = "", extra = "") =>
   `<button type="button" class="qtile" data-action="${action}" ${attrs}><span class="qmed"><svg viewBox="0 0 48 48" aria-hidden="true">${QICONS[name]}</svg>${extra}</span><b>${label}</b></button>`;
-const icon = (name, cls = "") => `<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] ?? ""}</svg>`;
 const logo = (sub = "") => `<div class="logo"><img class="logo-img" src="/decor/logo.webp" alt="Belote Prestige" draggable="false">${sub ? `<em>${sub}</em>` : ""}</div>`;
 // Thème d'affichage (habillage seulement) : « classique » par défaut, « arcade » en option.
 // Mémorisé sur l'appareil ; retour arrière = décocher le réglage.
-const readLocal = (k) => {
-  try {
-    return localStorage.getItem(k);
-  } catch {
-    return null;
-  }
-};
-const writeLocal = (k, v) => {
-  try {
-    localStorage.setItem(k, v);
-  } catch {}
-};
 // Thème Arcade retiré des réglages : tout le monde est sur le thème classique (code Arcade conservé).
 let skin = "classique";
 const arcade = () => skin === "arcade";
 document.documentElement.dataset.skin = skin;
 // Accueil Arcade : mode présélectionné (contrée / classique), mémorisé localement.
 let arcMode = readLocal("beloteMode") === "classique" ? "classique" : "contree";
-let page = { name: null, params: {} },
-  pageStack = [];
+let pageStack = [];
 function go(name, params = {}) {
   if (page.name && page.name !== name) pageStack.push(page);
-  page = { name, params };
+  setPage({ name, params });
   closeModal();
   render();
   scrollTo(0, 0);
 }
 function back() {
-  page = pageStack.pop() ?? { name: "home", params: {} };
+  setPage(pageStack.pop() ?? { name: "home", params: {} });
   render();
 }
 function shell(body, { backBtn = true, tabs = false, vip = false, cls = "", right = "", sub = "" } = {}) {
@@ -846,7 +592,7 @@ function welcomePage() {
     `<div class="welcome">
       <img class="art welcome-art" src="/decor/accueil.webp" alt="" draggable="false">
       <h1 class="script">À vous de jouer !</h1><div class="orn-line">✦</div>
-      <div class="mini-fan">${["7S", "8H", "9D", "JC", "QS", "10H", "AC", "KD"].map((c, i) => `<img class="mf${i}" src="${cardImage(c)}" alt="">`).join("")}</div>
+      <div class="mini-fan">${["7S", "8H", "9D", "JC", "QS", "10H", "AC", "KD"].map((c, i) => `<img class="mf${i}" ${cardAttrs(c)} alt="">`).join("")}</div>
       <div class="stack">${btn("Créer un compte", "go", "gold-btn wide", 'data-page="register"')}${btn("Se connecter", "go", "line-btn wide", 'data-page="login"')}</div>
     </div>`,
     { backBtn: false, cls: "page-welcome" },
@@ -1038,16 +784,6 @@ function stakeTables() {
   if (!levels.length) return "";
   return `<h2 class="section orn-title">Tables avec mise</h2>${stakeGrid(levels)}<p class="robot-note">${icon("robot")}<span>Tables automatiquement complétées avec d’autres joueurs. Les places encore libres après quelques secondes sont prises par des robots.</span></p>`;
 }
-// Back-office : jetons créés / détruits et indicateurs (7 derniers jours).
-const SOURCE_NAMES = { achat: "Boutique (objets)", signup: "Inscription", login: "Roue du jour", referral: "Parrainage", tournoi: "Tournois", purchase: "Achats", win: "Gains de parties", loss: "Pertes de parties", fee: "Droit de table", refund: "Remboursements", dispute: "Oppositions", admin: "Back-office", challenge: "Défis", defi: "Défis", cancel: "Annulations" };
-function metricsCard(m) {
-  const pct = (v) => (v == null ? "—" : `${v} %`);
-  const row = (label, c, d) => `<tr><td>${e(label)}</td><td class="plus">+${fmt(c)}</td><td class="minus">−${fmt(d)}</td><td>${c - d >= 0 ? "+" : "−"}${fmt(Math.abs(c - d))}</td></tr>`;
-  return `<div class="admin-card"><b>📊 Indicateurs (7 jours)</b>
-    <p class="muted small">Retour J1 ${pct(m.j1)} · retour J7 ${pct(m.j7)} · partie moyenne ${m.gameMinutes == null ? "—" : `${String(m.gameMinutes).replace(".", ",")} min`} · joueurs payants ${String(m.payingShare).replace(".", ",")} %</p>
-    <table class="metrics"><thead><tr><th>Jour</th><th>Créés</th><th>Détruits</th><th>Solde</th></tr></thead><tbody>${m.days.map((x) => row(x.day.slice(8, 10) + "/" + x.day.slice(5, 7), x.created, x.destroyed)).join("") || '<tr><td colspan="4">Aucun mouvement</td></tr>'}</tbody></table>
-    <table class="metrics"><thead><tr><th>Source</th><th>Créés</th><th>Détruits</th><th>Solde</th></tr></thead><tbody>${m.sources.map((x) => row(SOURCE_NAMES[x.type] ?? x.type, x.created, x.destroyed)).join("")}</tbody></table></div>`;
-}
 // Droit de table (fixé par le serveur), lu sur une table de même mise.
 const feeOf = (stake) => state.tables.find((t) => t.stake === stake)?.fee ?? (stake && shopConfig?.tableFeePct ? Math.round((stake * shopConfig.tableFeePct) / 100) : 0);
 const stakeLevels = () => [...new Set(state.tables.filter((t) => t.lobby && t.stake).map((t) => t.stake))].sort((a, b) => a - b);
@@ -1178,7 +914,7 @@ function legalPage() {
     <div class="text-card"><h3>Conditions de vente des jetons</h3>
     <p>Les prix sont indiqués en euros, toutes taxes comprises, avant chaque achat. Un achat crédite immédiatement le nombre de jetons affiché.</p>
     <p><b>Droit de rétractation :</b> vous disposez de 14 jours après l’achat pour demander le remboursement des jetons achetés qui n’ont pas encore été utilisés, en écrivant à l’aide (Réglages › Aide & contact). Les jetons remboursés sont retirés de votre solde.</p>
-    <p>En cas de remboursement ou d’opposition bancaire, les jetons correspondants sont repris.</p>
+    <p>Sur iPhone, les achats passent par l’App Store (paiement et remboursement gérés par Apple, via reportaproblem.apple.com).</p><p>En cas de remboursement ou d’opposition bancaire, les jetons correspondants sont repris.</p>
     <p><b>Plafond de dépenses :</b> vous pouvez fixer un plafond mensuel dans votre portefeuille. L’historique de vos achats y est consultable à tout moment.</p></div>
     <div class="stack">${btn("⚖️ Jeu équitable", "go", "line-btn wide", 'data-page="fair"')}${btn("Fermer", "back", "gold-btn wide")}</div>`,
   );
@@ -1226,7 +962,6 @@ function vipCreatePage() {
   );
 }
 // ———————————————————————————————————————————————————————————— tournois (style Night VIP)
-const myTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 const dt = (ts, opts = {}) => new Date(ts).toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", ...opts });
 const hm = (ts) => new Date(ts).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 const STAGES = { soon: "Bientôt", open: "Inscriptions ouvertes", closed: "Inscriptions closes", ready: "Équipes formées", running: "En cours", finished: "Terminé", cancelled: "Annulé" };
@@ -1484,7 +1219,7 @@ function pageView() {
   const guest = !state.player.account;
   // Visiteur non connecté : à chaque arrivée, choix « Se connecter » / « Créer un compte » (plus de partie en invité anonyme).
   // Un joueur déjà connecté est reconnu (session d'un an) et arrive directement à l'accueil.
-  if (!page.name) page = { name: guest ? "welcome" : "home", params: {} };
+  if (!page.name) setPage({ name: guest ? "welcome" : "home", params: {} });
   const views = { welcome: welcomePage, register: registerPage, login: loginPage, forgot: forgotPage, reset: resetPage, verify: verifyPage, home: homePage, tables: tablesPage, profile: profilePage, avatar: avatarPage, history: historyPage, rules: () => rulesPage(), settings: settingsPage, legal: legalPage, fair: fairPage, vip: vipPage, vipCreate: vipCreatePage, tournaments: tournamentsPage, tournament: tournamentPage, boutique: boutiquePage, classement: classementPage };
   return (views[page.name] ?? homePage)();
 }
@@ -1672,7 +1407,7 @@ function trickCards(cards, me, cls = "") {
   return `<div class="trick ${cls}">${cards.map((p) => {
     const seen = shownCards.has(p.card);
     shownCards.add(p.card);
-    return `<div class="tcard p${(p.seat - me + 4) % 4} ${seen && !cls ? "seen" : ""}"><img src="${cardImage(p.card)}" alt="${cardName(p.card)}"></div>`;
+    return `<div class="tcard p${(p.seat - me + 4) % 4} ${seen && !cls ? "seen" : ""}"><img ${cardAttrs(p.card)} alt="${cardName(p.card)}"></div>`;
   }).join("")}</div>`;
 }
 function contractBanner(c, g) {
@@ -1690,7 +1425,7 @@ function centerView(g, t, me) {
   if (collection && sentCard && Date.now() < sentCard.until && !collection.cards.some((x) => x.card === sentCard.card)) collection = null;
   if (collection) return collection.stage === "hold" ? trickCards(collection.cards, me) : trickCards(collection.cards, me, `collecting to${(collection.winner - me + 4) % 4}`);
   // Belote classique : la carte retournée au centre pendant la prise.
-  if (g.phase === "bidding" && g.turnUp && g.turn !== me) return `<div class="turnup"><img src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}"><small>${g.round === 1 ? "Carte retournée" : "2e tour"}</small></div>`;
+  if (g.phase === "bidding" && g.turnUp && g.turn !== me) return `<div class="turnup"><img ${cardAttrs(g.turnUp)} alt="${cardName(g.turnUp)}"><small>${g.round === 1 ? "Carte retournée" : "2e tour"}</small></div>`;
   const c = contractInfo(g, t, me);
   if (g.phase === "counter") return contractBanner(c, g);
   if (g.phase === "playing") {
@@ -1833,7 +1568,7 @@ function arcadeBid(g, me, t) {
     const up = g.turnUp ? g.turnUp.slice(-1) : null;
     const body =
       g.round === 1
-        ? `<div class="a-classic">${g.turnUp ? `<img class="a-turnup" src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}">` : ""}<p>Prenez-vous à <b class="${isRed(up) ? "a-red" : ""}">${SUIT_NAMES[up]?.toLowerCase() ?? ""}</b> ?</p></div>${btn("Je prends", "take", "gold-btn wide a-bigbtn", `data-suit="${up}"`)}`
+        ? `<div class="a-classic">${g.turnUp ? `<img class="a-turnup" ${cardAttrs(g.turnUp)} alt="${cardName(g.turnUp)}">` : ""}<p>Prenez-vous à <b class="${isRed(up) ? "a-red" : ""}">${SUIT_NAMES[up]?.toLowerCase() ?? ""}</b> ?</p></div>${btn("Je prends", "take", "gold-btn wide a-bigbtn", `data-suit="${up}"`)}`
         : `<p class="a-q">Une autre couleur ?</p><div class="bid-suits a-suits">${HAND_ORDER.filter((x) => x !== up).map((x) => btn(`${SUITS[x]}`, "take", `suit-btn ${isRed(x) ? "red" : ""}`, `data-suit="${x}" aria-label="Atout ${SUIT_NAMES[x]}"`)).join("")}</div>`;
     return `<div class="bid-zone a-bidzone"><div class="bid-panel a-sheet"><div class="a-sh-head"><b>À vous d’annoncer</b><small>${lastTxt}</small></div>${body}${btn("Je passe", "pass", "teal-btn wide")}</div></div>`;
   }
@@ -1866,7 +1601,7 @@ function bidPanel(g, me, t) {
       g.round === 1
         ? btn(`Je prends ${suitHtml(up)}`, "take", "gold-btn", `data-suit="${up}"`)
         : HAND_ORDER.filter((x) => x !== up).map((x) => btn(`${suitHtml(x)}`, "take", `suit-btn big ${isRed(x) ? "red" : ""}`, `data-suit="${x}"`)).join("");
-    return `<div class="bid-zone">${auctionStrip(g, t, me)}<div class="bid-panel classic-panel"><b class="bp-title"><i>⟡</i>${g.round === 1 ? "Prenez-vous ?" : "Une autre couleur ?"}<i>⟡</i></b><div class="cp-body">${g.turnUp ? `<div class="turnup in-panel"><img src="${cardImage(g.turnUp)}" alt="${cardName(g.turnUp)}"></div>` : ""}
+    return `<div class="bid-zone">${auctionStrip(g, t, me)}<div class="bid-panel classic-panel"><b class="bp-title"><i>⟡</i>${g.round === 1 ? "Prenez-vous ?" : "Une autre couleur ?"}<i>⟡</i></b><div class="cp-body">${g.turnUp ? `<div class="turnup in-panel"><img ${cardAttrs(g.turnUp)} alt="${cardName(g.turnUp)}"></div>` : ""}
       <div class="cp-side"><div class="cp-choices ${g.round === 1 ? "" : "suits"}">${choices}</div>${btn("Je passe", "pass", "teal-btn wide")}</div></div></div></div>`;
   }
   const options = BIDS.filter((n) => !g.contract || n > g.contract.amount);
@@ -1923,7 +1658,7 @@ function handView(g, me, t) {
         : "";
   const mine = t.money?.seats.find((x) => x.seat === me);
   return `<div class="hand n${hand.length} ${dealing ? "dealing" : ""} ${glow ? "glow" : ""} ${myTurn ? "my-turn" : ""}" aria-label="Votre main">
-    ${hand.map((c, i) => `<button type="button" class="hcard c${i} ${c === selected ? "selected" : ""}" data-action="pick" data-card="${c}" aria-label="${cardName(c)}" aria-pressed="${c === selected}"><img src="${cardImage(c)}" alt="" draggable="false"></button>`).join("")}
+    ${hand.map((c, i) => `<button type="button" class="hcard c${i} ${c === selected ? "selected" : ""}" data-action="pick" data-card="${c}" aria-label="${cardName(c)}" aria-pressed="${c === selected}"><img ${cardAttrs(c)} alt="" draggable="false"></button>`).join("")}
   </div>
   <div class="status-row">
     <span class="me-mini"><span class="me-seat"><span class="me-av ${myFrame()} ${["bidding", "playing"].includes(g.phase) && g.turn === me && t.deadline ? "ring" : ""}" ${["bidding", "playing"].includes(g.phase) && g.turn === me && t.deadline ? `data-ring="${t.deadline}" data-ring-total="${(t.rules.turnSeconds ?? 20) * 1000}"` : ""}>${avatar(state.player.avatar)}</span><b>${e(state.player.name)}</b>${takerBadge(g, me)}${seatBubble(g, me) ? `<span class="me-bub">${seatBubble(g, me)}</span>` : ""}</span>${t.money ? `<small>${fmt(mine?.engaged ?? 0)} engagés</small>` : ""}</span>
@@ -2006,10 +1741,23 @@ const release = () =>
   }, 0);
 document.addEventListener("pointerup", release, true);
 document.addEventListener("pointercancel", release, true);
+// Photos des villes (fond des cartes de mise) : chargées seulement quand la carte approche de l'écran.
+let photoObserver = null;
+function lazyPhotos() {
+  const list = document.querySelectorAll("#app .sc-photo:not(.on)");
+  if (!list.length) return;
+  photoObserver ??= "IntersectionObserver" in window ? new IntersectionObserver((entries) => entries.forEach((en) => en.isIntersecting && (en.target.classList.add("on"), photoObserver.unobserve(en.target))), { rootMargin: "300px 0px" }) : null;
+  for (const el of list) {
+    const r = el.getBoundingClientRect();
+    if (!photoObserver || r.top < innerHeight + 300) el.classList.add("on"); // déjà proche : pas de clignotement
+    else photoObserver.observe(el);
+  }
+}
 let lastShape = "",
   lastShapeNode = null;
 function render() {
   if (!state) return;
+  if (renderRaf) (cancelAnimationFrame(renderRaf), (renderRaf = 0));
   if (pressing) {
     pendingRender = true;
     return;
@@ -2018,7 +1766,7 @@ function render() {
     g = t?.game;
   const vipTheme = (t?.vip && !t.practice) || (!t && ["vip", "vipCreate", "tournaments", "tournament"].includes(page.name));
   document.body.className = `${g ? "in-game" : t ? "in-room" : "in-lobby"} ${vipTheme ? "night-vip" : "club-pop"} ${state.player.settings.animations ? "" : "calm"}`;
-  sound = state.player.settings.sounds;
+  setSound(state.player.settings.sounds);
   const dealKey = g ? t.gameId + ":" + g.deal : null;
   const trickKey = dealKey + ":" + (g?.tricks.length ?? 0);
   if (dealKey !== lastRenderedDeal) {
@@ -2064,6 +1812,7 @@ function render() {
     lastShapeNode = app.firstElementChild;
   }
   if (g) animateTrick();
+  lazyPhotos();
   if (state.player.avatar) localStorage.setItem("lastAvatar", state.player.avatar);
   document.querySelectorAll("#app form[id] input:not([type=hidden])").forEach((el) => {
     const v = fields[key(el)];
@@ -2200,10 +1949,7 @@ function unlockVoice() {
     speechSynthesis.speak(u);
     speechSynthesis.getVoices();
   } catch {}
-  try {
-    audioCtx ??= new AudioContext();
-    audioCtx.resume?.();
-  } catch {}
+  unlockAudio();
 }
 addEventListener("pointerdown", unlockVoice, { passive: true });
 addEventListener("keydown", unlockVoice);
@@ -2437,7 +2183,7 @@ function spinWheel() {
 // ———————————————————————————————————————————————————————————— comptes et profil
 async function loadAuthConfig() {
   try {
-    authConfig = await (await fetch("/api/auth/config")).json();
+    setAuthConfig(await (await fetch("/api/auth/config")).json());
   } catch {}
 }
 function openCropper(file) {
@@ -2527,6 +2273,13 @@ async function oidc(provider) {
         window.google.accounts.id.initialize({ client_id: authConfig.google, callback: (r) => resolve(r.credential) });
         window.google.accounts.id.prompt((n) => n.isNotDisplayed?.() && reject(Error("Connexion Google indisponible dans ce navigateur")));
       });
+    } else if (window.Capacitor?.isNativePlatform?.() && window.Capacitor.getPlatform?.() === "ios" && window.Capacitor.Plugins?.SocialLogin) {
+      // iPhone : Sign in with Apple natif (la fenêtre web d’Apple ne marche pas dans l’appli).
+      const sl = window.Capacitor.Plugins.SocialLogin;
+      await sl.initialize({ apple: {} });
+      const r = await sl.login({ provider: "apple", options: { scopes: ["email", "name"] } });
+      idToken = r?.result?.idToken;
+      if (!idToken) throw Error("Connexion Apple annulée");
     } else {
       await loadScript("https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/fr_FR/appleid.auth.js");
       window.AppleID.auth.init({ clientId: authConfig.apple, scope: "name email", redirectURI: location.origin + "/", usePopup: true });
@@ -2544,7 +2297,6 @@ async function oidc(provider) {
 function levelBar(l) {
   return `<div class="level"><div class="level-head"><b>${e(l.name)}</b><small>${l.next ? `${fmt(l.xp)} / ${fmt(l.next)} XP` : `${fmt(l.xp)} XP`}</small></div><div class="bar"><i class="w${Math.round(l.progress * 20) * 5}"></i></div></div>`;
 }
-const when = (ts) => new Date(ts).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 function countdown(ts) {
   const m = Math.max(0, Math.round((ts - Date.now()) / 60000));
   return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`;
@@ -2567,7 +2319,7 @@ function walletModal() {
 }
 async function shopModal() {
   try {
-    shopConfig = await (await fetch("/api/shop/config")).json();
+    setShopConfig(await (await fetch("/api/shop/config")).json());
   } catch {}
   const c = shopConfig ?? { packs: [], purchases: false };
   const open = c.purchases || c.test;
@@ -2748,14 +2500,6 @@ function joinConfirm(t, action, data = "") {
 function resultModal(r) {
   modal(`<div class="confirm"><span class="confirm-icon">${r.delta > 0 ? "🎉" : "🃏"}</span><h2>Résultat de « ${e(r.table)} »</h2><p class="muted">Vous aviez quitté la partie : un robot l’a terminée à votre place.</p>${moneyLines(r)}${btn("OK", "dismissResult", "cta small")}</div>`, "confirm-modal");
 }
-const pendingAcks = {};
-// Commande avec suite : le rappel ne s'exécute qu'en cas de succès (les erreurs s'affichent seules).
-function ask(type, data, then) {
-  if (ws?.readyState !== 1) return toast("Connexion en cours…");
-  const id = crypto.randomUUID();
-  pendingAcks[id] = then;
-  ws.send(JSON.stringify({ id, type, data }));
-}
 
 // ———————————————————————————————————————————————————————————— création de table
 function createModal(r = DEFAULT_RULES, editing = false) {
@@ -2790,6 +2534,8 @@ function joinModal(prefill = {}) {
   );
 }
 // ———————————————————————————————————————————————————————————— interactions
+const ADMIN_ACTIONS = new Set(["tourNew", "tourEdit", "tourAdminBack", "tourPublish", "purchasesResync", "tourDelete", "tourDuplicate", "tourPostpone", "tourCancel", "tourDetails", "adminPrestige", "admin", "adminTab", "adminLogout", "clientOpen", "clientBack", "clientSuspend", "clientDelete", "suspendPlayer", "deleteTable", "backupDownload", "backupNow", "reviewAlert", "cancelGame", "resolveReport", "maintenance"]);
+const ADMIN_FORMS = new Set(["tour-form", "tour-postpone-form", "tour-cancel-form", "client-credit-form", "client-edit-form", "bonus-form", "admin-form"]);
 document.addEventListener("click", async (ev) => {
   const el = ev.target.closest("[data-action]");
   if (!el || el.disabled) return;
@@ -2797,6 +2543,8 @@ document.addEventListener("click", async (ev) => {
     t = state?.table,
     g = t?.game;
   const me = t ? t.seats.findIndex((s) => s?.id === state.player.id) : -1;
+  // Back-office : module chargé à la demande (jamais pour les joueurs).
+  if (ADMIN_ACTIONS.has(a)) return (await import("./admin.js")).adminAction(a, el, ev);
   switch (a) {
     case "close":
       closeModal();
@@ -2851,7 +2599,7 @@ document.addEventListener("click", async (ev) => {
       wheelModal();
       break;
     case "vibra":
-      vibra = !vibra;
+      setVibra(!vibra);
       try {
         localStorage.setItem("beloteVibra", String(vibra));
       } catch {}
@@ -2859,7 +2607,7 @@ document.addEventListener("click", async (ev) => {
       render();
       break;
     case "sound":
-      sound = !sound;
+      setSound(!sound);
       cmd("settings", { sounds: sound });
       tone([523, 784]);
       render();
@@ -2872,50 +2620,6 @@ document.addEventListener("click", async (ev) => {
       if (["home", "tables", "profile", "boutique", "settings"].includes(el.dataset.page) && !el.dataset.f) pageStack = [];
       go(el.dataset.page, { ...(el.dataset.tab ? { tab: el.dataset.tab } : {}), ...(el.dataset.id ? { id: el.dataset.id } : {}), ...(el.dataset.f ? { f: el.dataset.f } : {}) });
       break;
-    case "tourNew":
-      tourForm(null);
-      break;
-    case "tourEdit":
-      tourForm(adminData.tournaments.find((x) => x.id === el.dataset.id));
-      break;
-    case "tourAdminBack":
-      $("#admin-tours").innerHTML = tourAdmin(adminData);
-      break;
-    case "tourPublish":
-      await adminRequest({ type: "tourPublish", id: el.dataset.id });
-      break;
-    case "purchasesResync":
-      await adminRequest({ type: "purchasesResync", days: 30 });
-      toast("Paiements Stripe réimportés (sans doublon)");
-      break;
-    case "tourDelete": {
-      const t = adminData.tournaments.find((x) => x.id === el.dataset.id);
-      if (t && confirm(`Supprimer définitivement « ${t.name} » ? Les trophées 🏆 de ses vainqueurs sont conservés.`)) {
-        await adminRequest({ type: "tourDelete", id: t.id });
-        toast("Tournoi supprimé");
-      }
-      break;
-    }
-    case "tourDuplicate":
-      await adminRequest({ type: "tourDuplicate", id: el.dataset.id });
-      toast("Copie créée en brouillon");
-      break;
-    case "tourPostpone": {
-      const t = adminData.tournaments.find((x) => x.id === el.dataset.id);
-      $("#admin-tours").innerHTML = `<form id="tour-postpone-form" class="form"><input type="hidden" name="tid" value="${t.id}"><p><b>${e(t.name)}</b> · départ actuel ${e(t.local.start.replace("T", " "))} (${e(t.timeZone)})</p><label>Nouveau départ (${e(t.timeZone)})<input type="datetime-local" name="start" value="${t.local.start}" required></label><p class="muted small">Toutes les dates sont décalées d’autant ; rappels reprogrammés et inscrits informés.</p><div class="row"><button class="pill small">Reporter</button>${btn("Retour", "tourAdminBack", "chip-btn ghost")}</div></form>`;
-      break;
-    }
-    case "tourCancel": {
-      const t = adminData.tournaments.find((x) => x.id === el.dataset.id);
-      $("#admin-tours").innerHTML = `<form id="tour-cancel-form" class="form"><input type="hidden" name="tid" value="${t.id}"><p>Annuler <b>${e(t.name)}</b> ? Les ${t.places.used} inscrits seront prévenus.</p><label>Motif<input name="reason" maxlength="200" value="Annulé par l’organisateur"></label><div class="row"><button class="pill small danger">Annuler le tournoi</button>${btn("Retour", "tourAdminBack", "chip-btn ghost")}</div></form>`;
-      break;
-    }
-    case "tourDetails": {
-      const t = adminData.tournaments.find((x) => x.id === el.dataset.id);
-      $("#admin-tours").innerHTML = `<p><b>${e(t.name)}</b> · ${TOUR_LABELS[t.status]}</p><h4>Inscriptions</h4><ul class="admin-list">${t.regs.map((r) => `<li>${r.names.map(e).join(" & ")}${r.partnerName ? ` (+ ${e(r.partnerName)} invité)` : ""}${r.waitlist ? " · liste d’attente" : ""} · présence ${r.confirmed.length}/${r.names.length}</li>`).join("") || "<li>Aucune</li>"}</ul>
-        <h4>Journal</h4><ul class="admin-list">${t.log.slice().reverse().map((l) => `<li>${when(l.at)} · ${e(l.kind)} · ${e(l.by)}</li>`).join("")}</ul>${btn("Retour", "tourAdminBack", "chip-btn ghost")}`;
-      break;
-    }
     case "createFromLogin":
       try {
         await api("/api/auth/register", loginDraft);
@@ -3000,11 +2704,11 @@ document.addEventListener("click", async (ev) => {
       break;
     case "avatarTab":
     case "historyTab":
-      page = { ...page, params: { ...page.params, tab: el.dataset.tab } };
+      setPage({ ...page, params: { ...page.params, tab: el.dataset.tab } });
       render();
       break;
     case "pickAvatar":
-      page = { ...page, params: { ...page.params, pick: el.dataset.avatar } };
+      setPage({ ...page, params: { ...page.params, pick: el.dataset.avatar } });
       render();
       break;
     case "useAvatar":
@@ -3147,11 +2851,11 @@ document.addEventListener("click", async (ev) => {
       piggyModal();
       break;
     case "shopFilter":
-      page = { ...page, params: { f: el.dataset.f } };
+      setPage({ ...page, params: { f: el.dataset.f } });
       render();
       break;
     case "shopCat":
-      page = { ...page, params: { f: "all", cat: el.dataset.cat } };
+      setPage({ ...page, params: { f: "all", cat: el.dataset.cat } });
       render();
       break;
     case "shopItem":
@@ -3250,9 +2954,6 @@ document.addEventListener("click", async (ev) => {
       });
       break;
     }
-    case "adminPrestige":
-      adminRequest({ type: "prestige", id: el.dataset.id, days: Number(el.dataset.days) });
-      break;
     case "voiceTry":
       sayVoice("Belote", el.dataset.id);
       break;
@@ -3438,69 +3139,6 @@ document.addEventListener("click", async (ev) => {
       render();
       modal('<div class="modal-head"><span class="modal-icon">🚩</span><h2>Signaler un problème</h2></div><form id="report-form" class="form"><label>Que s’est-il passé ?<textarea name="reason" maxlength="500" required></textarea></label><button class="cta small wide">Envoyer</button></form>', "sheet-modal");
       break;
-    case "admin":
-      modal('<h2>Administration</h2><p class="muted">Accès réservé (clé BELOTE_ADMIN_KEY du serveur).</p><form id="admin-form" class="form"><label>Clé d’administration<input name="key" type="password" required autocomplete="off"></label><button class="pill small">Ouvrir</button></form><div id="admin-result"></div>', "sheet-modal admin-modal");
-      break;
-    case "adminTab":
-      adminTab = el.dataset.tab;
-      for (const b of document.querySelectorAll(".admin-tab")) b.classList.toggle("on", b.dataset.tab === adminTab);
-      for (const p of document.querySelectorAll(".admin-panel")) p.hidden = p.dataset.panel !== adminTab;
-      break;
-    case "adminLogout":
-      try {
-        localStorage.removeItem("adminKey");
-      } catch {}
-      location.reload();
-      break;
-    case "clientOpen":
-      await openClient(el.dataset.id);
-      break;
-    case "clientBack":
-      adminClient = null;
-      if ($("#admin-clients")) $("#admin-clients").innerHTML = clientList(adminData);
-      break;
-    case "clientSuspend":
-      await adminRequest({ type: "suspend", id: el.dataset.id, enabled: el.dataset.enabled === "true" });
-      break;
-    case "clientDelete":
-      if (confirm(`Supprimer définitivement « ${el.dataset.name} » ? Compte, jetons et historique seront effacés.`)) {
-        adminClient = null;
-        if (await adminRequest({ type: "playerDelete", id: el.dataset.id })) toast("Client supprimé");
-      }
-      break;
-    case "suspendPlayer":
-      await adminRequest({ type: "suspend", id: el.dataset.id, enabled: el.dataset.enabled === "true" });
-      break;
-    case "deleteTable":
-      await adminRequest({ type: "deleteTable", id: el.dataset.id });
-      break;
-    case "backupDownload": {
-      const res = await fetch("/api/admin?download=1", { headers: { Authorization: "Bearer " + adminToken } });
-      if (!res.ok) return toast("Téléchargement impossible");
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(await res.blob());
-      a.download = `belote-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-      break;
-    }
-    case "backupNow":
-      await adminRequest({ type: "backupNow" });
-      toast("Sauvegarde lancée");
-      setTimeout(() => adminRequest(), 3000);
-      break;
-    case "reviewAlert":
-      await adminRequest({ type: "reviewAlert", id: el.dataset.id });
-      break;
-    case "cancelGame":
-      if (confirm("Annuler cette partie ? Les jetons engagés seront libérés sans gain ni perte.")) await adminRequest({ type: "cancelGame", id: el.dataset.id });
-      break;
-    case "resolveReport":
-      await adminRequest({ type: "resolve", id: el.dataset.id });
-      break;
-    case "maintenance":
-      await adminRequest({ type: "maintenance", enabled: el.dataset.enabled === "true" });
-      break;
   }
 });
 document.addEventListener("change", (ev) => {
@@ -3522,180 +3160,11 @@ document.addEventListener("keydown", (ev) => {
   }
 });
 let loginDraft = null; // identifiants saisis à la connexion, réutilisés pour créer le compte
-let adminToken = "",
-  adminData = null;
-// ———————————————— administration des tournois : calendrier et programmation
-const TOUR_LABELS = { draft: "Brouillon", published: "Publié", running: "En cours", finished: "Terminé", cancelled: "Annulé" };
-function tourAdmin(d) {
-  const byDay = {};
-  for (const t of d.tournaments) (byDay[new Date(t.start).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })] ??= []).push(t);
-  return `<p class="muted small">Push navigateur ${d.push.web ? "✓ configuré" : "— clés VAPID manquantes"} · push iOS/Android ${d.push.native ? "✓ configuré" : "— Firebase non configuré"} · les rappels restent dans l’application dans tous les cas.</p>
-    ${btn("＋ Nouveau tournoi", "tourNew", "pill small")}
-    <div class="tour-cal">${Object.entries(byDay).map(([day, list]) => `<div class="cal-day"><b>${e(day)}</b>${list.map((t) => `<div class="admin-card"><b>${e(t.name)}</b><small>${new Date(t.start).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} (votre heure) · ${e(t.local.start.replace("T", " "))} ${e(t.timeZone)} · ${TOUR_LABELS[t.status]} · ${t.places.used}/${t.places.capacity} inscrits${t.places.waitlist ? ` · ${t.places.waitlist} en attente` : ""}</small>
-      <div class="row">${["draft", "published"].includes(t.status) && !t.rounds ? btn("Modifier", "tourEdit", "chip-btn", `data-id="${t.id}"`) : ""}${t.status === "draft" ? btn("Publier", "tourPublish", "chip-btn", `data-id="${t.id}"`) : ""}${["draft", "published"].includes(t.status) ? btn("Reporter", "tourPostpone", "chip-btn", `data-id="${t.id}"`) + btn("Annuler", "tourCancel", "chip-btn danger", `data-id="${t.id}"`) : ""}${btn("Dupliquer", "tourDuplicate", "chip-btn", `data-id="${t.id}"`)}${["finished", "cancelled", "draft"].includes(t.status) ? btn("Supprimer", "tourDelete", "chip-btn danger", `data-id="${t.id}"`) : ""}${btn("Détails", "tourDetails", "chip-btn", `data-id="${t.id}"`)}</div></div>`).join("")}</div>`).join("") || "<p>Aucun tournoi programmé.</p>"}</div>`;
-}
-function tourForm(t) {
-  const d = adminData;
-  const now = new Date(Date.now() + 86400_000);
-  const pad = (n) => String(n).padStart(2, "0");
-  const day = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-  const n0 = new Date();
-  const nowLocal = `${n0.getFullYear()}-${pad(n0.getMonth() + 1)}-${pad(n0.getDate())}T${pad(n0.getHours())}:${pad(n0.getMinutes())}`; // inscriptions ouvertes dès la publication
-  const v = t
-    ? { ...t, ...t.local }
-    : { name: "", description: "", timeZone: myTz(), teams: 8, minTeams: 4, minBalance: 0, rules: { target: 1500, turnSeconds: 20, flyingCounter: true, reconnectSeconds: 120, forfeitSeconds: 300 }, insufficient: "postpone", postponeMinutes: 30, rewards: { winner: ["tournoi-vainqueur", "frame-champion"], finalist: ["tournoi-finaliste"], participant: ["tournoi-participant"] }, regOpen: nowLocal, regClose: `${day}T20:00`, confirmBy: `${day}T20:50`, start: `${day}T21:00` };
-  const sel = (name, opts, cur) => `<select name="${name}">${opts.map(([val, label]) => `<option value="${val}" ${String(val) === String(cur) ? "selected" : ""}>${label}</option>`).join("")}</select>`;
-  const rw = (kind, label) => `<fieldset><legend>${label}</legend>${d.rewards.map((r) => `<label class="check-line"><input type="checkbox" name="rw-${kind}" value="${r.id}" ${v.rewards[kind].includes(r.id) ? "checked" : ""}>${e(r.name)}</label>`).join("")}</fieldset>`;
-  $("#admin-tours").innerHTML = `<form id="tour-form" class="form">
-    <input type="hidden" name="tid" value="${t?.id ?? ""}">
-    <label>Nom<input name="name" value="${e(v.name)}" minlength="3" maxlength="60" required></label>
-    <label>Description<input name="description" value="${e(v.description ?? "")}" maxlength="400"></label>
-    <fieldset class="prize-box"><legend>💰 Jetons gagnés (par joueur de l’équipe, offerts par la Maison)</legend><div class="form-grid"><label>🏆 Vainqueurs<input type="number" name="prizeWinner" min="0" max="1000000" step="1" value="${v.prizes?.winner ?? 0}"></label><label>🥈 Finalistes<input type="number" name="prizeFinalist" min="0" max="1000000" step="1" value="${v.prizes?.finalist ?? 0}"></label></div></fieldset>
-    <fieldset class="prize-box"><legend>🎟️ Tournoi payant en jetons (cagnotte : 70 % vainqueurs, 30 % finalistes)</legend><div class="form-grid"><label>Droit d’entrée par joueur (0 = gratuit)<input type="number" name="entryFee" min="0" max="100000" step="1" value="${v.entryFee ?? 0}"></label><label>Part de la Maison (%)<input type="number" name="houseCut" min="10" max="20" step="1" value="${v.houseCut ?? 15}"></label></div></fieldset>
-    <label>Fuseau de référence<input name="timeZone" value="${e(v.timeZone)}" list="tz-list" required></label>
-    <datalist id="tz-list">${["Europe/Paris", "Europe/Brussels", "Europe/Zurich", "America/Montreal", "Indian/Reunion", "America/Martinique", "Pacific/Noumea", "UTC"].map((z) => `<option value="${z}">`).join("")}</datalist>
-    <div class="form-grid">
-      <label>Ouverture des inscriptions<input type="datetime-local" name="regOpen" value="${v.regOpen}" required></label>
-      <label>Fermeture des inscriptions<input type="datetime-local" name="regClose" value="${v.regClose}" required></label>
-      <label>Fin de la confirmation de présence<input type="datetime-local" name="confirmBy" value="${v.confirmBy}" required></label>
-      <label>Départ<input type="datetime-local" name="start" value="${v.start}" required></label>
-      <label>Équipes${sel("teams", [[8, "8 équipes"], [16, "16 équipes"], [32, "32 équipes"]], v.teams)}</label>
-      <label>Minimum pour lancer<input type="number" name="minTeams" min="2" max="32" value="${v.minTeams}"></label>
-      <label>Seuil de jetons<input type="number" name="minBalance" min="0" step="1000" value="${v.minBalance}"></label>
-      <label>Score cible${sel("target", [[500, "500"], [1000, "1 000"], [1500, "1 500"], [2000, "2 000"]], v.rules.target)}</label>
-      <label>Temps par tour (s)<input type="number" name="turnSeconds" min="10" max="120" value="${v.rules.turnSeconds}"></label>
-      <label>Reprise après coupure (s)<input type="number" name="reconnectSeconds" min="30" max="600" value="${v.rules.reconnectSeconds}"></label>
-      <label>Forfait après absence (s)<input type="number" name="forfeitSeconds" min="30" max="1800" value="${v.rules.forfeitSeconds}"></label>
-      <label>Équipes insuffisantes${sel("insufficient", [["postpone", "Reporter"], ["cancel", "Annuler"], ["bots", "Compléter avec des robots"]], v.insufficient)}</label>
-      <label>Rappel avant le départ (heures)<input type="number" name="reminderHours" min="0" max="48" value="${v.reminderHours ?? 3}"></label>
-      <label>Report de (min)<input type="number" name="postponeMinutes" min="5" max="10080" value="${v.postponeMinutes}"></label>
-    </div>
-    <label class="check-line"><input type="checkbox" name="flyingCounter" ${v.rules.flyingCounter ? "checked" : ""}>Contrée à la volée</label>
-    ${rw("winner", "Récompenses des vainqueurs")}${rw("finalist", "Récompenses des finalistes")}${rw("participant", "Récompenses de participation")}
-    <p class="muted small">Après le départ, seuls le nom et la description restent modifiables.</p>
-    <div class="row"><button class="chip-btn" name="publish" value="">Enregistrer le brouillon</button><button class="pill small" name="publish" value="1">${t?.status === "published" ? "Enregistrer" : "Publier"}</button>${btn("Retour", "tourAdminBack", "chip-btn ghost")}</div>
-  </form>`;
-}
-// ———————————————— back office : clients
-let adminClient = null,
-  adminTab = "dash";
-function clientList(d) {
-  const players = [...d.players].sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name));
-  return `<input id="client-search" class="client-search" type="search" placeholder="Rechercher un pseudo ou un e-mail" autocomplete="off">
-    <div class="client-list">${players.map((p) => `<div class="admin-row client-row" data-q="${e((p.name + " " + (p.account?.email ?? "") + " " + (p.tag ?? "")).toLowerCase())}"><span>${p.online ? "🟢" : "⚪"} <b>${e(p.name)}</b> <small>${e(p.account?.email ?? "invité")}${p.banned ? " · suspendu" : ""}</small></span><span class="row"><small>🪙 ${fmt(p.wallet.balance / 2)}</small>${btn("Fiche", "clientOpen", "chip-btn", `data-id="${p.id}"`)}</span></div>`).join("") || "<p>Aucun client.</p>"}</div>`;
-}
-async function openClient(id) {
-  try {
-    const res = await fetch("/api/admin?player=" + encodeURIComponent(id), { headers: { Authorization: "Bearer " + adminToken } });
-    if (!res.ok) throw Error(await res.text());
-    const c = await res.json();
-    adminClient = id;
-    const box = $("#admin-clients");
-    if (!box) return;
-    const w = c.wallet;
-    box.innerHTML = `<div class="client-sheet">
-      <div class="row">${btn("← Liste des clients", "clientBack", "chip-btn ghost")}</div>
-      <div class="client-head">${avatar(c.avatar)}<div><b>${e(c.name)}</b><small>${e(c.tag ?? "")} · ${c.online ? "en ligne" : "hors ligne"}${c.banned ? " · <b>suspendu</b>" : ""}</small><small>${c.account ? `${e(c.account.email)} · ${c.account.verified ? "e-mail vérifié" : "e-mail non vérifié"}${c.account.providers.length ? " · " + c.account.providers.map(e).join(", ") : ""}` : "Invité sans compte"}</small></div></div>
-      <div class="admin-stats"><div><b>${fmt(w.balance / 2)}</b><small>solde</small></div><div><b>${fmt(w.reserved / 2)}</b><small>engagés</small></div><div><b>${c.stats.games}</b><small>parties</small></div><div><b>${c.stats.wins ?? 0}</b><small>victoires</small></div></div>
-      <h4>Ajouter / retirer des jetons</h4>
-      <div class="row">${c.account ? `${c.prestige ? `<small>⭐ Prestige jusqu’au ${new Date(c.prestige.until).toLocaleDateString("fr-FR")}</small>` : ""}${btn("⭐ Prestige +30 j", "adminPrestige", "chip-btn", `data-id="${c.id}" data-days="30"`)}${c.prestige ? btn("Retirer Prestige", "adminPrestige", "chip-btn", `data-id="${c.id}" data-days="0"`) : ""}` : ""}</div>
-      <form id="client-credit-form" class="form inline"><input type="hidden" name="cid" value="${c.id}"><label>Montant (jetons, négatif pour retirer)<input name="amount" type="number" step="0.5" min="-1000000" max="1000000" required></label><label>Motif<input name="reason" maxlength="120" placeholder="Geste commercial, correction…"></label><button class="pill small">Valider</button></form>
-      <h4>Fiche</h4>
-      <form id="client-edit-form" class="form"><input type="hidden" name="cid" value="${c.id}">
-        <div class="form-grid"><label>Pseudo<input name="name" value="${e(c.name)}" minlength="2" maxlength="24" required></label><label>Avatar<input name="avatar" value="${e(c.avatar)}" maxlength="8"></label>
-        ${c.account ? `<label>E-mail<input name="email" type="email" value="${e(c.account.email)}" required></label><label class="check-line"><input type="checkbox" name="verified" ${c.account.verified ? "checked" : ""}>E-mail vérifié</label><label>Nouveau mot de passe <small class="muted">(laisser vide pour ne pas changer)</small><input name="password" type="text" minlength="8" maxlength="128" autocomplete="off"></label>` : ""}</div>
-        <button class="pill small">Enregistrer la fiche</button></form>
-      <div class="row">${btn(c.banned ? "Réactiver le compte" : "Suspendre le compte", "clientSuspend", "chip-btn", `data-id="${c.id}" data-enabled="${!c.banned}"`)}${btn("Supprimer le client", "clientDelete", "chip-btn danger", `data-id="${c.id}" data-name="${e(c.name)}"`)}</div>
-      <h4>Journal des jetons</h4>
-      <div class="client-ledger">${c.ledger.map((x) => `<div class="admin-row"><span>${when(x.at)} · ${e(x.label ?? x.type)}</span><span class="${x.amount < 0 ? "neg" : "pos"}">${x.amount > 0 ? "+" : ""}${fmt(x.amount)} → ${fmt(x.balance)}</span></div>`).join("") || "<p class='muted small'>Aucun mouvement.</p>"}</div>
-      <h4>Dernières parties</h4>
-      <div>${(c.history ?? []).slice(0, 15).map((h) => `<div class="admin-row"><span>${h.at ? when(h.at) : ""} ${e(h.table ?? h.name ?? "")}</span><span>${h.won ? "Gagnée" : "Perdue"}${h.score ? ` · ${e(String(h.score))}` : ""}</span></div>`).join("") || "<p class='muted small'>Aucune partie.</p>"}</div>
-    </div>`;
-  } catch (err) {
-    adminClient = null;
-    toast(err.message);
-  }
-}
-document.addEventListener("input", (ev) => {
-  if (ev.target.id !== "client-search") return;
-  const q = ev.target.value.trim().toLowerCase();
-  for (const r of document.querySelectorAll(".client-row")) r.hidden = !!q && !r.dataset.q.includes(q);
-});
-// Sauvegarde : téléchargement immédiat et état de la copie automatique de chaque nuit.
-function backupCard(b) {
-  const last = b?.last;
-  const status = !b?.configured
-    ? "Copie automatique non configurée (stockage externe à ajouter dans Railway)."
-    : last
-      ? `Dernière copie automatique : ${new Date(last.at).toLocaleString("fr-FR")} · ${last.ok ? "✅ réussie" : `❌ échec : ${e(last.error ?? "")}`}`
-      : "Copie automatique configurée : première copie cette nuit.";
-  return `<div class="admin-card"><b>💾 Sauvegarde des données</b><p class="muted small">${status}</p>
-    <div class="row">${btn("Télécharger une sauvegarde", "backupDownload", "chip-btn")}${b?.configured ? btn("Sauvegarder maintenant", "backupNow", "chip-btn") : ""}</div></div>`;
-}
-async function adminRequest(data) {
-  try {
-    const res = await fetch("/api/admin", {
-      method: data ? "POST" : "GET",
-      headers: { Authorization: "Bearer " + adminToken, ...(data ? { "Content-Type": "application/json" } : {}) },
-      body: data ? JSON.stringify(data) : undefined,
-    });
-    if (!res.ok) throw Error(await res.text());
-    const d = await res.json();
-    adminData = d;
-    const row = (l, r) => `<div class="admin-row"><span>${l}</span>${r}</div>`;
-    const open = d.reports.filter((r) => !r.resolved);
-    const alerts = d.alerts.filter((x) => !x.reviewed);
-    const online = d.players.filter((p) => p.online).length;
-    const upcoming = d.tournaments.filter((t) => ["draft", "published", "running"].includes(t.status));
-    const tabs = [
-      ["dash", "📊", "Tableau de bord"],
-      ["clients", "👥", `Clients`, d.players.length],
-      ["tours", "🏆", "Tournois", upcoming.length],
-      ["moderation", "🚩", "Modération", open.length + alerts.length],
-      ["boutique", "🛍️", "Boutique"],
-      ["tables", "🃏", "Tables", d.tables.length],
-      ["settings", "⚙️", "Réglages"],
-    ];
-    const panel = (id, html) => `<section class="admin-panel" data-panel="${id}" ${adminTab === id ? "" : "hidden"}>${html}</section>`;
-    $("#admin-result").innerHTML = `
-      ${d.storage?.ephemeral ? '<p class="warn">⚠️ Données temporaires : aucun volume n’est attaché au service Railway. Ajoutez un volume (Railway › service › Settings › Volumes, point de montage /data).</p>' : ""}
-      <nav class="admin-tabs">${tabs.map(([id, ic, label, n]) => `<button type="button" class="admin-tab ${adminTab === id ? "on" : ""}" data-action="adminTab" data-tab="${id}"><span>${ic}</span>${label}${n ? `<i>${n}</i>` : ""}</button>`).join("")}</nav>
-      <div class="admin-body">
-      ${panel("dash", `<h2>Tableau de bord</h2>
-        <div class="admin-stats"><div><b>${d.players.length}</b><small>clients</small></div><div><b>${online}</b><small>en ligne</small></div><div><b>${d.tables.length}</b><small>tables</small></div><div><b>${upcoming.length}</b><small>tournois à venir</small></div><div><b>${fmt(d.economy.circulating)}</b><small>jetons en circulation</small></div><div><b>${fmt(d.economy.reserved)}</b><small>jetons engagés</small></div><div><b>${open.length}</b><small>signalements</small></div><div><b>${alerts.length}</b><small>alertes</small></div></div>
-        <p class="muted small">Achats ${d.economy.purchases ? "ouverts" : "fermés"} (web ${d.economy.stripe ? "✓" : "—"}, iOS ${d.economy.apple ? "✓" : "—"}, Android ${d.economy.google ? "✓" : "—"}) · Push navigateur ${d.push.web ? "✓" : "—"} · Push natif ${d.push.native ? "✓" : "—"} · Entrées ${d.settings.maintenance ? "suspendues" : "ouvertes"}</p>
-        ${backupCard(d.backup)}
-        ${d.metrics ? metricsCard(d.metrics) : ""}
-        ${d.purchasesSummary ? `<div class="admin-card"><b>🧾 Registre des achats</b><p class="muted small">${d.purchasesSummary.paid} payé${d.purchasesSummary.paid > 1 ? "s" : ""} · ${d.purchasesSummary.reversed} remboursé${d.purchasesSummary.reversed > 1 ? "s" : ""} ou contesté${d.purchasesSummary.reversed > 1 ? "s" : ""} · ${(d.purchasesSummary.revenueCents / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}${d.purchasesSummary.owed ? ` · ${fmt(d.purchasesSummary.owed)} jetons non repris` : ""} · achats ${d.economy.purchases ? "ouverts" : "fermés"}</p>${d.economy.stripe ? btn("Réimporter les paiements Stripe (30 jours)", "purchasesResync", "chip-btn") : ""}</div>` : ""}
-        <p class="muted small">Stockage : ${d.storage.kind === "sqlite" ? "base SQLite" : "fichier JSON"}${d.storage.migration ? ` · migration du ${new Date(d.storage.migration.at).toLocaleString("fr-FR")} ${d.storage.migration.ok ? "✅" : "❌"} (${d.storage.migration.players} joueurs, ${d.storage.migration.ledger} mouvements, ${fmt(d.storage.migration.balance / 2)} jetons)` : ""}</p>`)}
-      ${panel("clients", `<h2>Clients</h2><div id="admin-clients">${clientList(d)}</div>`)}
-      ${panel("tours", `<h2>Tournois</h2><div id="admin-tours">${tourAdmin(d)}</div>`)}
-      ${panel("moderation", `<h2>Modération</h2><h3>Alertes à examiner</h3><p class="muted small">Indices combinés, jamais une preuve : aucune sanction automatique.</p>
-      ${alerts.map((x) => `<div class="admin-card"><b>${e(x.kind)}</b><small>${when(x.at)} · ${x.names.map(e).join(", ")}</small><ul>${x.indicators.map((i) => `<li>${e(i)}</li>`).join("")}</ul>${btn("Marquer comme examinée", "reviewAlert", "chip-btn", `data-id="${x.id}"`)}</div>`).join("") || "<p>Aucune alerte.</p>"}
-      <h3>Signalements</h3>
-      ${open.map((r) => `<div class="admin-card"><b>${e(r.reason)}${r.targetName ? ` · ${e(r.targetName)}` : ""}</b><small>${when(r.at)} · par ${e(r.byName ?? r.by)}${r.gameId ? ` · partie ${e(r.gameId.slice(0, 8))}, donne ${r.deal ?? "—"}` : ""}</small>${r.comment ? `<p>${e(r.comment)}</p>` : ""}${r.context?.chat?.length ? `<p class="muted small">Messages : ${r.context.chat.map((m) => e(m.text)).join(" · ")}</p>` : ""}${r.context?.reactions?.length ? `<p class="muted small">${r.context.reactions.length} réaction(s) récente(s)</p>` : ""}${btn("Traiter", "resolveReport", "chip-btn", `data-id="${r.id}"`)}</div>`).join("") || "<p>Aucun signalement ouvert.</p>"}`)}
-      ${panel("boutique", `<h2>Boutique</h2><p class="muted small">Nom, prix (jetons), ordre d’affichage et visibilité. Un article masqué reste acquis à ceux qui le possèdent.</p>
-        <div class="shop-admin">${d.shop.map((it) => `<form class="form inline shop-item-form" data-id="${it.id}"><img src="${it.img}" alt=""><label>Nom<input name="name" value="${e(it.name)}" maxlength="40" required></label><label>Prix<input name="price" type="number" min="0" max="1000000" value="${it.price}" required></label><label>Ordre<input name="order" type="number" step="1" value="${it.order}"></label><label class="check-line"><input type="checkbox" name="hidden" ${it.hidden ? "checked" : ""}>Masqué</label><button class="pill small">Enregistrer</button></form>`).join("")}</div>`)}
-      ${panel("tables", `<h2>Tables</h2>${d.tables.map((t) => row(`${e(t.name)} · ${e(t.status)}${t.stake ? ` · 🪙 ${t.stake}` : ""}`, t.engaged ? btn("Annuler (incident)", "cancelGame", "chip-btn danger", `data-id="${t.id}"`) : btn("Supprimer", "deleteTable", "chip-btn", `data-id="${t.id}"`, t.status === "Partie en cours"))).join("") || "<p>Aucune table.</p>"}`)}
-      ${panel("settings", `<h2>Réglages</h2>
-        <div class="admin-card"><b>Nouvelles entrées</b><small>Bloque l’arrivée de nouveaux joueurs aux tables (maintenance).</small>${btn(d.settings.maintenance ? "Rouvrir les entrées" : "Suspendre les nouvelles entrées", "maintenance", "chip-btn", `data-enabled="${!d.settings.maintenance}"`)}</div>
-        <div class="admin-card"><form id="bonus-form" class="form inline"><label>Bonus de connexion (jetons / 24 h)<input name="amount" type="number" min="0" max="100000" step="1" value="${d.settings.loginBonus ?? d.economy.loginBonus}" required></label><button class="pill small">Enregistrer</button></form></div>`)}
-      </div>`;
-    if (adminClient) await openClient(adminClient);
-    return true;
-  } catch (err) {
-    toast(err.message);
-    return false;
-  }
-}
 document.addEventListener("submit", async (ev) => {
   const f = ev.target;
   ev.preventDefault();
   const d = Object.fromEntries(new FormData(f, ev.submitter));
-  if (f.classList.contains("shop-item-form")) {
-    if (await adminRequest({ type: "shopItem", id: f.dataset.id, name: d.name, price: Number(d.price), order: Number(d.order), hidden: d.hidden === "on" })) toast("Article enregistré");
-    return;
-  }
+  if (f.classList.contains("shop-item-form") || ADMIN_FORMS.has(f.id)) return (await import("./admin.js")).adminSubmit(f, d);
   try {
     switch (f.id) {
       case "bid-form":
@@ -3754,66 +3223,6 @@ document.addEventListener("submit", async (ev) => {
         cmd("report", d);
         toast("Merci, signalement envoyé");
         break;
-      case "tour-form": {
-        const f2 = new FormData(f);
-        const data = {
-          name: d.name,
-          description: d.description,
-          timeZone: d.timeZone,
-          regOpen: d.regOpen,
-          regClose: d.regClose,
-          confirmBy: d.confirmBy,
-          start: d.start,
-          teams: Number(d.teams),
-          minTeams: Number(d.minTeams),
-          minBalance: Number(d.minBalance),
-          rules: { target: Number(d.target), turnSeconds: Number(d.turnSeconds), flyingCounter: d.flyingCounter === "on" },
-          reconnectSeconds: Number(d.reconnectSeconds),
-          forfeitSeconds: Number(d.forfeitSeconds),
-          insufficient: d.insufficient,
-          postponeMinutes: Number(d.postponeMinutes),
-          reminderHours: Number(d.reminderHours),
-          prizes: { winner: Number(d.prizeWinner || 0), finalist: Number(d.prizeFinalist || 0) },
-          entryFee: Number(d.entryFee || 0),
-          houseCut: Number(d.houseCut || 15),
-          rewards: { winner: f2.getAll("rw-winner"), finalist: f2.getAll("rw-finalist"), participant: f2.getAll("rw-participant") },
-          publish: d.publish === "1",
-        };
-        // (champ « tid » : un champ nommé « id » masquerait l'identifiant du formulaire)
-        if (await adminRequest(d.tid ? { type: "tourUpdate", id: d.tid, data } : { type: "tourCreate", data }))
-          toast(data.publish ? "Tournoi publié" : "Brouillon enregistré");
-        return;
-      }
-      case "tour-postpone-form":
-        if (await adminRequest({ type: "tourPostpone", id: d.tid, start: d.start }))
-          toast("Tournoi reporté, inscrits prévenus");
-        return;
-      case "tour-cancel-form":
-        if (await adminRequest({ type: "tourCancel", id: d.tid, reason: d.reason }))
-          toast("Tournoi annulé, inscrits prévenus");
-        return;
-      case "client-credit-form":
-        if (await adminRequest({ type: "playerCredit", id: d.cid, amount: Number(d.amount), reason: d.reason }))
-          toast("Solde mis à jour");
-        return;
-      case "client-edit-form":
-        if (await adminRequest({ type: "playerUpdate", id: d.cid, name: d.name, avatar: d.avatar, ...(d.email !== undefined ? { email: d.email, verified: d.verified === "on" } : {}), ...(d.password ? { password: d.password } : {}) }))
-          toast("Fiche enregistrée");
-        return;
-      case "bonus-form":
-        if (await adminRequest({ type: "loginBonus", amount: Number(d.amount) }))
-          toast("Montant du bonus de connexion enregistré");
-        return;
-      case "admin-form":
-        adminToken = d.key;
-        f.reset();
-        if (await adminRequest()) {
-          f.hidden = true;
-          try {
-            localStorage.setItem("adminKey", adminToken); // reste connecté sur cet appareil
-          } catch {}
-        }
-        return;
       case "login-form":
         try {
           await api("/api/auth/login", d);
@@ -3838,7 +3247,7 @@ document.addEventListener("submit", async (ev) => {
         return;
       case "forgot-form":
         await api("/api/auth/forgot", d);
-        page = { ...page, params: { sent: true } };
+        setPage({ ...page, params: { sent: true } });
         render();
         break;
       case "reset-form":
@@ -3873,7 +3282,7 @@ function handleDeepLink() {
     history.replaceState(null, "", "/");
   }
   if (q.get("tournoi")) {
-    page = { name: "tournament", params: { id: q.get("tournoi") } };
+    setPage({ name: "tournament", params: { id: q.get("tournoi") } });
     pageStack = [{ name: "tournaments", params: {} }];
     localStorage.setItem("welcomed", "1");
     history.replaceState(null, "", "/");
@@ -3885,24 +3294,43 @@ function handleHash() {
   if (h === "#verify-failed") toast("Ce lien de confirmation n’est plus valable.");
   if (h.startsWith("#reset=")) {
     resetToken = h.slice(7);
-    page = { name: "reset", params: {} };
+    setPage({ name: "reset", params: {} });
   }
   if (["#verified", "#verify-failed"].includes(h)) history.replaceState(null, "", "/");
+}
+// Roue : échéance recalculée sur l'horloge du serveur (changer l'heure du téléphone n'y change rien).
+function fixWheel(player) {
+  const lb = player?.wallet?.loginBonus;
+  if (lb && typeof lb.wait === "number") lb.next = Date.now() + lb.wait;
+}
+// Mises à jour « profil » ou « accueil » : un seul affichage même si plusieurs messages se suivent
+// (un message `table` qui arrive juste après affiche aussitôt et annule celui-ci).
+let renderRaf = 0;
+function scheduleRender() {
+  if (renderRaf) return;
+  renderRaf = requestAnimationFrame(() => {
+    renderRaf = 0;
+    render();
+  });
 }
 async function connect() {
   try {
     const session = await fetch("/api/session", { method: "POST" });
     if (!session.ok) return toast("Accès au profil indisponible. Contactez l’administrateur.");
-    if (!shopConfig) fetch("/api/shop/config").then((r) => r.json()).then((c) => (shopConfig = c)).catch(() => {});
-    ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
+    if (!shopConfig) fetch("/api/shop/config").then((r) => r.json()).then((c) => setShopConfig(c)).catch(() => {});
+    setWs(new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?delta=1`)); // delta : messages table / player / lobby
     ws.onopen = () => {
       ws.send(JSON.stringify({ id: crypto.randomUUID(), type: "timezone", data: { timeZone: myTz() } }));
       if (retry) toast("Connexion rétablie · partie restaurée");
       retry = 0;
     };
-    ws.onmessage = (ev) => {
+    const onWsMessage = (ev) => {
+      perf?.msg(ev.data);
       const msg = JSON.parse(ev.data);
-      if (msg.type === "state") {
+      if (perf && (msg.type === "ack" || msg.type === "error")) perf.ack(msg.id);
+      // `state` : état complet (connexion, reconnexion, ancien serveur). `table` / `player` / `lobby` : mises à jour
+      // partielles, fusionnées dans `state`.
+      if (msg.type === "state" || (msg.type === "table" && state)) {
         const first = !state;
         const prevDeal = state?.table?.game?.deal;
         const ng = msg.table?.game;
@@ -3913,13 +3341,24 @@ async function connect() {
         lastMultiplier = m;
         if (msg.table?.game?.trick.length > (state?.table?.game?.trick.length ?? 0)) tone([300], 0.05, 0.05);
         const prevTable = state?.table;
-        // Roue : échéance recalculée sur l'horloge du serveur (changer l'heure du téléphone n'y change rien).
-        const lb = msg.player?.wallet?.loginBonus;
-        if (lb && typeof lb.wait === "number") lb.next = Date.now() + lb.wait;
-        state = msg;
+        if (msg.type === "state") {
+          fixWheel(msg.player);
+          setState(msg);
+        } else {
+          state.table = msg.table;
+          state.online = msg.online;
+        }
         gameEffects(prevTable, msg.table);
         render();
         if (first && pendingInvite && !state.table) joinModal(pendingInvite);
+      } else if (msg.type === "player" && state) {
+        fixWheel(msg.player);
+        state.player = msg.player;
+        scheduleRender();
+      } else if (msg.type === "lobby" && state) {
+        const { type, ...rest } = msg;
+        Object.assign(state, rest);
+        scheduleRender();
       }
       if (msg.type === "bonus") showBonus(msg);
       if (msg.type === "tableCall") showCall(msg);
@@ -3938,7 +3377,7 @@ async function connect() {
         pendingAcks[msg.id](msg);
         delete pendingAcks[msg.id];
       }
-      if (msg.type === "state") {
+      if (["state", "table", "player", "lobby"].includes(msg.type) && state) {
         if (pendingName && state.player.account) {
           cmd("profile", { name: pendingName });
           pendingName = null;
@@ -3972,6 +3411,12 @@ async function connect() {
       if (msg.type === "ack" && msg.invitation)
         rulesModal(msg.invitation.rules, `<p class="muted small">Table « ${e(msg.invitation.name)} »</p>${btn("Accepter et demander une place", "confirmVip", "cta small wide")}`);
       if (msg.type === "error") {
+        // Coup refusé : la carte affichée par anticipation revient dans la main aussitôt.
+        if (sentCard) {
+          sentCard = null;
+          playedOnDown = null;
+          render();
+        }
         shopBuying = false;
         if (msg.code === "shopFunds") {
           shopBuying = false;
@@ -3989,6 +3434,16 @@ async function connect() {
         if (!/Action périmée/.test(msg.message)) toast(msg.message);
       }
     };
+    ws.onmessage = perf
+      ? (ev) => {
+          const t0 = performance.now();
+          try {
+            onWsMessage(ev);
+          } finally {
+            perf.done(t0);
+          }
+        }
+      : onWsMessage;
     ws.onclose = (ev) => {
       if (ev.code === 4001) return connect(); // session changée (connexion, déconnexion)
       toast("Connexion perdue · reconnexion…");
@@ -4008,23 +3463,7 @@ async function connect() {
 }
 // Back office : page séparée (/admin), jamais affichée dans l'application des joueurs.
 if (location.pathname.replace(/\/$/, "") === "/admin") {
-  document.title = "Administration — Belote Prestige";
-  $("#app").innerHTML = `<main class="admin-page"><header class="admin-top"><img src="/decor/logo.webp" alt=""><div><h1>Back office</h1><small>Belote Prestige · administration</small></div><button type="button" class="chip-btn ghost admin-logout" data-action="adminLogout">Se déconnecter</button></header><form id="admin-form" class="form inline admin-login"><p class="muted">Accès réservé (clé BELOTE_ADMIN_KEY du serveur).</p><label>Clé d’administration<input name="key" type="password" required autocomplete="off"></label><button class="pill small">Ouvrir</button></form><div id="admin-result"></div></main>`;
-  let saved = null;
-  try {
-    saved = localStorage.getItem("adminKey");
-  } catch {}
-  if (saved) {
-    adminToken = saved;
-    $("#admin-form").hidden = true;
-    adminRequest().then((ok) => {
-      if (ok) return;
-      try {
-        localStorage.removeItem("adminKey"); // clé changée sur le serveur : on la redemande
-      } catch {}
-      $("#admin-form").hidden = false;
-    });
-  }
+  import("./admin.js").then((m) => m.initAdmin());
 } else {
   loadAuthConfig();
   handleHash();
