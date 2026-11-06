@@ -256,6 +256,8 @@ const euroOf = (n) => {
   const pk = shopConfig?.purchases ? [...(shopConfig.packs ?? [])].filter((x) => x.priceCents && !x.founder).sort((a, b) => a.credits - b.credits)[0] : null;
   return pk ? ` <small class="euro">≈ ${((n * pk.priceCents) / pk.credits / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}</small>` : "";
 };
+// iPhone (appli native) avec achats fermés : aucune offre payante affichée (règle 2.1 d’Apple).
+const iosShopClosed = () => !!(window.Capacitor?.isNativePlatform?.() && window.Capacitor.getPlatform?.() === "ios" && !(shopConfig?.purchases || shopConfig?.test));
 const jetons = (n) => `${fmt(n).replace(/\s/g, "\u00a0")} jetons`;
 function itemStatus(it) {
   if (!it.owned) return "available";
@@ -310,7 +312,7 @@ function boutiquePage() {
     `<div class="shop-head">
       ${coinHead()}
       <h1>La boutique Prestige</h1>
-      ${btn("Acheter des jetons", "shop", "shop-buy-coins")}
+      ${btn(iosShopClosed() ? "Gagner des jetons" : "Acheter des jetons", "shop", "shop-buy-coins")}
       <p class="shop-tagline">Personnalisez votre jeu · Achats à l’unité</p>
     </div>
     ${chips}${body}
@@ -2323,6 +2325,7 @@ async function shopModal() {
   } catch {}
   const c = shopConfig ?? { packs: [], purchases: false };
   const open = c.purchases || c.test;
+  const noBuy = iosShopClosed();
   const acc = state.player.account;
   const w = state.player.wallet;
   const founder = c.packs.find((x) => x.founder);
@@ -2340,7 +2343,7 @@ async function shopModal() {
     `<div class="modal-head"><span class="modal-icon">🪙</span><h2>Plus de jetons</h2></div>
     <p class="muted">Solde : ${coins(state.player.wallet.balance / 2)}</p>
     <h3 class="wallet-sub">Gratuit</h3><div class="menu-list wide">${free}</div>
-    ${founder && state.player.founderOffer ? `<article class="founder-card"><span class="pack-tag">Lancement · jusqu’au ${new Date(c.founderUntil).toLocaleDateString("fr-FR")}</span><b>Pack Fondateur</b><p>${fmt(founder.credits)} jetons + cadre « Fondateur », qui ne sera plus jamais vendu. Une seule fois par compte.</p>${founder.note ? `<small class="pack-note">${e(founder.note)}</small>` : ""}${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(founder.price)) : e(founder.price), "buy", "gold-btn small", `data-pack="${founder.id}"`, !open)}</article>` : ""}
+    ${noBuy ? '<p class="muted small">Les jetons se gagnent en jouant : roue du jour, défis et parties gratuites.</p>' : `${founder && state.player.founderOffer ? `<article class="founder-card"><span class="pack-tag">Lancement · jusqu’au ${new Date(c.founderUntil).toLocaleDateString("fr-FR")}</span><b>Pack Fondateur</b><p>${fmt(founder.credits)} jetons + cadre « Fondateur », qui ne sera plus jamais vendu. Une seule fois par compte.</p>${founder.note ? `<small class="pack-note">${e(founder.note)}</small>` : ""}${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(founder.price)) : e(founder.price), "buy", "gold-btn small", `data-pack="${founder.id}"`, !open)}</article>` : ""}
     ${firstDouble ? `<p class="free-line">🎉 Premier achat doublé : deux fois plus de jetons sur votre tout premier pack.</p>` : ""}
     <h3 class="wallet-sub">Packs de jetons</h3>
     <div class="packs">${packs.map((pk) => `<article class="pack ${/royal/i.test(pk.name) ? "royal" : ""}">${pk.bonus ? `<span class="pack-tag">${e(pk.bonus)}</span>` : ""}${pk.name ? `<small class="pack-name">${e(pk.name)}</small>` : ""}<span class="pack-coins">${"<i class=\"coin\"></i>".repeat(Math.min(4, 1 + Math.round(Math.log10(pk.credits / 500))))}</span><b>${fmt(firstDouble ? pk.credits * 2 : pk.credits)}</b><small>jetons</small>${firstDouble ? `<small class="pack-note">au lieu de ${fmt(pk.credits)}</small>` : pk.note ? `<small class="pack-note">${e(pk.note)}</small>` : ""}
@@ -2355,7 +2358,7 @@ async function shopModal() {
     ${!state.player.account ? '<p class="warn">Créez un compte pour acheter des jetons.</p>' : open ? "" : '<p class="warn">Les achats ne sont pas encore ouverts. En attendant : bonus du jour, défis et entraînement gratuit.</p>'}
     ${c.test && !c.purchases ? '<p class="warn">Mode développement : paiement fictif, jamais disponible en production.</p>' : ""}
     ${prestigeCard()}
-    <p class="muted small">Achats vérifiés par le serveur (App Store sur iPhone, Google Play sur Android, paiement sécurisé sur le site). Jetons sans valeur monétaire, non transférables, utilisables uniquement dans le jeu. Rétractation de 14 jours sur les jetons non utilisés (conditions de vente). Réservé aux joueurs majeurs.</p>`,
+    <p class="muted small">Achats vérifiés par le serveur (App Store sur iPhone, Google Play sur Android, paiement sécurisé sur le site). Jetons sans valeur monétaire, non transférables, utilisables uniquement dans le jeu. Rétractation de 14 jours sur les jetons non utilisés (conditions de vente). Réservé aux joueurs majeurs.</p>`}`,
     "sheet-modal",
   );
 }
@@ -2381,6 +2384,7 @@ function prestigeCard() {
 }
 // Le plus petit pack qui couvre un manque donné, en bouton direct avec le solde après achat.
 function packSuggest(miss) {
+  if (iosShopClosed()) return "";
   const pk = [...(shopConfig?.packs ?? [])].filter((x) => !x.founder && x.credits >= miss).sort((a, b) => a.credits - b.credits)[0];
   if (!pk) return "";
   const after = Math.floor(state.player.wallet.available / 2) + pk.credits;
