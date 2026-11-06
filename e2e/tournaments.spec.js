@@ -12,6 +12,10 @@ async function spy(page) {
         this.addEventListener("message", (event) => {
           const msg = JSON.parse(event.data);
           if (msg.type === "state") window.__beloteState = msg;
+          // Messages partiels (table / player / lobby) fusionnés comme le fait l'application.
+          else if (window.__beloteState && msg.type === "table") Object.assign(window.__beloteState, { table: msg.table, online: msg.online });
+          else if (window.__beloteState && msg.type === "player") window.__beloteState.player = msg.player;
+          else if (window.__beloteState && msg.type === "lobby") Object.assign(window.__beloteState, { ...msg, type: "state" });
         });
       }
     };

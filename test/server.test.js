@@ -1562,3 +1562,225 @@ test("back-office : nouveau mot de passe saisi par l'administration, connexion a
     await f.close();
   }
 });
+
+// ——— Diffusion partielle (?delta=1) : état complet à la connexion, puis seulement ce qui change.
+async function deltaClient(f, cookie) {
+  if (!cookie) {
+    const r = await fetch(f.base + "/api/session", { method: "POST" });
+    cookie = r.headers.get("set-cookie").split(";")[0];
+  }
+  const c = { cookie, msgs: [], state: null };
+  c.ws = new WebSocket(f.base.replace("http", "ws") + "/ws?delta=1", { headers: { Cookie: cookie, Origin: f.base } });
+  c.ws.on("message", (raw) => {
+    const m = JSON.parse(raw);
+    c.msgs.push(m);
+    if (m.type === "state") c.state = m;
+    else if (c.state && m.type === "table") Object.assign(c.state, { table: m.table, online: m.online });
+    else if (c.state && m.type === "player") c.state.player = m.player;
+    else if (c.state && m.type === "lobby") {
+      const { type, ...rest } = m;
+      Object.assign(c.state, rest);
+    }
+  });
+  c.send = (type, data = {}) => {
+    const id = randomUUID();
+    c.ws.send(JSON.stringify({ id, type, data }));
+    return id;
+  };
+  c.wait = async (pred) => {
+    for (let i = 0; i < 600; i++) {
+      if (pred(c)) return;
+      await delay(5);
+    }
+    throw Error("Attente expirée");
+  };
+  await c.wait((c) => c.state);
+  return c;
+}
+test("diffusion partielle : état complet d'abord, puis seulement table (sans tables ni profil) pendant la partie", async () => {
+  const f = await fixture();
+  try {
+    const p = await deltaClient(f);
+    assert.equal(p.msgs[0].type, "state");
+    assert.ok(p.msgs[0].tables && p.msgs[0].player);
+    const id = p.send("practice", { rules: { target: 100 } });
+    await p.wait((c) => c.msgs.some((m) => m.id === id) && c.state.table?.game);
+    await delay(100);
+    p.msgs.length = 0;
+    // On joue plusieurs coups : seuls des messages `table` doivent circuler.
+    for (let i = 0; i < 40 && p.state.table.game.phase !== "finished"; i++) {
+      const g = p.state.table.game;
+      if (g.turn === 0 && g.phase === "bidding") p.send("action", { version: g.version, action: g.contract ? { type: "pass" } : { type: "bid", amount: 80, suit: "S" } });
+      else if (g.turn === 0 && g.phase === "playing") p.send("action", { version: g.version, action: { type: "play", card: g.legal[0] } });
+      else if (g.phase === "summary") p.send("next");
+      await delay(30);
+    }
+    const types = new Set(p.msgs.filter((m) => !m.id).map((m) => m.type));
+    assert.ok(types.has("table"));
+    assert.ok(!types.has("state"), "pas d'état complet pendant la partie");
+    assert.ok(!p.msgs.some((m) => m.type === "table" && m.tables), "pas de liste des tables à table");
+    assert.ok(!p.msgs.some((m) => m.type === "lobby" && m.tables), "pas de liste des tables à table");
+    assert.ok(p.msgs.filter((m) => m.type === "player").length <= 2, "profil renvoyé seulement s'il change");
+    // Retour à l'accueil : la liste des tables revient aussitôt.
+    p.msgs.length = 0;
+    p.send("leave");
+    await p.wait((c) => !c.state.table && c.msgs.some((m) => m.type === "lobby" && m.tables));
+  } finally {
+    await f.close();
+  }
+});
+test("diffusion partielle : reconnexion = état complet avec la table en cours, et un ancien client reçoit toujours l'état complet", async () => {
+  const f = await fixture();
+  try {
+    const p = await deltaClient(f);
+    const id = p.send("practice", { rules: { target: 100 } });
+    await p.wait((c) => c.msgs.some((m) => m.id === id) && c.state.table?.game);
+    const gameId = p.state.table.gameId;
+    p.ws.terminate();
+    await delay(100);
+    const again = await deltaClient(f, p.cookie);
+    assert.equal(again.msgs[0].type, "state");
+    assert.equal(again.msgs[0].table.gameId, gameId);
+    assert.ok(again.msgs[0].tables && again.msgs[0].player.id);
+    // Ancien client (sans ?delta=1) : état complet à chaque diffusion.
+    const old = await f.client();
+    old.send("practice", { rules: { target: 100 } });
+    await old.wait((c) => c.state?.table);
+    assert.ok(old.state.tables && old.state.player);
+  } finally {
+    await f.close();
+  }
+});
+test("diffusion partielle : la liste des tables est groupée (au plus une par seconde) à l'accueil", async () => {
+  const f = await fixture();
+  try {
+    const watcher = await deltaClient(f);
+    const maker = await deltaClient(f);
+    watcher.msgs.length = 0;
+    for (let i = 0; i < 5; i++) {
+      maker.send("create", { name: `Salon ${i}`, vip: false, rules: { target: 100 } });
+      await delay(40);
+      maker.send("leave");
+      await delay(40);
+    }
+    await delay(1300);
+    const lobbies = watcher.msgs.filter((m) => m.type === "lobby" && m.tables);
+    assert.ok(lobbies.length >= 1 && lobbies.length <= 3, `listes reçues : ${lobbies.length}`);
+  } finally {
+    await f.close();
+  }
+});
+test("diffusion partielle : 4 humains en messages partiels jouent une donne, mains privées et états cohérents, puis reconnexion", async () => {
+  const f = await fixture();
+  try {
+    const players = [];
+    for (let i = 0; i < 4; i++) players.push(await deltaClient(f));
+    const lobby = players[0].state.tables.find((t) => t.lobby && !t.stake) ?? players[0].state.tables[0];
+    for (const p of players) p.send("join", { tableId: lobby.id });
+    for (const p of players) await p.wait((c) => c.state.table?.game);
+    const hands = players.flatMap((p) => p.state.table.game.hand);
+    assert.equal(new Set(hands).size, 32, "mains distinctes");
+    // Joue jusqu'à la fin de la première donne (phase « summary » ou donne suivante).
+    for (let i = 0; i < 400; i++) {
+      const g0 = players[0].state.table.game;
+      if (g0.history?.length >= 1 || g0.phase === "summary") break;
+      for (const p of players) {
+        const g = p.state.table.game;
+        const me = p.state.table.seats.findIndex((s) => s?.id === p.state.player.id);
+        if (g.turn !== me) continue;
+        if (g.phase === "bidding") p.send("action", { version: g.version, action: g.contract ? { type: "pass" } : { type: "bid", amount: 80, suit: "S" } });
+        else if (g.phase === "playing") p.send("action", { version: g.version, action: { type: "play", card: g.legal[0] } });
+      }
+      await delay(20);
+    }
+    await delay(150);
+    const gEnd = players[0].state.table.game;
+    assert.ok(gEnd.history?.length >= 1 || gEnd.phase === "summary", "la donne est allée à son terme");
+    // Les quatre vues partielles sont à la même révision de la table que le serveur.
+    const rev = players.map((p) => p.state.table.revision);
+    assert.equal(new Set(rev).size, 1, `révisions : ${rev}`);
+    assert.ok(players.every((p) => p.msgs.filter((m) => m.type === "state").length === 1), "un seul état complet par joueur");
+    // Reconnexion d'un des joueurs : état complet, même table, même révision.
+    const back = await deltaClient(f, players[2].cookie);
+    assert.equal(back.msgs[0].type, "state");
+    assert.equal(back.msgs[0].table.id, players[2].state.table.id);
+    assert.equal(back.msgs[0].table.revision, rev[0]);
+  } finally {
+    await f.close();
+  }
+});
+
+// ——— Fichiers statiques : ETag / 304 et compression Brotli / gzip.
+import http from "node:http";
+import { brotliDecompressSync, gunzipSync } from "node:zlib";
+const rawGet = (base, p, headers = {}) =>
+  new Promise((resolve, reject) => {
+    http.get(base + p, { headers }, (res) => {
+      const chunks = [];
+      res.on("data", (c) => chunks.push(c));
+      res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+    }).on("error", reject);
+  });
+test("fichiers statiques : ETag et 304, Brotli/gzip pour le texte, rien pour les images", async () => {
+  const f = await fixture();
+  try {
+    const plain = await rawGet(f.base, "/app.js");
+    assert.equal(plain.status, 200);
+    assert.equal(plain.headers["content-encoding"], undefined);
+    assert.ok(plain.headers.etag);
+    assert.match(plain.headers["cache-control"], /no-cache/);
+    // Revalidation : même ETag → 304 sans corps.
+    const again = await rawGet(f.base, "/app.js", { "If-None-Match": plain.headers.etag });
+    assert.equal(again.status, 304);
+    assert.equal(again.body.length, 0);
+    assert.equal((await rawGet(f.base, "/app.js", { "If-None-Match": '"autre"' })).status, 200);
+    // Brotli et gzip : plus petit, identique une fois décompressé.
+    const br = await rawGet(f.base, "/app.js", { "Accept-Encoding": "gzip, deflate, br" });
+    assert.equal(br.headers["content-encoding"], "br");
+    assert.ok(br.body.length < plain.body.length / 3);
+    assert.deepEqual(brotliDecompressSync(br.body), plain.body);
+    const gz = await rawGet(f.base, "/style.css", { "Accept-Encoding": "gzip" });
+    assert.equal(gz.headers["content-encoding"], "gzip");
+    assert.equal(gz.headers.vary, "Accept-Encoding");
+    assert.deepEqual(gunzipSync(gz.body), (await rawGet(f.base, "/style.css")).body);
+    // Images : jamais recompressées.
+    const img = await rawGet(f.base, "/cards/AS-200.webp", { "Accept-Encoding": "gzip, br" });
+    assert.equal(img.status, 200);
+    assert.equal(img.headers["content-encoding"], undefined);
+    assert.match(img.headers["cache-control"], /max-age=86400/);
+    assert.equal((await rawGet(f.base, "/introuvable.js")).status, 404);
+  } finally {
+    await f.close();
+  }
+});
+
+test("boîte de réception : les notifications de tournoi dont la date est dépassée disparaissent", async () => {
+  const f = await fixture();
+  try {
+    const p = await f.client();
+    const pid = p.state.player.id;
+    const now = Date.now();
+    const DAY = 86400_000;
+    const n = (id, extra = {}) => ({ id, at: now, read: false, title: id, body: "", ...extra });
+    const player = f.app.db.players[pid];
+    player.inbox = [
+      n("a-futur", { tournament: "futur" }),
+      n("b-recent", { tournament: "recent" }),
+      n("c-vieux", { tournament: "vieux" }),
+      n("d-supprime", { tournament: "inconnu" }),
+      n("e-parrainage", { kind: "parrainage" }),
+    ];
+    // Faux tournois posés puis retirés dans le même instant (la minuterie du serveur ne les voit jamais).
+    Object.assign(f.app.db.tournaments, { futur: { start: now + 2 * DAY }, recent: { start: now - 3600_000 }, vieux: { start: now - 3 * DAY } });
+    let ids;
+    try {
+      ids = f.app.pruneInbox(player).map((x) => x.id);
+    } finally {
+      for (const k of ["futur", "recent", "vieux"]) delete f.app.db.tournaments[k];
+    }
+    assert.deepEqual(ids, ["a-futur", "b-recent", "e-parrainage"]);
+    assert.deepEqual(player.inbox.map((x) => x.id), ids, "supprimées aussi de la base");
+  } finally {
+    await f.close();
+  }
+});
