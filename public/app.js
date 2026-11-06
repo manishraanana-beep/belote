@@ -2,6 +2,7 @@ import { cardImage, cardSrcset, cardAttrs, CARD_SIZES } from "./cards.js";
 import { nextTip } from "./tips.js";
 import { $, e, SUITS, SUIT_NAMES, HAND_ORDER, TRUMP_STRENGTH, PLAIN_STRENGTH, RANKS, BIDS, REACTIONS, REPORT_REASONS, fmt, coins, signed, stakeRisk, DEFAULT_RULES, isRed, amountLabel, cardName, avatarUrl, avatar, myFrame, framed, btn, suitHtml, toast, perf, cmd, api, cardSound, chime, buzz, SFX, tone, modal, closeModal, icon, readLocal, writeLocal, ask, AVATARS, STAKES, unlockAudio, when, myTz } from "./ui.js";
 import { state, setState, ws, setWs, page, setPage, authConfig, setAuthConfig, shopConfig, setShopConfig, sound, setSound, vibra, setVibra, pendingAcks } from "./store.js";
+import { snapshot as snapCards, play as playCards, shake as shakeCard } from "./cards-motion.js";
 // Les 32 cartes sont chargées et décodées d'avance : une carte jouée s'affiche aussitôt, jamais en rectangle blanc.
 const CARD_CACHE = [];
 setTimeout(() => {
@@ -1812,7 +1813,9 @@ function render() {
   const shape = html.replace(/(data-(?:deadline|countdown)="[^"]*">)[^<]*/g, "$1");
   const app = $("#app");
   if (shape !== lastShape || !app.firstElementChild || app.firstElementChild !== lastShapeNode) {
+    snapCards();
     app.innerHTML = html;
+    playCards();
     lastShape = shape;
     lastShapeNode = app.firstElementChild;
   }
@@ -3102,6 +3105,7 @@ document.addEventListener("click", async (ev) => {
       }
       if (!g.legal.includes(c)) {
         toast("Cette carte n’est pas autorisée ici");
+        shakeCard(el);
         break;
       }
       markSent(c, g.version);

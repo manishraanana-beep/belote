@@ -2412,6 +2412,7 @@ export function createApp({
       "tips.js",
       "store.js",
       "ui.js",
+      "cards-motion.js",
       "admin.js",
       "style.css",
       "cards-LICENSE.txt",
