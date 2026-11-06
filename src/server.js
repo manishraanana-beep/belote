@@ -556,6 +556,19 @@ export function createApp({
       nextAt: t.game?.phase === "summary" ? (t.nextAt ?? Date.now() + summaryMs) : null,
     };
   }
+  // Notifications de tournoi périmées : le tournoi n'existe plus, ou sa date de départ est passée depuis plus
+  // de 24 h (on garde un jour de délai pour « fin du parcours », « forfait », « gain »…). Les autres notifications restent.
+  const NOTICE_GRACE_MS = 24 * 3600_000;
+  function pruneInbox(p) {
+    const list = p.inbox ?? [];
+    const keep = list.filter((n) => {
+      if (!n.tournament) return true;
+      const tour = db.tournaments[n.tournament];
+      return !!tour && !(tour.start + NOTICE_GRACE_MS < Date.now());
+    });
+    if (keep.length !== list.length) p.inbox = keep;
+    return p.inbox ?? [];
+  }
   function playerView(p) {
     return {
       // Historique des achats (portefeuille) : les 20 derniers.
@@ -577,7 +590,7 @@ export function createApp({
         .map((t) => ({ id: t.id, name: t.name, vip: !!t.vip, code: t.code, stake: t.stake ?? 0, players: t.seats.filter(Boolean).length, avatars: t.seats.filter(Boolean).map((s) => s.avatar), playing: !!t.game && t.game.phase !== "finished" })),
       wallet: economy.view(p),
       timeZone: p.timeZone ?? null,
-      inbox: (p.inbox ?? []).slice(0, 20),
+      inbox: pruneInbox(p).slice(0, 20),
       push: { web: p.push?.web?.length ?? 0, native: p.push?.fcm?.length ?? 0 },
       progress: progression.view(p),
       shop: shop.view(p),
@@ -2715,6 +2728,7 @@ export function createApp({
     db,
     payReferral, // utilisé par les tests
     sweepGuests, // utilisé par les tests
+    pruneInbox, // utilisé par les tests
     close: () =>
       new Promise((resolve) => {
         closing = true;

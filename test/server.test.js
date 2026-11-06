@@ -1753,3 +1753,34 @@ test("fichiers statiques : ETag et 304, Brotli/gzip pour le texte, rien pour les
     await f.close();
   }
 });
+
+test("boîte de réception : les notifications de tournoi dont la date est dépassée disparaissent", async () => {
+  const f = await fixture();
+  try {
+    const p = await f.client();
+    const pid = p.state.player.id;
+    const now = Date.now();
+    const DAY = 86400_000;
+    const n = (id, extra = {}) => ({ id, at: now, read: false, title: id, body: "", ...extra });
+    const player = f.app.db.players[pid];
+    player.inbox = [
+      n("a-futur", { tournament: "futur" }),
+      n("b-recent", { tournament: "recent" }),
+      n("c-vieux", { tournament: "vieux" }),
+      n("d-supprime", { tournament: "inconnu" }),
+      n("e-parrainage", { kind: "parrainage" }),
+    ];
+    // Faux tournois posés puis retirés dans le même instant (la minuterie du serveur ne les voit jamais).
+    Object.assign(f.app.db.tournaments, { futur: { start: now + 2 * DAY }, recent: { start: now - 3600_000 }, vieux: { start: now - 3 * DAY } });
+    let ids;
+    try {
+      ids = f.app.pruneInbox(player).map((x) => x.id);
+    } finally {
+      for (const k of ["futur", "recent", "vieux"]) delete f.app.db.tournaments[k];
+    }
+    assert.deepEqual(ids, ["a-futur", "b-recent", "e-parrainage"]);
+    assert.deepEqual(player.inbox.map((x) => x.id), ids, "supprimées aussi de la base");
+  } finally {
+    await f.close();
+  }
+});
