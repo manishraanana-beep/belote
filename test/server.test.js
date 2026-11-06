@@ -250,8 +250,17 @@ test("une partie complète connectée contre trois robots et statistiques persis
             : g.phase === "playing"
               ? { type: "play", card: g.legal[0] }
               : null;
-        if (action) await p.command("action", { version: g.version, action });
-        else await delay(15);
+        if (action) {
+          // Un robot ou une minuterie peut avoir fait avancer la partie entre la lecture de l'état et l'envoi :
+          // le serveur refuse alors l'action périmée (à raison), on relit l'état et on réessaie.
+          const id = p.send("action", { version: g.version, action });
+          await p.wait((c) => c.queue.some((m) => m.id === id));
+          const m = p.queue.find((m) => m.id === id);
+          if (m.type !== "ack") {
+            assert.match(m.message, /périmée/, m.message);
+            await delay(15);
+          }
+        } else await delay(15);
       } else await delay(15);
     }
     assert.equal(p.state.table.game.phase, "finished");
