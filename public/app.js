@@ -28,6 +28,7 @@ let retry = 0,
   lastRenderedDeal = null,
   dealing = false,
   collection = null,
+  collectedCards = new Set(), // cartes des plis déjà ramassés : jamais réaffichées au centre (évite le flash en fin de ramassage)
   lastTrickKey = null,
   collectionTimer = null,
   seenChat = 0,
@@ -1445,7 +1446,7 @@ function centerView(g, t, me) {
     if (!g.tricks.length && !g.trick.length && Date.now() < bannerUntil) return contractBanner(c, g);
     // Carte que l'on vient de jouer : posée au centre tout de suite, sans attendre le serveur.
     const pending = sentCard && g.version === sentCard.version && Date.now() < sentCard.until && !g.trick.some((x) => x.card === sentCard.card) ? [{ seat: me, card: sentCard.card }] : [];
-    return trickCards([...g.trick, ...pending], me);
+    return trickCards([...g.trick.filter((x) => !collectedCards.has(x.card)), ...pending], me);
   }
   if (["summary", "finished"].includes(g.phase)) return "";
   if (g.turn === me) return "";
@@ -1777,6 +1778,7 @@ function render() {
   const trickKey = dealKey + ":" + (g?.tricks.length ?? 0);
   if (dealKey !== lastRenderedDeal) {
     collection = null;
+    collectedCards = new Set();
     clearTimeout(collectionTimer);
     selected = null;
   } else if (trickKey !== lastTrickKey && g?.tricks.length) {
@@ -1790,6 +1792,7 @@ function render() {
       collection.collectAt = performance.now();
       render();
       collectionTimer = setTimeout(() => {
+        for (const x of collection?.cards ?? []) collectedCards.add(x.card);
         collection = null;
         render();
       }, 1100);
