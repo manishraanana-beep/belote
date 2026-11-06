@@ -110,3 +110,15 @@ test("back office : modification d’un article de la boutique", async ({ page }
   await expect(page.locator('.shop-item-form[data-id="emo-02"] [name="price"]')).toHaveValue("350");
   await page.screenshot({ path: "test-results/screens/admin-boutique.png" });
 });
+
+test("admin.js : jamais chargé pour les joueurs, chargé seulement sur /admin", async ({ page }) => {
+  const loaded = [];
+  page.on("request", (r) => /\/admin\.js/.test(r.url()) && loaded.push(r.url()));
+  await page.addInitScript(() => sessionStorage.setItem("discover", "1"));
+  await page.goto("/");
+  await page.waitForTimeout(1500);
+  expect(loaded).toHaveLength(0);
+  await page.goto("/admin");
+  await expect(page.locator("#admin-form")).toBeVisible();
+  expect(loaded.length).toBeGreaterThan(0);
+});
