@@ -326,3 +326,6 @@ export function ask(type, data, then) {
   perf?.sent(id);
   ws.send(JSON.stringify({ id, type, data }));
 }
+// Date courte (jour, heure) en français ; fuseau horaire de l'appareil.
+export const when = (ts) => new Date(ts).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+export const myTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
