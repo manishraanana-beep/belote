@@ -1480,11 +1480,14 @@ async function ensurePush() {
   }
 }
 
+// Pages accessibles sans compte (avant connexion/inscription) : jamais de partie en invité anonyme.
+const GUEST_PAGES = new Set(["welcome", "register", "login", "forgot", "reset", "verify", "legal"]);
 function pageView() {
   const guest = !state.player.account;
-  // Visiteur non connecté : à chaque arrivée, choix « Se connecter » / « Créer un compte » (plus de partie en invité anonyme).
+  // Visiteur non connecté : à chaque arrivée (ou tentative d'accès à une page jouable), choix « Se connecter » / « Créer un compte ».
   // Un joueur déjà connecté est reconnu (session d'un an) et arrive directement à l'accueil.
-  if (!page.name) page = { name: guest ? "welcome" : "home", params: {} };
+  if (guest && !GUEST_PAGES.has(page.name)) page = { name: "welcome", params: {} };
+  else if (!page.name) page = { name: "home", params: {} };
   const views = { welcome: welcomePage, register: registerPage, login: loginPage, forgot: forgotPage, reset: resetPage, verify: verifyPage, home: homePage, tables: tablesPage, profile: profilePage, avatar: avatarPage, history: historyPage, rules: () => rulesPage(), settings: settingsPage, legal: legalPage, fair: fairPage, vip: vipPage, vipCreate: vipCreatePage, tournaments: tournamentsPage, tournament: tournamentPage, boutique: boutiquePage, classement: classementPage };
   return (views[page.name] ?? homePage)();
 }
