@@ -1816,9 +1816,11 @@ function render() {
   const shape = html.replace(/(data-(?:deadline|countdown)="[^"]*">)[^<]*/g, "$1");
   const app = $("#app");
   if (shape !== lastShape || !app.firstElementChild || app.firstElementChild !== lastShapeNode) {
+    const keep = keepPile(app);
     snapCards();
     app.innerHTML = html;
     playCards();
+    restorePile(app, keep);
     lastShape = shape;
     lastShapeNode = app.firstElementChild;
   }
@@ -1840,18 +1842,41 @@ function render() {
     requestAnimationFrame(() => {
       const pile = $(".collecting");
       if (snapshot !== collection || !pile) return;
-      const rel = (collection.winner - (state.table.seats.findIndex((x) => x?.id === state.player.id) + 4)) % 4;
-      const target = $(rel === 0 ? ".me-seat .avatar, .me-mini .avatar" : `.seat.p${(rel + 4) % 4} .seat-avatar`)?.getBoundingClientRect();
-      if (target) for (const c of pile.querySelectorAll(".tcard")) {
-        if (c.style.getPropertyValue("--to")) continue; // trajectoire calculée une seule fois, avant que la carte ne bouge
-        const r = c.getBoundingClientRect();
-        c.style.setProperty("--to", `${Math.round(target.left + target.width / 2 - (r.left + r.width / 2))}px ${Math.round(target.top + target.height / 2 - (r.top + r.height / 2))}px`);
-      }
-      pile.getAnimations({ subtree: true }).forEach((a) => (a.currentTime = performance.now() - (collection.collectAt ?? performance.now())));
+      setPileTargets(pile); // repli : pile arrivée sans passage par keepPile (reconnexion en plein ramassage)
     });
   }
   clock();
   fitBidZone();
+}
+// Ramassage : la pile en cours n'est jamais recréée par un render(). On la garde, on la remet à la place
+// de la nouvelle, et on restaure aussitôt la position de chaque animation (une animation CSS repart de 0
+// quand son nœud est réinséré) : aucune image intermédiaire, donc aucun saut ni agrandissement.
+function setPileTargets(pile) {
+  if (!collection) return;
+  const rel = (collection.winner - (state.table.seats.findIndex((x) => x?.id === state.player.id) + 4)) % 4;
+  const target = $(rel === 0 ? ".me-seat .avatar, .me-mini .avatar" : `.seat.p${(rel + 4) % 4} .seat-avatar`)?.getBoundingClientRect();
+  if (!target) return;
+  for (const c of pile.querySelectorAll(".tcard")) {
+    if (c.style.getPropertyValue("--to")) continue; // trajectoire calculée une seule fois, avant que la carte ne bouge
+    const r = c.getBoundingClientRect();
+    c.style.setProperty("--to", `${Math.round(target.left + target.width / 2 - (r.left + r.width / 2))}px ${Math.round(target.top + target.height / 2 - (r.top + r.height / 2))}px`);
+  }
+}
+function keepPile(app) {
+  const node = collection ? app.querySelector(".trick") : null;
+  if (!node || node.__col !== collection) return null;
+  if (collection.stage === "collect") setPileTargets(node); // pile encore en place : mise en page à jour, --to fixé avant la 1re image
+  return { node, stage: node.__stage, times: node.getAnimations({ subtree: true }).map((a) => a.currentTime) };
+}
+function restorePile(app, keep) {
+  const fresh = collection ? app.querySelector(".trick") : null;
+  if (fresh && keep) {
+    keep.node.className = fresh.className;
+    fresh.replaceWith(keep.node);
+    if (keep.stage === collection.stage) keep.node.getAnimations({ subtree: true }).forEach((a, i) => keep.times[i] != null && (a.currentTime = keep.times[i]));
+  }
+  const pile = fresh && (keep?.node ?? fresh);
+  if (pile) (pile.__col = collection), (pile.__stage = collection.stage);
 }
 // Sur les écrans bas (portable, petit téléphone), la zone d'annonce est réduite juste assez
 // pour ne jamais passer sous la main ni sous l'indication du tour : aucun défilement.
