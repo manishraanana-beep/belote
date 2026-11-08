@@ -9,14 +9,14 @@
 | Ouverture, fermeture, formation des équipes et **départ automatiques côté serveur**, sans administrateur connecté, sans double lancement | horloge du serveur (`tick`, chaque seconde) | unitaires + intégration + navigateur |
 | Inscription seul ou avec un ami (proposition à accepter), liste d'attente, désinscription, promotion de la liste d'attente | commandes `tourRegister`, `tourPartner`, `tourUnregister` | inscriptions simultanées, limites de places |
 | **Seuil d'accès** (50 000 jetons par défaut, réglable par tournoi), vérifié à l'inscription et à la confirmation, **sans prélèvement ni blocage** ; solde, manque et accès boutique affichés | serveur + fenêtre « Solde insuffisant » | unitaires + navigateur |
-| Confirmation de présence (fenêtre de 15 min avant le départ, échéance affichée), remplacement des absents par la liste d'attente | `tourConfirm` | unitaires |
+| Confirmation de présence (fenêtre de 1 h avant le départ, échéance affichée), remplacement des absents par la liste d'attente | `tourConfirm` | unitaires |
 | Équipes insuffisantes : report (2 fois au plus) ou annulation selon le choix de l'administrateur, inscrits prévenus | `form()` | unitaires |
 | Tableau à élimination directe 8/16/32 (réduit à la puissance de deux utile, exemptions), tirage au sort, équipes fixes, tour suivant automatique, finale | `launchRound`, `advance` | 8, 16 et 32 équipes jusqu'à la finale |
 | Mêmes règles sur toutes les tables (score cible, temps par tour, contrée à la volée), **aucun robot**, aucune mise débitée | tables de rencontre | intégration + navigateur |
 | Coupure : reprise pendant le délai annoncé ; absence prolongée ou abandon : **forfait** de l'équipe | serveur | intégration + navigateur |
 | Récompenses (badges, cadre d'avatar, dos de cartes, tapis exclusifs) annoncées sur la fiche et **attribuées une seule fois** | `progression.award` | unitaires + intégration |
 | Historique : journal des inscriptions, résultats, reports, forfaits et actions d'administration | Administration › Tournois › Détails | intégration |
-| Notifications : confirmation d'inscription, rappel 1 h avant, invitation à confirmer 15 min avant, « Votre table est prête, rejoignez la partie ! », table suivante prête, report/annulation, forfait, fin | boîte de notifications + push | unitaires (dédoublonnage, inscriptions tardives, échec d'envoi non bloquant) |
+| Notifications : confirmation d'inscription, rappel 1 h avant, invitation à confirmer 1 h avant, « Votre table est prête, rejoignez la partie ! », table suivante prête, report/annulation, forfait, fin | boîte de notifications + push | unitaires (dédoublonnage, inscriptions tardives, échec d'envoi non bloquant) |
 | Web Push chiffré (RFC 8291) signé VAPID ; lien direct vers le tournoi (`/?tournoi=…`), après connexion si nécessaire | `src/push.js`, `public/sw.js` | chiffrement et signature vérifiés |
 | Écrans Night VIP : liste, fiche, inscription, salon d'attente, tableau par tour, table, résultats, notifications | `public/app.js` | captures téléphone |
 

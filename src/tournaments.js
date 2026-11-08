@@ -7,7 +7,7 @@ import { randomBytes, randomInt } from "node:crypto";
 export const FORMATS = [8, 16, 32];
 export const MIN = 60_000;
 export const HOUR = 60 * MIN;
-const CONFIRM_WINDOW = 15 * MIN; // ouverture de la confirmation de présence avant le départ
+const CONFIRM_WINDOW = 60 * MIN; // ouverture de la confirmation de présence avant le départ
 const MAX_POSTPONES = 2;
 const id = () => randomBytes(8).toString("base64url");
 const fail = (message, extra) => {
@@ -361,7 +361,7 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
     const tour = db.tournaments[tid];
     check(tour && tour.status === "published", "Tournoi indisponible");
     const t = now();
-    check(t >= confirmOpen(tour), "La confirmation ouvrira 15 minutes avant le départ");
+    check(t >= confirmOpen(tour), "La confirmation ouvrira 1 heure avant le départ");
     check(t < tour.confirmBy, "L’échéance de confirmation est passée");
     const reg = regOf(tour, pid);
     check(reg && reg.pids.includes(pid), "Vous n’êtes pas inscrit");
@@ -614,7 +614,7 @@ export function createTournaments({ db, now = () => Date.now(), hooks, rewardIds
       if (tour.status !== "published") continue;
       const rh = tour.reminderHours ?? 3;
       if (rh > 1 && t >= tour.start - rh * HOUR && t < tour.start - HOUR)
-        for (const pid of registered(tour)) notify(tour, [pid], "hx", `${tour.name} : départ dans ${rh} heures`, `Départ ${whenFor(tour, pid)}. Pensez à confirmer votre présence 15 minutes avant.`);
+        for (const pid of registered(tour)) notify(tour, [pid], "hx", `${tour.name} : départ dans ${rh} heures`, `Départ ${whenFor(tour, pid)}. Pensez à confirmer votre présence dès 1 heure avant.`);
       if (t >= tour.start - HOUR && t < tour.start)
         for (const pid of registered(tour)) notify(tour, [pid], "h1", `${tour.name} : départ dans une heure`, `Départ ${whenFor(tour, pid)}.`);
       if (t >= confirmOpen(tour) && t < tour.confirmBy) confirmInvite(tour, registered(tour));
