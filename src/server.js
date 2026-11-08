@@ -2565,6 +2565,18 @@ export function createApp({
       lastGuestSweep = now;
       if (sweepGuests(now)) dirty = true;
     }
+    // Toutes les 12 h : supprime les tables en attente (aucune partie en cours, hors rencontres de tournoi).
+    db.tableSweepAt ??= now;
+    if (now - db.tableSweepAt >= 12 * 3600_000) {
+      db.tableSweepAt = now;
+      for (const t of Object.values(db.tables)) {
+        if (t.tournament || (t.game && t.game.phase !== "finished")) continue;
+        for (const seat of t.seats) if (seat && !seat.bot && db.players[seat.id]) db.players[seat.id].tableId = null;
+        delete db.tables[t.id];
+      }
+      ensureLobby();
+      dirty = true;
+    }
     if (now - lastTourTick >= 1000) {
       // Programmation des tournois : ouverture, rappels, présence, départ… sans administrateur.
       lastTourTick = now;
