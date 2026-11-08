@@ -1283,6 +1283,7 @@ function roomView() {
     `${top}${t.quick || t.lobby ? `<p class="target-note">🎯 Partie en <b>${t.rules?.variant === "classique" ? "750" : t.quick ? "750" : "1 000"} points</b>${t.rules?.variant === "classique" ? " · belote classique" : t.quick ? " · partie rapide" : ""}</p>` : ""}${(t.quick || t.lobby) && free && t.humans > 0 && me >= 0 ? callBox(t) : ""}${code}${pending}
     <h2 class="section">Joueurs (${players}/4)</h2>
     <div class="slots">${t.seats.map(slot).join("")}</div>
+    ${t.startsAt ? `<div class="fill-timer">⏱ La partie commence dans <b data-deadline="${t.startsAt}"></b></div>` : ""}
     ${(t.quick || t.lobby || (t.fillBots && !t.stake)) && t.fillAt && free ? `<div class="fill-timer">${icon("robot")} Robots dans <b data-deadline="${t.fillAt}"></b> si personne ne rejoint</div>` : ""}
     ${onlineBlock(t, me, free)}
     ${stake}
