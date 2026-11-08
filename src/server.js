@@ -2257,6 +2257,13 @@ export function createApp({
             delete db.tournaments[tour.id];
           } else if (d.type === "tourDuplicate") {
             tournaments.duplicate(String(d.id));
+          } else if (d.type === "broadcast") {
+            // Notification libre (ex. « Tournoi ce soir ») : boîte de réception + push à tous ou aux joueurs en ligne.
+            const title = clean(d.title, 60), body = clean(d.body, 180);
+            check(title && body, "Titre et message requis");
+            const targets = Object.values(db.players).filter((x) => !x.banned && (d.audience !== "online" || connections.get(x.id)?.size));
+            for (const x of targets) deliver(x.id, { title, body, kind: "admin" });
+            res.setHeader("X-Sent", String(targets.length));
           } else if (d.type === "loginBonus") {
             check(Number.isInteger(d.amount) && d.amount >= 0 && d.amount <= 100000, "Montant invalide");
             db.settings.loginBonus = d.amount;
