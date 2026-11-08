@@ -129,6 +129,8 @@ export function createApp({
   // Arrivée des robots dans le salon : un toutes les 0,7 s, puis départ 1,5 s après (plus court si l'attente l'est).
   botStepMs = Math.min(700, fillSeconds * 500),
   startDelayMs = Math.min(1500, fillSeconds * 1000),
+  // Rencontre de tournoi : compte à rebours avant la première donne, une fois les joueurs à table.
+  tourCountdownMs = Math.max(0, Number(process.env.BELOTE_TOUR_COUNTDOWN_SECONDS ?? 10)) * 1000,
   env = process.env,
   reactionCooldownMs = 4000,
   clock = () => Date.now(), // horloge des tournois (remplaçable dans les tests)
@@ -434,7 +436,8 @@ export function createApp({
       p.tableId = t.id;
       t.seats[seat] = { id: pid, name: p.name, avatar: p.avatar, ...(connections.has(pid) ? {} : { disconnectedAt: Date.now() }) };
     });
-    start(t);
+    if (tourCountdownMs > 0) t.startAt = Date.now() + tourCountdownMs;
+    else start(t);
     return t.id;
   }
   function endTournamentTable(tableId) {
@@ -490,6 +493,7 @@ export function createApp({
       rules: t.rules,
       quick: !!t.quick,
       fillAt: t.fillAt,
+      startsAt: t.tournament && !t.game ? (t.startAt ?? null) : null,
       stake: t.stake ?? 0,
       fee: economy.tableFee(t.stake ?? 0),
       // Gain net d'un joueur gagnant (mise moins la commission de la Maison, 0 en partie gratuite).
