@@ -1541,7 +1541,7 @@ function lostFunds(stake, miss) {
   const free = [
     w.loginBonus && (wheelReady() || w.loginBonus.next <= Date.now()) ? btn("🎡 Roue du jour : un tour vous attend", "wheel", "menu-item") : "",
     btn("🎯 Défis du jour", "challenges", "menu-item"),
-    btn("⚡ Partie rapide gratuite (sans mise)", "quick", "menu-item"),
+    btn("⚡ Partie rapide", "quick", "menu-item"),
   ].join("");
   return `<div class="lost-funds"><p class="missing">Plus que <b>${fmt(miss)} jetons</b> pour jouer à ${e(city ?? `la table à ${fmt(stake)}`)}.</p><div class="menu-list wide">${free}</div>${packSuggest(miss)}</div>`;
 }
@@ -2370,7 +2370,7 @@ async function shopModal() {
   // Écran « Plus de jetons » : le gratuit d'abord, puis l'offre Fondateur, puis les packs.
   const free = [
     acc && w.loginBonus ? (wheelReady() || w.loginBonus.next <= Date.now() ? btn("🎡 Roue du jour : un tour vous attend", "wheel", "menu-item") : `<p class="free-line">🎡 Prochain tour de roue dans <b data-countdown="${w.loginBonus.next}"></b></p>`) : "",
-    btn("⚡ Partie rapide gratuite (sans mise)", "quick", "menu-item"),
+    btn("⚡ Partie rapide", "quick", "menu-item"),
     acc ? btn("🎯 Défis du jour", "challenges", "menu-item") : "",
   ].join("");
   modal(
