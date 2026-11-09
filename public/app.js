@@ -617,17 +617,17 @@ function registerPage() {
   );
 }
 function loginPage() {
-  const last = localStorage.getItem("lastAvatar") || "jacques";
   return shell(
-    `<h1 class="page-title">Heureux de vous revoir !</h1>
-    <div class="hero-avatar">${avatar(last, "xxl")}</div>
+    `<img class="art login-art" src="/decor/connexion.webp" alt="" draggable="false">
+    <h1 class="page-title">Heureux de vous revoir !</h1>
     <form id="login-form" class="stack">
       ${field("mail", "email", "email", "E-mail", `autocomplete="email" required value="${e(localStorage.getItem("lastEmail") ?? "")}"`)}
       ${field("lock", "password", "password", "Mot de passe", 'minlength="8" autocomplete="current-password" required')}
       <div class="right">${btn("Mot de passe oublié ?", "go", "inline-link", 'data-page="forgot"')}</div>
       <button class="gold-btn wide">Se connecter</button>
     </form>
-    ${socialButtons()}`,
+    ${socialButtons()}
+    <p class="foot-link">Pas encore de compte ? ${btn("Créer un compte", "go", "inline-link", 'data-page="register"')}</p>`,
   );
 }
 function forgotPage() {
