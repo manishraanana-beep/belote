@@ -1616,6 +1616,12 @@ export function createApp({
       case "readInbox":
         for (const n of p.inbox ?? []) n.read = true;
         break;
+      case "delNotice":
+        p.inbox = (p.inbox ?? []).filter((n) => n.id !== String(d.id));
+        break;
+      case "clearInbox":
+        p.inbox = [];
+        break;
       case "tourRegister": {
         let partner = null;
         if (d.partner) {
