@@ -2,6 +2,7 @@ import { cardImage, cardSrcset, cardAttrs, CARD_SIZES } from "./cards.js";
 import { nextTip } from "./tips.js";
 import { $, e, SUITS, SUIT_NAMES, HAND_ORDER, TRUMP_STRENGTH, PLAIN_STRENGTH, RANKS, BIDS, REACTIONS, REPORT_REASONS, fmt, coins, signed, stakeRisk, DEFAULT_RULES, isRed, amountLabel, cardName, avatarUrl, avatar, myFrame, framed, btn, suitHtml, toast, perf, cmd, api, cardSound, chime, buzz, SFX, tone, modal, closeModal, icon, readLocal, writeLocal, ask, AVATARS, STAKES, unlockAudio, when, myTz } from "./ui.js";
 import { state, setState, ws, setWs, page, setPage, authConfig, setAuthConfig, shopConfig, setShopConfig, sound, setSound, vibra, setVibra, pendingAcks } from "./store.js";
+import { snapshot as snapCards, play as playCards, shake as shakeCard } from "./cards-motion.js";
 // Les 32 cartes sont chargées et décodées d'avance : une carte jouée s'affiche aussitôt, jamais en rectangle blanc.
 const CARD_CACHE = [];
 setTimeout(() => {
@@ -27,6 +28,7 @@ let retry = 0,
   lastRenderedDeal = null,
   dealing = false,
   collection = null,
+  collectedCards = new Set(), // cartes des plis déjà ramassés : jamais réaffichées au centre (évite le flash en fin de ramassage)
   lastTrickKey = null,
   collectionTimer = null,
   seenChat = 0,
@@ -256,6 +258,8 @@ const euroOf = (n) => {
   const pk = shopConfig?.purchases ? [...(shopConfig.packs ?? [])].filter((x) => x.priceCents && !x.founder).sort((a, b) => a.credits - b.credits)[0] : null;
   return pk ? ` <small class="euro">≈ ${((n * pk.priceCents) / pk.credits / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}</small>` : "";
 };
+// iPhone (appli native) avec achats fermés : aucune offre payante affichée (règle 2.1 d’Apple).
+const iosShopClosed = () => !!(window.Capacitor?.isNativePlatform?.() && window.Capacitor.getPlatform?.() === "ios" && !(shopConfig?.purchases || shopConfig?.test));
 const jetons = (n) => `${fmt(n).replace(/\s/g, "\u00a0")} jetons`;
 function itemStatus(it) {
   if (!it.owned) return "available";
@@ -310,7 +314,7 @@ function boutiquePage() {
     `<div class="shop-head">
       ${coinHead()}
       <h1>La boutique Prestige</h1>
-      ${btn("Acheter des jetons", "shop", "shop-buy-coins")}
+      ${btn(iosShopClosed() ? "Gagner des jetons" : "Acheter des jetons", "shop", "shop-buy-coins")}
       <p class="shop-tagline">Personnalisez votre jeu · Achats à l’unité</p>
     </div>
     ${chips}${body}
@@ -1139,7 +1143,8 @@ function inboxModal() {
   const list = state.player.inbox ?? [];
   modal(
     `<div class="modal-head"><span class="modal-icon">🔔</span><h2>Notifications</h2></div>
-    <ul class="inbox">${list.map((n) => `<li class="${n.read ? "" : "unread"}"><b>${e(n.title)}</b><small>${e(n.body ?? "")}</small><span>${when(n.at)}</span>${n.tournament ? btn("Voir", "go", "chip-btn", `data-page="tournament" data-id="${n.tournament}"`) : ""}</li>`).join("") || '<li class="empty">Aucune notification.</li>'}</ul>
+    <ul class="inbox">${list.map((n) => `<li class="${n.read ? "" : "unread"}">${btn(icon("trash"), "delNotice", "notice-del", `data-id="${n.id}" aria-label="Supprimer cette notification"`)}<b>${e(n.title)}</b><small>${e(n.body ?? "")}</small><span>${when(n.at)}</span>${n.tournament ? btn("Voir", "go", "chip-btn", `data-page="tournament" data-id="${n.tournament}"`) : ""}</li>`).join("") || '<li class="empty">Aucune notification.</li>'}</ul>
+    ${list.length ? btn("Tout effacer", "clearInbox", "chip-btn ghost") : ""}
     ${pushState() === "ask" ? btn(`${icon("bell")} Activer les notifications sur cet appareil`, "enablePush", "gold-btn wide") : `<p class="hint mid">${pushState() === "on" ? "Notifications activées sur cet appareil." : pushState() === "denied" ? "Notifications refusées dans le navigateur : les rappels restent visibles ici." : "Les rappels s’affichent ici et dans l’application."}</p>`}`,
     "sheet-modal",
   );
@@ -1279,6 +1284,7 @@ function roomView() {
     `${top}${t.quick || t.lobby ? `<p class="target-note">🎯 Partie en <b>${t.rules?.variant === "classique" ? "750" : t.quick ? "750" : "1 000"} points</b>${t.rules?.variant === "classique" ? " · belote classique" : t.quick ? " · partie rapide" : ""}</p>` : ""}${(t.quick || t.lobby) && free && t.humans > 0 && me >= 0 ? callBox(t) : ""}${code}${pending}
     <h2 class="section">Joueurs (${players}/4)</h2>
     <div class="slots">${t.seats.map(slot).join("")}</div>
+    ${t.startsAt ? `<div class="fill-timer">⏱ La partie commence dans <b data-deadline="${t.startsAt}"></b></div>` : ""}
     ${(t.quick || t.lobby || (t.fillBots && !t.stake)) && t.fillAt && free ? `<div class="fill-timer">${icon("robot")} Robots dans <b data-deadline="${t.fillAt}"></b> si personne ne rejoint</div>` : ""}
     ${onlineBlock(t, me, free)}
     ${stake}
@@ -1442,7 +1448,7 @@ function centerView(g, t, me) {
     if (!g.tricks.length && !g.trick.length && Date.now() < bannerUntil) return contractBanner(c, g);
     // Carte que l'on vient de jouer : posée au centre tout de suite, sans attendre le serveur.
     const pending = sentCard && g.version === sentCard.version && Date.now() < sentCard.until && !g.trick.some((x) => x.card === sentCard.card) ? [{ seat: me, card: sentCard.card }] : [];
-    return trickCards([...g.trick, ...pending], me);
+    return trickCards([...g.trick.filter((x) => !collectedCards.has(x.card)), ...pending], me);
   }
   if (["summary", "finished"].includes(g.phase)) return "";
   if (g.turn === me) return "";
@@ -1537,7 +1543,6 @@ function lostFunds(stake, miss) {
   const free = [
     w.loginBonus && (wheelReady() || w.loginBonus.next <= Date.now()) ? btn("🎡 Roue du jour : un tour vous attend", "wheel", "menu-item") : "",
     btn("🎯 Défis du jour", "challenges", "menu-item"),
-    btn("⚡ Partie rapide gratuite (sans mise)", "quick", "menu-item"),
   ].join("");
   return `<div class="lost-funds"><p class="missing">Plus que <b>${fmt(miss)} jetons</b> pour jouer à ${e(city ?? `la table à ${fmt(stake)}`)}.</p><div class="menu-list wide">${free}</div>${packSuggest(miss)}</div>`;
 }
@@ -1774,6 +1779,7 @@ function render() {
   const trickKey = dealKey + ":" + (g?.tricks.length ?? 0);
   if (dealKey !== lastRenderedDeal) {
     collection = null;
+    collectedCards = new Set();
     clearTimeout(collectionTimer);
     selected = null;
   } else if (trickKey !== lastTrickKey && g?.tricks.length) {
@@ -1787,6 +1793,7 @@ function render() {
       collection.collectAt = performance.now();
       render();
       collectionTimer = setTimeout(() => {
+        for (const x of collection?.cards ?? []) collectedCards.add(x.card);
         collection = null;
         render();
       }, 1100);
@@ -1810,7 +1817,11 @@ function render() {
   const shape = html.replace(/(data-(?:deadline|countdown)="[^"]*">)[^<]*/g, "$1");
   const app = $("#app");
   if (shape !== lastShape || !app.firstElementChild || app.firstElementChild !== lastShapeNode) {
+    const keep = keepPile(app);
+    snapCards();
     app.innerHTML = html;
+    playCards();
+    restorePile(app, keep);
     lastShape = shape;
     lastShapeNode = app.firstElementChild;
   }
@@ -1832,18 +1843,41 @@ function render() {
     requestAnimationFrame(() => {
       const pile = $(".collecting");
       if (snapshot !== collection || !pile) return;
-      const rel = (collection.winner - (state.table.seats.findIndex((x) => x?.id === state.player.id) + 4)) % 4;
-      const target = $(rel === 0 ? ".me-seat .avatar, .me-mini .avatar" : `.seat.p${(rel + 4) % 4} .seat-avatar`)?.getBoundingClientRect();
-      if (target) for (const c of pile.querySelectorAll(".tcard")) {
-        if (c.style.getPropertyValue("--to")) continue; // trajectoire calculée une seule fois, avant que la carte ne bouge
-        const r = c.getBoundingClientRect();
-        c.style.setProperty("--to", `${Math.round(target.left + target.width / 2 - (r.left + r.width / 2))}px ${Math.round(target.top + target.height / 2 - (r.top + r.height / 2))}px`);
-      }
-      pile.getAnimations({ subtree: true }).forEach((a) => (a.currentTime = performance.now() - (collection.collectAt ?? performance.now())));
+      setPileTargets(pile); // repli : pile arrivée sans passage par keepPile (reconnexion en plein ramassage)
     });
   }
   clock();
   fitBidZone();
+}
+// Ramassage : la pile en cours n'est jamais recréée par un render(). On la garde, on la remet à la place
+// de la nouvelle, et on restaure aussitôt la position de chaque animation (une animation CSS repart de 0
+// quand son nœud est réinséré) : aucune image intermédiaire, donc aucun saut ni agrandissement.
+function setPileTargets(pile) {
+  if (!collection) return;
+  const rel = (collection.winner - (state.table.seats.findIndex((x) => x?.id === state.player.id) + 4)) % 4;
+  const target = $(rel === 0 ? ".me-seat .avatar, .me-mini .avatar" : `.seat.p${(rel + 4) % 4} .seat-avatar`)?.getBoundingClientRect();
+  if (!target) return;
+  for (const c of pile.querySelectorAll(".tcard")) {
+    if (c.style.getPropertyValue("--to")) continue; // trajectoire calculée une seule fois, avant que la carte ne bouge
+    const r = c.getBoundingClientRect();
+    c.style.setProperty("--to", `${Math.round(target.left + target.width / 2 - (r.left + r.width / 2))}px ${Math.round(target.top + target.height / 2 - (r.top + r.height / 2))}px`);
+  }
+}
+function keepPile(app) {
+  const node = collection ? app.querySelector(".trick") : null;
+  if (!node || node.__col !== collection) return null;
+  if (collection.stage === "collect") setPileTargets(node); // pile encore en place : mise en page à jour, --to fixé avant la 1re image
+  return { node, stage: node.__stage, times: node.getAnimations({ subtree: true }).map((a) => a.currentTime) };
+}
+function restorePile(app, keep) {
+  const fresh = collection ? app.querySelector(".trick") : null;
+  if (fresh && keep) {
+    keep.node.className = fresh.className;
+    fresh.replaceWith(keep.node);
+    if (keep.stage === collection.stage) keep.node.getAnimations({ subtree: true }).forEach((a, i) => keep.times[i] != null && (a.currentTime = keep.times[i]));
+  }
+  const pile = fresh && (keep?.node ?? fresh);
+  if (pile) (pile.__col = collection), (pile.__stage = collection.stage);
 }
 // Sur les écrans bas (portable, petit téléphone), la zone d'annonce est réduite juste assez
 // pour ne jamais passer sous la main ni sous l'indication du tour : aucun défilement.
@@ -2326,6 +2360,7 @@ async function shopModal() {
   } catch {}
   const c = shopConfig ?? { packs: [], purchases: false };
   const open = c.purchases || c.test;
+  const noBuy = iosShopClosed();
   const acc = state.player.account;
   const w = state.player.wallet;
   const founder = c.packs.find((x) => x.founder);
@@ -2336,14 +2371,13 @@ async function shopModal() {
   // Écran « Plus de jetons » : le gratuit d'abord, puis l'offre Fondateur, puis les packs.
   const free = [
     acc && w.loginBonus ? (wheelReady() || w.loginBonus.next <= Date.now() ? btn("🎡 Roue du jour : un tour vous attend", "wheel", "menu-item") : `<p class="free-line">🎡 Prochain tour de roue dans <b data-countdown="${w.loginBonus.next}"></b></p>`) : "",
-    btn("⚡ Partie rapide gratuite (sans mise)", "quick", "menu-item"),
     acc ? btn("🎯 Défis du jour", "challenges", "menu-item") : "",
   ].join("");
   modal(
     `<div class="modal-head"><span class="modal-icon">🪙</span><h2>Plus de jetons</h2></div>
     <p class="muted">Solde : ${coins(state.player.wallet.balance / 2)}</p>
     <h3 class="wallet-sub">Gratuit</h3><div class="menu-list wide">${free}</div>
-    ${founder && state.player.founderOffer ? `<article class="founder-card"><span class="pack-tag">Lancement · jusqu’au ${new Date(c.founderUntil).toLocaleDateString("fr-FR")}</span><b>Pack Fondateur</b><p>${fmt(founder.credits)} jetons + cadre « Fondateur », qui ne sera plus jamais vendu. Une seule fois par compte.</p>${founder.note ? `<small class="pack-note">${e(founder.note)}</small>` : ""}${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(founder.price)) : e(founder.price), "buy", "gold-btn small", `data-pack="${founder.id}"`, !open)}</article>` : ""}
+    ${noBuy ? '<p class="muted small">Les jetons se gagnent en jouant : roue du jour, défis et parties gratuites.</p>' : `${founder && state.player.founderOffer ? `<article class="founder-card"><span class="pack-tag">Lancement · jusqu’au ${new Date(c.founderUntil).toLocaleDateString("fr-FR")}</span><b>Pack Fondateur</b><p>${fmt(founder.credits)} jetons + cadre « Fondateur », qui ne sera plus jamais vendu. Une seule fois par compte.</p>${founder.note ? `<small class="pack-note">${e(founder.note)}</small>` : ""}${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(founder.price)) : e(founder.price), "buy", "gold-btn small", `data-pack="${founder.id}"`, !open)}</article>` : ""}
     ${firstDouble ? `<p class="free-line">🎉 Premier achat doublé : deux fois plus de jetons sur votre tout premier pack.</p>` : ""}
     <h3 class="wallet-sub">Packs de jetons</h3>
     <div class="packs">${packs.map((pk) => `<article class="pack ${/royal/i.test(pk.name) ? "royal" : ""}">${pk.bonus ? `<span class="pack-tag">${e(pk.bonus)}</span>` : ""}${pk.name ? `<small class="pack-name">${e(pk.name)}</small>` : ""}<span class="pack-coins">${"<i class=\"coin\"></i>".repeat(Math.min(4, 1 + Math.round(Math.log10(pk.credits / 500))))}</span><b>${fmt(firstDouble ? pk.credits * 2 : pk.credits)}</b><small>jetons</small>${firstDouble ? `<small class="pack-note">au lieu de ${fmt(pk.credits)}</small>` : pk.note ? `<small class="pack-note">${e(pk.note)}</small>` : ""}
@@ -2358,7 +2392,7 @@ async function shopModal() {
     ${!state.player.account ? '<p class="warn">Créez un compte pour acheter des jetons.</p>' : open ? "" : '<p class="warn">Les achats ne sont pas encore ouverts. En attendant : bonus du jour, défis et entraînement gratuit.</p>'}
     ${c.test && !c.purchases ? '<p class="warn">Mode développement : paiement fictif, jamais disponible en production.</p>' : ""}
     ${prestigeCard()}
-    <p class="muted small">Achats vérifiés par le serveur (App Store sur iPhone, Google Play sur Android, paiement sécurisé sur le site). Jetons sans valeur monétaire, non transférables, utilisables uniquement dans le jeu. Rétractation de 14 jours sur les jetons non utilisés (conditions de vente). Réservé aux joueurs majeurs.</p>`,
+    <p class="muted small">Achats vérifiés par le serveur (App Store sur iPhone, Google Play sur Android, paiement sécurisé sur le site). Jetons sans valeur monétaire, non transférables, utilisables uniquement dans le jeu. Rétractation de 14 jours sur les jetons non utilisés (conditions de vente). Réservé aux joueurs majeurs.</p>`}`,
     "sheet-modal",
   );
 }
@@ -2384,6 +2418,7 @@ function prestigeCard() {
 }
 // Le plus petit pack qui couvre un manque donné, en bouton direct avec le solde après achat.
 function packSuggest(miss) {
+  if (iosShopClosed()) return "";
   const pk = [...(shopConfig?.packs ?? [])].filter((x) => !x.founder && x.credits >= miss).sort((a, b) => a.credits - b.credits)[0];
   if (!pk) return "";
   const after = Math.floor(state.player.wallet.available / 2) + pk.credits;
@@ -2639,6 +2674,18 @@ document.addEventListener("click", async (ev) => {
       break;
     case "inbox":
       inboxModal();
+      break;
+    case "delNotice":
+      state.player.inbox = (state.player.inbox ?? []).filter((n) => n.id !== el.dataset.id);
+      cmd("delNotice", { id: el.dataset.id });
+      inboxModal();
+      render();
+      break;
+    case "clearInbox":
+      state.player.inbox = [];
+      cmd("clearInbox");
+      inboxModal();
+      render();
       break;
     case "enablePush":
       await ensurePush();
@@ -3098,6 +3145,7 @@ document.addEventListener("click", async (ev) => {
       }
       if (!g.legal.includes(c)) {
         toast("Cette carte n’est pas autorisée ici");
+        shakeCard(el);
         break;
       }
       markSent(c, g.version);

@@ -20,6 +20,7 @@ export default defineConfig({
       PORT: "3100",
       BELOTE_DATA_DIR: "/tmp/belote-e2e-" + Date.now(),
       BELOTE_FILL_SECONDS: "4",
+      BELOTE_TOUR_COUNTDOWN_SECONDS: "0",
       BELOTE_TEST_SHOP: "on",
       BELOTE_PACKS: "[{\"id\": \"pack-1000\", \"credits\": 1000, \"price\": \"0,99 €\", \"priceCents\": 99}, {\"id\": \"pack-3000\", \"credits\": 3000, \"price\": \"2,49 €\", \"priceCents\": 249, \"bonus\": \"+20 %\"}, {\"id\": \"pack-8000\", \"credits\": 8000, \"price\": \"4,99 €\", \"priceCents\": 499, \"bonus\": \"+60 %\"}, {\"id\": \"pack-20000\", \"credits\": 20000, \"price\": \"9,99 €\", \"priceCents\": 999, \"bonus\": \"Meilleure offre\"}]",
       BELOTE_SIGNUP_BONUS: "600",

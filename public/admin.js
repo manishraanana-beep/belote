@@ -169,6 +169,7 @@ async function adminRequest(data) {
         <div class="shop-admin">${d.shop.map((it) => `<form class="form inline shop-item-form" data-id="${it.id}"><img src="${it.img}" alt=""><label>Nom<input name="name" value="${e(it.name)}" maxlength="40" required></label><label>Prix<input name="price" type="number" min="0" max="1000000" value="${it.price}" required></label><label>Ordre<input name="order" type="number" step="1" value="${it.order}"></label><label class="check-line"><input type="checkbox" name="hidden" ${it.hidden ? "checked" : ""}>Masqué</label><button class="pill small">Enregistrer</button></form>`).join("")}</div>`)}
       ${panel("tables", `<h2>Tables</h2>${d.tables.map((t) => row(`${e(t.name)} · ${e(t.status)}${t.stake ? ` · 🪙 ${t.stake}` : ""}`, t.engaged ? btn("Annuler (incident)", "cancelGame", "chip-btn danger", `data-id="${t.id}"`) : btn("Supprimer", "deleteTable", "chip-btn", `data-id="${t.id}"`, t.status === "Partie en cours"))).join("") || "<p>Aucune table.</p>"}`)}
       ${panel("settings", `<h2>Réglages</h2>
+        <div class="admin-card"><h3>Envoyer une notification</h3><form id="broadcast-form" class="form"><label>Titre<input name="title" maxlength="60" value="🏆 Tournoi ce soir" required></label><label>Message<input name="body" maxlength="180" placeholder="Le tournoi démarre à 21 h, inscrivez-vous !" required></label><label>Destinataires<select name="audience"><option value="all">Tous les joueurs</option><option value="online">Joueurs en ligne</option></select></label><button class="pill small">Envoyer</button></form></div>
         <div class="admin-card"><b>Nouvelles entrées</b><small>Bloque l’arrivée de nouveaux joueurs aux tables (maintenance).</small>${btn(d.settings.maintenance ? "Rouvrir les entrées" : "Suspendre les nouvelles entrées", "maintenance", "chip-btn", `data-enabled="${!d.settings.maintenance}"`)}</div>
         <div class="admin-card"><form id="bonus-form" class="form inline"><label>Bonus de connexion (jetons / 24 h)<input name="amount" type="number" min="0" max="100000" step="1" value="${d.settings.loginBonus ?? d.economy.loginBonus}" required></label><button class="pill small">Enregistrer</button></form></div>`)}
       </div>`;
@@ -349,6 +350,10 @@ export async function adminSubmit(f, d) {
       case "client-edit-form":
         if (await adminRequest({ type: "playerUpdate", id: d.cid, name: d.name, avatar: d.avatar, ...(d.email !== undefined ? { email: d.email, verified: d.verified === "on" } : {}), ...(d.password ? { password: d.password } : {}) }))
           toast("Fiche enregistrée");
+        return;
+      case "broadcast-form":
+        if (await adminRequest({ type: "broadcast", title: d.title, body: d.body, audience: d.audience }))
+          toast("Notification envoyée");
         return;
       case "bonus-form":
         if (await adminRequest({ type: "loginBonus", amount: Number(d.amount) }))

@@ -93,7 +93,7 @@ export const perf = (() => {
   } catch {
     return null;
   }
-  const P = { msgs: [], sizes: [], first: [], ack: [], handler: [], long: [], sent: new Map(), awaitingFirst: [] };
+  const P = { msgs: [], sizes: [], first: [], ack: [], handler: [], long: [], jumps: 0, sent: new Map(), awaitingFirst: [] };
   const hud = document.createElement("pre");
   hud.className = "perf-hud";
   document.body.append(hud);
@@ -111,9 +111,26 @@ export const perf = (() => {
       `action → 1er message (ms) : méd ${med(P.first)} · ${stat(P.first)}\n` +
       `action → ack (ms) : méd ${med(P.ack)} · ${stat(P.ack)}\n` +
       `traitement d’un message (ms) : ${stat(P.handler)}\n` +
-      `calculs > 50 ms : ${P.long.length}${P.long.length ? ` (max ${Math.max(...P.long)} ms)` : ""}`;
+      `calculs > 50 ms : ${P.long.length}${P.long.length ? ` (max ${Math.max(...P.long)} ms)` : ""}\n` +
+      `sauts de carte : ${P.jumps}`;
   };
   setInterval(draw, 1000);
+  // Saut de carte : une carte de la main qui se déplace de plus de 12 px d'une image à l'autre sans animation (hors distribution).
+  const prevPos = new Map();
+  const watch = () => {
+    const seen = new Set();
+    for (const el of document.querySelectorAll(".hand:not(.dealing) .hcard")) {
+      const r = el.getBoundingClientRect(),
+        id = el.dataset.card,
+        o = prevPos.get(id);
+      seen.add(id);
+      if (o && Math.hypot(r.left - o.left, r.top - o.top) > 12 && !el.getAnimations().length) P.jumps++;
+      prevPos.set(id, { left: r.left, top: r.top });
+    }
+    for (const id of prevPos.keys()) seen.has(id) || prevPos.delete(id);
+    requestAnimationFrame(watch);
+  };
+  requestAnimationFrame(watch);
   window.__perf = P; // pour les mesures automatisées
   return {
     sent(id) {

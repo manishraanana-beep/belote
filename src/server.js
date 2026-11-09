@@ -129,6 +129,8 @@ export function createApp({
   // Arrivée des robots dans le salon : un toutes les 0,7 s, puis départ 1,5 s après (plus court si l'attente l'est).
   botStepMs = Math.min(700, fillSeconds * 500),
   startDelayMs = Math.min(1500, fillSeconds * 1000),
+  // Rencontre de tournoi : compte à rebours avant la première donne, une fois les joueurs à table.
+  tourCountdownMs = Math.max(0, Number(process.env.BELOTE_TOUR_COUNTDOWN_SECONDS ?? 10)) * 1000,
   env = process.env,
   reactionCooldownMs = 4000,
   clock = () => Date.now(), // horloge des tournois (remplaçable dans les tests)
@@ -434,7 +436,8 @@ export function createApp({
       p.tableId = t.id;
       t.seats[seat] = { id: pid, name: p.name, avatar: p.avatar, ...(connections.has(pid) ? {} : { disconnectedAt: Date.now() }) };
     });
-    start(t);
+    if (tourCountdownMs > 0) t.startAt = Date.now() + tourCountdownMs;
+    else start(t);
     return t.id;
   }
   function endTournamentTable(tableId) {
@@ -490,6 +493,7 @@ export function createApp({
       rules: t.rules,
       quick: !!t.quick,
       fillAt: t.fillAt,
+      startsAt: t.tournament && !t.game ? (t.startAt ?? null) : null,
       stake: t.stake ?? 0,
       fee: economy.tableFee(t.stake ?? 0),
       // Gain net d'un joueur gagnant (mise moins la commission de la Maison, 0 en partie gratuite).
@@ -1612,6 +1616,12 @@ export function createApp({
       case "readInbox":
         for (const n of p.inbox ?? []) n.read = true;
         break;
+      case "delNotice":
+        p.inbox = (p.inbox ?? []).filter((n) => n.id !== String(d.id));
+        break;
+      case "clearInbox":
+        p.inbox = [];
+        break;
       case "tourRegister": {
         let partner = null;
         if (d.partner) {
@@ -2257,6 +2267,13 @@ export function createApp({
             delete db.tournaments[tour.id];
           } else if (d.type === "tourDuplicate") {
             tournaments.duplicate(String(d.id));
+          } else if (d.type === "broadcast") {
+            // Notification libre (ex. « Tournoi ce soir ») : boîte de réception + push à tous ou aux joueurs en ligne.
+            const title = clean(d.title, 60), body = clean(d.body, 180);
+            check(title && body, "Titre et message requis");
+            const targets = Object.values(db.players).filter((x) => !x.banned && (d.audience !== "online" || connections.get(x.id)?.size));
+            for (const x of targets) deliver(x.id, { title, body, kind: "admin" });
+            res.setHeader("X-Sent", String(targets.length));
           } else if (d.type === "loginBonus") {
             check(Number.isInteger(d.amount) && d.amount >= 0 && d.amount <= 100000, "Montant invalide");
             db.settings.loginBonus = d.amount;
@@ -2412,6 +2429,7 @@ export function createApp({
       "tips.js",
       "store.js",
       "ui.js",
+      "cards-motion.js",
       "admin.js",
       "style.css",
       "cards-LICENSE.txt",
@@ -2556,6 +2574,18 @@ export function createApp({
     if (now - lastGuestSweep >= 3600_000) {
       lastGuestSweep = now;
       if (sweepGuests(now)) dirty = true;
+    }
+    // Toutes les 12 h : supprime les tables en attente (aucune partie en cours, hors rencontres de tournoi).
+    db.tableSweepAt ??= now;
+    if (now - db.tableSweepAt >= 12 * 3600_000) {
+      db.tableSweepAt = now;
+      for (const t of Object.values(db.tables)) {
+        if (t.tournament || (t.game && t.game.phase !== "finished")) continue;
+        for (const seat of t.seats) if (seat && !seat.bot && db.players[seat.id]) db.players[seat.id].tableId = null;
+        delete db.tables[t.id];
+      }
+      ensureLobby();
+      dirty = true;
     }
     if (now - lastTourTick >= 1000) {
       // Programmation des tournois : ouverture, rappels, présence, départ… sans administrateur.
