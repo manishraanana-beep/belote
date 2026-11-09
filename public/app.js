@@ -1143,7 +1143,8 @@ function inboxModal() {
   const list = state.player.inbox ?? [];
   modal(
     `<div class="modal-head"><span class="modal-icon">🔔</span><h2>Notifications</h2></div>
-    <ul class="inbox">${list.map((n) => `<li class="${n.read ? "" : "unread"}"><b>${e(n.title)}</b><small>${e(n.body ?? "")}</small><span>${when(n.at)}</span>${n.tournament ? btn("Voir", "go", "chip-btn", `data-page="tournament" data-id="${n.tournament}"`) : ""}</li>`).join("") || '<li class="empty">Aucune notification.</li>'}</ul>
+    <ul class="inbox">${list.map((n) => `<li class="${n.read ? "" : "unread"}">${btn("✕", "delNotice", "notice-del", `data-id="${n.id}" aria-label="Supprimer cette notification"`)}<b>${e(n.title)}</b><small>${e(n.body ?? "")}</small><span>${when(n.at)}</span>${n.tournament ? btn("Voir", "go", "chip-btn", `data-page="tournament" data-id="${n.tournament}"`) : ""}</li>`).join("") || '<li class="empty">Aucune notification.</li>'}</ul>
+    ${list.length ? btn("Tout effacer", "clearInbox", "chip-btn ghost") : ""}
     ${pushState() === "ask" ? btn(`${icon("bell")} Activer les notifications sur cet appareil`, "enablePush", "gold-btn wide") : `<p class="hint mid">${pushState() === "on" ? "Notifications activées sur cet appareil." : pushState() === "denied" ? "Notifications refusées dans le navigateur : les rappels restent visibles ici." : "Les rappels s’affichent ici et dans l’application."}</p>`}`,
     "sheet-modal",
   );
@@ -2673,6 +2674,18 @@ document.addEventListener("click", async (ev) => {
       break;
     case "inbox":
       inboxModal();
+      break;
+    case "delNotice":
+      state.player.inbox = (state.player.inbox ?? []).filter((n) => n.id !== el.dataset.id);
+      cmd("delNotice", { id: el.dataset.id });
+      inboxModal();
+      render();
+      break;
+    case "clearInbox":
+      state.player.inbox = [];
+      cmd("clearInbox");
+      inboxModal();
+      render();
       break;
     case "enablePush":
       await ensurePush();
