@@ -3,3 +3,13 @@ node_modules/
 *.log
 test-results/
 playwright-report/
+
+# Secrets et fichiers locaux : ne jamais envoyer en ligne
+*.p8
+*.p12
+*.mobileprovision
+*.xcarchive/
+.env
+.env.*
+.DS_Store
+**/xcuserdata/

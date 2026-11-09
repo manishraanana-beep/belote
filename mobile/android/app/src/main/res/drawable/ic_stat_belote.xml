@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icône de notification : pique blanc sur fond transparent (Android la teinte lui-même). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M12,2C9.5,5.6 4,9.2 4,13.2C4,15.9 6,17.6 8.3,17.6C9.7,17.6 10.8,17 11.4,16.1C11.2,18.3 10.3,20.2 8.6,21.4L8.6,22L15.4,22L15.4,21.4C13.7,20.2 12.8,18.3 12.6,16.1C13.2,17 14.3,17.6 15.7,17.6C18,17.6 20,15.9 20,13.2C20,9.2 14.5,5.6 12,2Z" />
+</vector>
