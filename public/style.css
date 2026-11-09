@@ -1037,7 +1037,8 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .inbox li span { font-size: 12px; color: var(--muted); }
 .inbox li .chip-btn { justify-self: start; margin-top: 4px; }
 .inbox li { padding-right: 38px; }
-.inbox li .notice-del { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: var(--muted); font-size: 16px; cursor: pointer; }
+.inbox li .notice-del { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+.inbox li .notice-del svg { width: 16px; height: 16px; }
 .duo.small b { font-size: 22px; }
 @media (max-width: 380px) { .lobby-card b { font-size: 17px; } .ti-row { grid-template-columns: 20px 1fr; } .ti-row b { grid-column: 1 / -1; text-align: left; padding-left: 30px; } }
 
