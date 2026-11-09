@@ -943,7 +943,8 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 0.01m
 .illus { width: min(300px, 80%); margin: 0 auto; }
 .vh-art { width: min(420px, 100%); margin: 0 auto; }
 .final-art-img { width: min(380px, 100%); margin: 0 auto -10px; }
-@media (max-height: 700px) { .welcome-art { width: min(300px, 80%); } .illus { width: min(220px, 60%); } }
+.login-art { width: min(420px, 100%); margin: -8px auto 4px; }
+@media (max-height: 700px) { .welcome-art { width: min(300px, 80%); } .illus { width: min(220px, 60%); } .login-art { width: min(300px, 80%); } }
 /* Chiffres alignés (Alegreya n'a que des chiffres elzéviriens dans le sous-ensemble embarqué) */
 .stat-strip b, .stat-card b, .duo b, .total-pill b, .final-scores b, .res-box b, .score-pill b, .wallet-chip, .coins { font-family: var(--ui); font-variant-numeric: lining-nums tabular-nums; }
 .welcome .orn-line { margin-top: -6px; }
