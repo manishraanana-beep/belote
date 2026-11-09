@@ -618,7 +618,7 @@ function registerPage() {
 }
 function loginPage() {
   return shell(
-    `<img class="art login-art" src="/decor/connexion.webp" alt="" draggable="false">
+    `<img class="art login-art" src="/decor/connexion.webp" width="941" height="470" alt="" draggable="false">
     <h1 class="page-title">Heureux de vous revoir !</h1>
     <form id="login-form" class="stack">
       ${field("mail", "email", "email", "E-mail", `autocomplete="email" required value="${e(localStorage.getItem("lastEmail") ?? "")}"`)}
