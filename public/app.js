@@ -1222,6 +1222,11 @@ async function ensurePush() {
 
 // Pages accessibles sans compte (avant connexion/inscription) : jamais de partie en invité anonyme.
 const GUEST_PAGES = new Set(["welcome", "register", "login", "forgot", "reset", "verify", "legal"]);
+// Connexion/inscription réussie : le serveur renvoie le profil. On l'applique tout de suite, sans attendre
+// la reconnexion du canal temps réel, sinon la page « invité » ramène à l'écran d'accueil.
+function adopt(player) {
+  if (state && player?.account) state.player = player;
+}
 function pageView() {
   const guest = !state.player.account;
   // Visiteur non connecté : à chaque arrivée (ou tentative d'accès à une page jouable), choix « Se connecter » / « Créer un compte ».
@@ -2322,7 +2327,7 @@ async function oidc(provider) {
       window.AppleID.auth.init({ clientId: authConfig.apple, scope: "name email", redirectURI: location.origin + "/", usePopup: true });
       idToken = (await window.AppleID.auth.signIn()).authorization.id_token;
     }
-    await api("/api/auth/oidc", { provider, idToken });
+    adopt(await api("/api/auth/oidc", { provider, idToken }));
     closeModal();
     toast("Connexion réussie");
   } catch (err) {
@@ -2660,7 +2665,7 @@ document.addEventListener("click", async (ev) => {
       break;
     case "createFromLogin":
       try {
-        await api("/api/auth/register", loginDraft);
+        adopt(await api("/api/auth/register", loginDraft));
         closeModal();
         localStorage.setItem("welcomed", "1");
         toast("Compte créé, bienvenue !");
@@ -3276,7 +3281,7 @@ document.addEventListener("submit", async (ev) => {
         break;
       case "login-form":
         try {
-          await api("/api/auth/login", d);
+          adopt(await api("/api/auth/login", d));
           localStorage.setItem("lastEmail", d.email.trim());
         } catch (err) {
           if (err.status !== 404) throw err;
@@ -3290,7 +3295,7 @@ document.addEventListener("submit", async (ev) => {
         go("home");
         break;
       case "register-form":
-        await api("/api/auth/register", d);
+        adopt(await api("/api/auth/register", d));
         localStorage.setItem("lastEmail", d.email.trim());
         localStorage.setItem("welcomed", "1");
         pendingName = d.name;
@@ -3302,7 +3307,7 @@ document.addEventListener("submit", async (ev) => {
         render();
         break;
       case "reset-form":
-        await api("/api/auth/reset", { ...d, token: resetToken });
+        adopt(await api("/api/auth/reset", { ...d, token: resetToken }));
         history.replaceState(null, "", "/");
         toast("Mot de passe modifié, vous êtes connecté");
         go("home");
