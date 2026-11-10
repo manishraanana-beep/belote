@@ -87,9 +87,16 @@ test("roue du jour : un tour par 24 h, case tirée par le serveur, série de jou
   // Jackpot (dernière case ×10) au 3e jour (×1,5).
   e = eco.loginBonus(p, t0 + 48 * H, () => 0.999);
   assert.deepEqual([e.segment, e.streak, e.amount], [7, 3, toUnits(3000)]);
-  // Absence de plus de 48 h : la série repart à 1.
+  // Absence de plus de 36 h après le dernier tour : la série repart à 1.
   e = eco.loginBonus(p, t0 + 48 * H + 72 * H, first(0));
   assert.equal(e.streak, 1);
+  // Fenêtre de série : revenir 35 h après le tour garde la série, 37 h la remet à 1.
+  const w = { id: "w", accountId: "w" };
+  eco.loginBonus(w, t0, first(0));
+  assert.equal(eco.loginBonus(w, t0 + 35 * H, first(0)).streak, 2);
+  const v = { id: "v", accountId: "v" };
+  eco.loginBonus(v, t0, first(0));
+  assert.equal(eco.loginBonus(v, t0 + 37 * H, first(0)).streak, 1);
   assert.equal(eco.loginBonus({ id: "invite" }, t0), null); // compte requis
   // Tirage réel : toujours une case valide.
   const q = { id: "q", accountId: "b" };
