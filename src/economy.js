@@ -104,7 +104,7 @@ export const WHEEL = [
 ];
 // Série de jours : multiplicateur selon le nombre de jours d'affilée (plafonné au 7e jour).
 export const STREAK = [1, 1.25, 1.5, 2, 2.5, 3, 4];
-const STREAK_GRACE = 48 * 3600_000; // revenir dans les 48 h garde la série
+const STREAK_GRACE = 36 * 3600_000; // revenir dans les 36 h garde la série (tour possible dès 24 h : fenêtre de 12 h)
 
 export function createEconomy(db, config = economyConfig()) {
   db.ledger ??= [];
