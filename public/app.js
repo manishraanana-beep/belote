@@ -1564,7 +1564,7 @@ function piggyLine() {
   const w = state.player.wallet;
   if (!w?.piggyCap) return "";
   const pct = Math.min(100, Math.round((w.piggy / w.piggyCap) * 20) * 5);
-  return `<div class="piggy-mini"><small>🐷 Tirelire : ${fmt(w.piggy)} / ${fmt(w.piggyCap)}</small><div class="bar"><i class="w${pct}"></i></div>${w.piggy >= w.piggyCap ? btn("Casser la tirelire", "piggyBreak", "text-link") : ""}</div>`;
+  return `<div class="piggy-mini"><small>🐷 Tirelire : ${fmt(w.piggy)} / ${fmt(w.piggyCap)}</small><div class="bar"><i class="w${pct}"></i></div></div>`; // Bouton « Casser la tirelire » masqué tant que l’achat n’est pas disponible (règle App Store 2.1) : remettre `${w.piggy >= w.piggyCap ? btn("Casser la tirelire", "piggyBreak", "text-link") : ""}`
 }
 function moneyLines(r) {
   if (!r || !r.stake) return "";
