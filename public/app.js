@@ -2388,12 +2388,12 @@ async function shopModal() {
     ${firstDouble ? `<p class="free-line">🎉 Premier achat doublé : deux fois plus de jetons sur votre tout premier pack.</p>` : ""}
     <h3 class="wallet-sub">Packs de jetons</h3>
     <div class="packs">${packs.map((pk) => `<article class="pack ${/royal/i.test(pk.name) ? "royal" : ""}">${pk.bonus ? `<span class="pack-tag">${e(pk.bonus)}</span>` : ""}${pk.name ? `<small class="pack-name">${e(pk.name)}</small>` : ""}<span class="pack-coins">${"<i class=\"coin\"></i>".repeat(Math.min(4, 1 + Math.round(Math.log10(pk.credits / 500))))}</span><b>${fmt(firstDouble ? pk.credits * 2 : pk.credits)}</b><small>jetons</small>${firstDouble ? `<small class="pack-note">au lieu de ${fmt(pk.credits)}</small>` : pk.note ? `<small class="pack-note">${e(pk.note)}</small>` : ""}
-      ${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(pk.price)) : e(pk.price), "buy", "pill small", `data-pack="${pk.id}"`, !open || !state.player.account)}</article>`).join("")}</div>
+      ${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(pk.price)) : e(pk.price), "buy", "gold-btn small", `data-pack="${pk.id}"`, !open || !state.player.account)}</article>`).join("")}</div>
     ${
       villePacks.length
         ? `<h3 class="wallet-sub">Packs ville</h3><p class="muted small">Jetons + tapis de la ville offert.</p>
     <div class="packs">${villePacks.map((pk) => `<article class="pack">${pk.name ? `<small class="pack-name">${e(pk.name)}</small>` : ""}<span class="pack-coins">${"<i class=\"coin\"></i>".repeat(Math.min(4, 1 + Math.round(Math.log10(pk.credits / 500))))}</span><b>${fmt(pk.credits)}</b><small>jetons</small>${pk.note ? `<small class="pack-note">${e(pk.note)}</small>` : ""}
-      ${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(pk.price)) : e(pk.price), "buy", "pill small", `data-pack="${pk.id}"`, !open || !state.player.account)}</article>`).join("")}</div>`
+      ${btn(open ? (c.test && !c.purchases ? "Acheter (test)" : e(pk.price)) : e(pk.price), "buy", "gold-btn small", `data-pack="${pk.id}"`, !open || !state.player.account)}</article>`).join("")}</div>`
         : ""
     }
     ${!state.player.account ? '<p class="warn">Créez un compte pour acheter des jetons.</p>' : open ? "" : '<p class="warn">Les achats ne sont pas encore ouverts. En attendant : bonus du jour, défis et entraînement gratuit.</p>'}
