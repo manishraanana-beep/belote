@@ -2946,7 +2946,7 @@ document.addEventListener("click", async (ev) => {
           // iPhone : achat intégré Apple obligatoire (règle 3.1.1), jamais de paiement externe.
           const plugin = cap.Plugins?.NativePurchases;
           if (!plugin || !c.apple) throw Error("Achat indisponible pour le moment");
-          const tx = await plugin.purchaseProduct({ productIdentifier: el.dataset.pack, productType: "inapp", quantity: 1 });
+          const tx = await plugin.purchaseProduct({ productIdentifier: el.dataset.pack.replace(/-/g, "_"), productType: "inapp", quantity: 1 });
           const signedTransaction = tx?.jwsRepresentation ?? tx?.signedTransaction;
           if (!signedTransaction) throw Error("Achat non confirmé par l’App Store");
           await api("/api/shop/apple", { signedTransaction });
