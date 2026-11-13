@@ -582,9 +582,11 @@ function tabBar() {
 const field = (ic, name, type, label, extra = "") =>
   `<label class="field">${icon(ic)}<input name="${name}" type="${type}" placeholder="${label}" aria-label="${label}" ${extra}>${type === "password" ? `<button type="button" class="eye" data-action="peek" aria-label="Afficher le mot de passe">${icon("eye")}</button>` : ""}</label>`;
 function socialButtons() {
+  // iPhone (appli native) : Google refuse la connexion dans une fenêtre web intégrée ; seul Apple (natif) y est proposé.
+  const iosApp = window.Capacitor?.isNativePlatform?.() && window.Capacitor.getPlatform?.() === "ios";
   const b = (p, label, logoHtml) =>
     `<button type="button" class="social ${p}" data-action="oidc" data-provider="${p}" ${authConfig[p] ? "" : "disabled"}>${logoHtml}<span>${label}</span>${authConfig[p] ? "" : "<small>bientôt</small>"}</button>`;
-  return `<div class="or"><span>Ou continuer avec</span></div><div class="socials">${b("apple", "Continuer avec Apple", '<span class="s-apple"></span>')}${b("google", "Continuer avec Google", '<span class="s-google">G</span>')}</div>`;
+  return `<div class="or"><span>Ou continuer avec</span></div><div class="socials">${b("apple", "Continuer avec Apple", '<span class="s-apple"></span>')}${iosApp ? "" : b("google", "Continuer avec Google", '<span class="s-google">G</span>')}</div>`;
 }
 const levelTitle = () => {
   const l = state.player.progress.level;
