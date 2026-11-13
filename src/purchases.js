@@ -91,7 +91,8 @@ export function verifyAppleTransaction(jws, env) {
   if (t.bundleId !== env.APPLE_IAP_BUNDLE_ID) fail("Application inconnue", 401);
   if (t.environment === "Sandbox" && env.APPLE_IAP_SANDBOX !== "on") fail("Achat de test refusé", 401);
   if (t.revocationDate) fail("Achat remboursé", 409);
-  return { provider: "apple", transactionId: String(t.transactionId), packId: t.productId };
+  // App Store Connect n’accepte que des « _ » dans les identifiants de produit ; le catalogue utilise des « - ».
+  return { provider: "apple", transactionId: String(t.transactionId), packId: String(t.productId).replace(/_/g, "-") };
 }
 
 // ———————————————————————— Google Play
