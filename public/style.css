@@ -229,8 +229,8 @@ a { color: inherit; }
 .socials { display: grid; gap: 10px; }
 .social { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 50px; border-radius: 999px; background: #fff; color: #1e1e1e; font-weight: 600; font-size: 17px; box-shadow: 0 4px 10px #0005; }
 .social small { padding: 2px 8px; border-radius: 999px; background: var(--gold); color: var(--gold-ink); font-size: 11px; }
-.s-apple { font-size: 0; width: 18px; height: 20px; border-radius: 45% 45% 50% 50%; background: #111; position: relative; }
-.s-apple::after { content: ""; position: absolute; top: -6px; left: 8px; width: 6px; height: 7px; border-radius: 0 80% 0 80%; background: #111; }
+.s-apple { flex: none; } /* logo officiel Apple (tracé tiré d’Apple Design Resources) : ne pas modifier */
+.social.apple { font-family: -apple-system, "SF Pro Text", system-ui, sans-serif; color: #000; }
 .s-google { font-weight: 900; font-size: 20px; background: conic-gradient(from -45deg, #ea4335 0 25%, #fbbc05 0 50%, #34a853 0 75%, #4285f4 0); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .ok-box { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 16px; border: 1.6px solid #4fbf7a; background: rgba(20, 80, 50, 0.5); }
 .ok-box small { display: block; color: var(--muted); }
