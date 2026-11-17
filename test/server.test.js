@@ -1793,3 +1793,18 @@ test("boîte de réception : les notifications de tournoi dont la date est dépa
     await f.close();
   }
 });
+
+test("session attendue après connexion : pas d'invité créé sans cookie, cookie valide reconnu", async () => {
+  const f = await fixture();
+  try {
+    const none = await fetch(f.base + "/api/session", { method: "POST", headers: { "X-Expect-Account": "1" } });
+    assert.equal(none.status, 401);
+    assert.equal(none.headers.get("set-cookie"), null);
+    const first = await fetch(f.base + "/api/session", { method: "POST" });
+    const cookie = first.headers.get("set-cookie").split(";")[0];
+    const ok = await fetch(f.base + "/api/session", { method: "POST", headers: { Cookie: cookie, "X-Expect-Account": "1" } });
+    assert.equal(ok.status, 200);
+  } finally {
+    await f.close();
+  }
+});

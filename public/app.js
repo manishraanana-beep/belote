@@ -21,6 +21,8 @@ setTimeout(() => {
 
 // ———————————————————————————————————————————————————————————— état local
 let retry = 0,
+  expectAccount = false, // connexion à l'instant : la session du compte doit être reconnue avant de rouvrir le canal
+  sessionTries = 0,
   sheet = null, // menu | chat | auction | scores | lastTrick
   selected = null,
   bidAmount = null,
@@ -1227,7 +1229,11 @@ const GUEST_PAGES = new Set(["welcome", "register", "login", "forgot", "reset", 
 // Connexion/inscription réussie : le serveur renvoie le profil. On l'applique tout de suite, sans attendre
 // la reconnexion du canal temps réel, sinon la page « invité » ramène à l'écran d'accueil.
 function adopt(player) {
-  if (state && player?.account) state.player = player;
+  if (state && player?.account) {
+    state.player = player;
+    expectAccount = true;
+    sessionTries = 0;
+  }
 }
 function pageView() {
   const guest = !state.player.account;
@@ -3373,7 +3379,11 @@ function scheduleRender() {
 }
 async function connect() {
   try {
-    const session = await fetch("/api/session", { method: "POST" });
+    // Juste après une connexion, le cookie de session peut arriver en retard (web view iOS) : le serveur ne crée alors
+    // pas d'invité (401), on réessaie quelques fois au lieu de perdre le compte.
+    const session = await fetch("/api/session", { method: "POST", headers: expectAccount ? { "X-Expect-Account": "1" } : {} });
+    if (session.status === 401 && expectAccount && sessionTries++ < 6) return void setTimeout(connect, 500);
+    expectAccount = false;
     if (!session.ok) return toast("Accès au profil indisponible. Contactez l’administrateur.");
     if (!shopConfig) fetch("/api/shop/config").then((r) => r.json()).then((c) => setShopConfig(c)).catch(() => {});
     setWs(new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?delta=1`)); // delta : messages table / player / lobby
