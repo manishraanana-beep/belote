@@ -72,7 +72,9 @@ let adminClient = null,
   adminTab = "dash";
 function clientList(d) {
   const players = [...d.players].sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name));
+  const guests = players.filter((p) => !p.account && !p.online && !(p.wallet?.balance > 0)).length;
   return `<input id="client-search" class="client-search" type="search" placeholder="Rechercher un pseudo ou un e-mail" autocomplete="off">
+    ${guests ? `<div class="row">${btn(`Supprimer les ${guests} invités hors ligne`, "clientPurgeGuests", "chip-btn", `data-n="${guests}"`)}</div>` : ""}
     <div class="client-list">${players.map((p) => `<div class="admin-row client-row" data-q="${e((p.name + " " + (p.account?.email ?? "") + " " + (p.tag ?? "")).toLowerCase())}"><span>${p.online ? "🟢" : "⚪"} <b>${e(p.name)}</b> <small>${e(p.account?.email ?? "invité")}${p.banned ? " · suspendu" : ""}</small></span><span class="row"><small>🪙 ${fmt(p.wallet.balance / 2)}</small>${btn("Fiche", "clientOpen", "chip-btn", `data-id="${p.id}"`)}</span></div>`).join("") || "<p>Aucun client.</p>"}</div>`;
 }
 async function openClient(id) {
@@ -251,6 +253,11 @@ export async function adminAction(a, el, ev) {
     case "clientBack":
       adminClient = null;
       if ($("#admin-clients")) $("#admin-clients").innerHTML = clientList(adminData);
+      break;
+    case "clientPurgeGuests":
+      if (confirm(`Supprimer définitivement les ${el.dataset.n} invités hors ligne (sans compte ni jetons) ?`)) {
+        if (await adminRequest({ type: "purgeGuests" })) toast("Invités supprimés");
+      }
       break;
     case "clientSuspend":
       await adminRequest({ type: "suspend", id: el.dataset.id, enabled: el.dataset.enabled === "true" });

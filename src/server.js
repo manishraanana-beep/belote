@@ -2345,6 +2345,15 @@ export function createApp({
             }
             for (const [k, v] of Object.entries(db.sessions ?? {})) if (v.playerId === p.id) delete db.sessions[k];
             retirePlayer(p);
+          } else if (d.type === "purgeGuests") {
+            // Invités hors ligne, sans compte, sans solde, hors partie à crédits en cours.
+            for (const p of Object.values(db.players)) {
+              if (p.accountId || connections.get(p.id)?.size || (p.wallet?.balance ?? 0) > 0) continue;
+              const t = db.tables[p.tableId];
+              if (t?.game && t.game.phase !== "finished" && t.money && !t.money.settled) continue;
+              for (const [k, v] of Object.entries(db.sessions ?? {})) if (v.playerId === p.id) delete db.sessions[k];
+              retirePlayer(p);
+            }
           } else if (d.type === "shopItem") {
             shop.update(String(d.id), d);
           } else if (d.type === "deleteTable") {
