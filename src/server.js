@@ -1980,6 +1980,8 @@ export function createApp({
         return res.end("Profil suspendu");
       }
       if (!p) {
+        // Juste après une connexion : session pas encore reçue, on n'écrase pas le compte par un invité.
+        if (req.headers["x-expect-account"] === "1") return json(res, 401, { error: "Session en attente" });
         p = newPlayer();
         setSession(req, res, p);
         persist();
