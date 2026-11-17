@@ -1808,3 +1808,24 @@ test("session attendue après connexion : pas d'invité créé sans cookie, cook
     await f.close();
   }
 });
+
+test("back office : purge des invités hors ligne (les comptes restent)", async () => {
+  const f = await fixture({ adminKey: "test-admin", env: { BELOTE_LOGIN_BONUS: "0", BELOTE_SIGNUP_BONUS: "100" } });
+  try {
+    const a = await member(f, "garde@exemple.fr");
+    await fetch(f.base + "/api/session", { method: "POST" });
+    await fetch(f.base + "/api/session", { method: "POST" });
+    const guests = () => Object.values(f.app.db.players).filter((p) => !p.accountId).length;
+    assert.ok(guests() >= 2);
+    const r = await fetch(f.base + "/api/admin", {
+      method: "POST",
+      headers: { Authorization: "Bearer test-admin", "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "purgeGuests" }),
+    });
+    assert.equal(r.status, 200, await r.clone().text());
+    assert.equal(guests(), 0);
+    assert.ok(f.app.db.players[a.state.player.id]);
+  } finally {
+    await f.close();
+  }
+});
