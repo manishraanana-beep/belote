@@ -2432,7 +2432,9 @@ export function createApp({
           ? "confidentialite.html"
           : url.pathname === "/assistance"
             ? "assistance.html"
-            : url.pathname.slice(1);
+            : url.pathname === "/suppression-compte"
+              ? "suppression-compte.html"
+              : url.pathname.slice(1);
     const allowed = [
       "index.html",
       "app.js",
@@ -2448,6 +2450,7 @@ export function createApp({
       "manifest.webmanifest",
       "confidentialite.html",
       "assistance.html",
+      "suppression-compte.html",
     ];
     const cardFile =
       /^cards\/(?:[789]|10|[JQKA])[SHCD](?:-200)?\.(?:svg|webp)$/.test(rel) ||
