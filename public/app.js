@@ -2338,7 +2338,9 @@ async function oidc(provider) {
     }
     adopt(await api("/api/auth/oidc", { provider, idToken }));
     closeModal();
+    localStorage.setItem("welcomed", "1");
     toast("Connexion réussie");
+    go("home"); // comme la connexion par e-mail : sinon l'écran de connexion reste affiché
   } catch (err) {
     toast(err.message ?? "Connexion annulée");
   }
