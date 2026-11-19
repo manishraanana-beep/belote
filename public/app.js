@@ -2323,9 +2323,10 @@ async function oidc(provider) {
         window.google.accounts.id.initialize({ client_id: authConfig.google, callback: (r) => resolve(r.credential) });
         window.google.accounts.id.prompt((n) => n.isNotDisplayed?.() && reject(Error("Connexion Google indisponible dans ce navigateur")));
       });
-    } else if (window.Capacitor?.isNativePlatform?.() && window.Capacitor.getPlatform?.() === "ios" && window.Capacitor.Plugins?.SocialLogin) {
-      // iPhone : Sign in with Apple natif (la fenêtre web d’Apple ne marche pas dans l’appli).
-      const sl = window.Capacitor.Plugins.SocialLogin;
+    } else if (window.Capacitor?.isNativePlatform?.() && window.Capacitor.getPlatform?.() === "ios") {
+      // iPhone/iPad : Sign in with Apple natif (la fenêtre web d’Apple ne marche pas dans l’appli, jamais de repli dessus).
+      const sl = window.Capacitor.Plugins?.SocialLogin ?? window.Capacitor.registerPlugin?.("SocialLogin");
+      if (!sl) throw Error("Connexion Apple indisponible dans cette version de l’application");
       await sl.initialize({ apple: {} });
       const r = await sl.login({ provider: "apple", options: { scopes: ["email", "name"] } });
       idToken = r?.result?.idToken;

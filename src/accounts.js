@@ -131,8 +131,11 @@ export async function verifyIdToken(provider, idToken, env = process.env, fetchI
     .flat()
     .flatMap((a) => String(a).split(","))
     .includes(claims.aud);
-  if (!ok || !p.issuers.includes(claims.iss) || !audOk || claims.exp * 1000 < Date.now())
+  if (!ok || !p.issuers.includes(claims.iss) || !audOk || claims.exp * 1000 < Date.now()) {
+    // Trace pour le diagnostic (valeurs publiques du jeton, jamais le jeton lui-même).
+    console.warn(`Connexion ${provider} refusée : signature=${ok} iss=${claims.iss} aud=${claims.aud} attendu=${String(aud)} expiré=${claims.exp * 1000 < Date.now()}`);
     fail("Jeton refusé.", 401);
+  }
   return {
     sub: String(claims.sub),
     email: typeof claims.email === "string" ? claims.email.toLowerCase() : null,
