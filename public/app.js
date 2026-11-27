@@ -1,6 +1,7 @@
 // Session : le jeton renvoyé par le serveur (en-tête X-Session-Token) est gardé et renvoyé en Authorization, ce qui évite de
 // dépendre du cookie (web view iPad/iPhone qui ne le conserve pas toujours : retour à l'écran de connexion).
 const SESSION_KEY = "beloteSession";
+let authBusy = 0; // connexions / inscriptions / déconnexions en cours : on ne se reconnecte pas avant leur fin
 const sessionToken = () => {
   try {
     return localStorage.getItem(SESSION_KEY) || "";
@@ -20,7 +21,14 @@ const sessionToken = () => {
       const h = init?.headers instanceof Headers ? Object.fromEntries(init.headers) : { ...(init?.headers ?? {}) };
       init = { ...init, headers: { ...h, Authorization: `Bearer ${tok}` } };
     }
-    const r = await nativeFetch(input, init);
+    const isAuth = sameOrigin && /\/api\/auth\//.test(typeof input === "string" ? input : input.url);
+    if (isAuth) authBusy++;
+    let r;
+    try {
+      r = await nativeFetch(input, init);
+    } finally {
+      if (isAuth) setTimeout(() => authBusy--, 150); // laisse le temps à adopt() de s'exécuter avant la reconnexion
+    }
     const nt = sameOrigin ? r.headers.get("X-Session-Token") : null;
     try {
       const path = new URL(typeof input === "string" ? input : input.url, location.href).pathname;
@@ -3565,7 +3573,14 @@ async function connect() {
     ws.onclose = (ev) => {
       if (sock !== ws) return; // ancien canal déjà remplacé
       dbg(`ws fermé · code ${ev.code}`);
-      if (ev.code === 4001) return connect(); // session changée (connexion, déconnexion)
+      if (ev.code === 4001) {
+        // Session changée (connexion, déconnexion). Le serveur ferme l'ancien canal AVANT que la réponse de la connexion
+        // soit traitée : se reconnecter tout de suite renvoyait l'ancien jeton d'invité, le serveur créait un nouvel invité
+        // et son jeton écrasait celui du compte (retour à l'accueil, connexion à refaire).
+        dbg("ws 4001 : on attend la fin de la connexion");
+        const wait = () => (authBusy > 0 ? setTimeout(wait, 100) : connect());
+        return setTimeout(wait, 100);
+      }
       toast("Connexion perdue · reconnexion…");
       setTimeout(connect, Math.min(8000, 800 * 2 ** retry++));
     };
