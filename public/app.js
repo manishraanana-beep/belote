@@ -3421,13 +3421,17 @@ async function connect() {
     expectAccount = false;
     if (!session.ok) return toast("Accès au profil indisponible. Contactez l’administrateur.");
     if (!shopConfig) fetch("/api/shop/config").then((r) => r.json()).then((c) => setShopConfig(c)).catch(() => {});
-    setWs(new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?delta=1${sessionToken() ? `&st=${encodeURIComponent(sessionToken())}` : ""}`)); // delta : messages table / player / lobby
+    const sock = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?delta=1${sessionToken() ? `&st=${encodeURIComponent(sessionToken())}` : ""}`); // delta : messages table / player / lobby
+    setWs(sock);
     ws.onopen = () => {
       ws.send(JSON.stringify({ id: crypto.randomUUID(), type: "timezone", data: { timeZone: myTz() } }));
       if (retry) toast("Connexion rétablie · partie restaurée");
       retry = 0;
     };
     const onWsMessage = (ev) => {
+      // Message d'un ancien canal (celui de l'invité, fermé par le serveur à la connexion) : on l'ignore, il écraserait
+      // le compte qu'on vient d'adopter et ramènerait à l'écran d'accueil (il fallait se connecter deux fois).
+      if (sock !== ws) return;
       perf?.msg(ev.data);
       const msg = JSON.parse(ev.data);
       if (perf && (msg.type === "ack" || msg.type === "error")) perf.ack(msg.id);
@@ -3445,6 +3449,7 @@ async function connect() {
         if (msg.table?.game?.trick.length > (state?.table?.game?.trick.length ?? 0)) tone([300], 0.05, 0.05);
         const prevTable = state?.table;
         if (msg.type === "state") {
+          if (state?.player?.account && !msg.player?.account && expectAccount) return; // état « invité » périmé
           fixWheel(msg.player);
           setState(msg);
         } else {
@@ -3455,6 +3460,7 @@ async function connect() {
         render();
         if (first && pendingInvite && !state.table) joinModal(pendingInvite);
       } else if (msg.type === "player" && state) {
+        if (state.player?.account && !msg.player?.account && expectAccount) return;
         fixWheel(msg.player);
         state.player = msg.player;
         scheduleRender();
@@ -3548,6 +3554,7 @@ async function connect() {
         }
       : onWsMessage;
     ws.onclose = (ev) => {
+      if (sock !== ws) return; // ancien canal déjà remplacé
       if (ev.code === 4001) return connect(); // session changée (connexion, déconnexion)
       toast("Connexion perdue · reconnexion…");
       setTimeout(connect, Math.min(8000, 800 * 2 ** retry++));
