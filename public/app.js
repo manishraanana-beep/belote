@@ -1,6 +1,7 @@
 // Session : le jeton renvoyé par le serveur (en-tête X-Session-Token) est gardé et renvoyé en Authorization, ce qui évite de
 // dépendre du cookie (web view iPad/iPhone qui ne le conserve pas toujours : retour à l'écran de connexion).
 const SESSION_KEY = "beloteSession";
+let authTokenSeq = 0; // incrémenté à chaque jeton reçu d'une réponse /api/auth/*
 let authBusy = 0; // connexions / inscriptions / déconnexions en cours : on ne se reconnecte pas avant leur fin
 const sessionToken = () => {
   try {
@@ -21,6 +22,7 @@ const sessionToken = () => {
       const h = init?.headers instanceof Headers ? Object.fromEntries(init.headers) : { ...(init?.headers ?? {}) };
       init = { ...init, headers: { ...h, Authorization: `Bearer ${tok}` } };
     }
+    const seqAtStart = authTokenSeq;
     const isAuth = sameOrigin && /\/api\/auth\//.test(typeof input === "string" ? input : input.url);
     if (isAuth) authBusy++;
     let r;
@@ -34,11 +36,14 @@ const sessionToken = () => {
       const path = new URL(typeof input === "string" ? input : input.url, location.href).pathname;
       if (/^\/api\/(session|auth\/)/.test(path)) dbg(`${path} → ${r.status} · jeton envoyé ${tok ? "oui" : "non"} · reçu ${nt ? "oui" : "non"}`);
     } catch {}
-    if (nt) {
+    // Un jeton reçu d'une réponse /api/auth/* (connexion) plus récente que cette requête ne doit jamais être écrasé
+    // par la réponse d'un /api/session lancé avant elle (course constatée sur iPad : nouvel invité qui prend la place).
+    if (nt && (isAuth || seqAtStart === authTokenSeq)) {
+      if (isAuth) authTokenSeq++;
       try {
         localStorage.setItem(SESSION_KEY, nt);
       } catch {}
-    }
+    } else if (nt) dbg("jeton de /api/session ignoré : un jeton plus récent existe");
     return r;
   };
 }

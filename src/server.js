@@ -252,9 +252,13 @@ export function createApp({
       replaced: replaced ?? null,
     };
   }
+  // Connexion / déconnexion : les anciens canaux sont fermés (4001) APRÈS l'envoi de la réponse HTTP, jamais avant.
+  // Sinon l'app se reconnecte avant d'avoir traité la réponse, avec l'ancien jeton, et le serveur crée un nouvel invité.
+  let closeAfterAuth = null;
   function retirePlayer(p) {
     if (p.tableId) leave(p, true);
-    for (const ws of connections.get(p.id) ?? []) ws.close(4001, "Session terminée");
+    for (const ws of connections.get(p.id) ?? [])
+      closeAfterAuth ? closeAfterAuth.push([ws, "Session terminée"]) : ws.close(4001, "Session terminée");
     if (p.photo) {
       try {
         unlinkSync(path.join(photoDir, p.photo.slice(2) + ".jpg"));
@@ -2026,6 +2030,11 @@ export function createApp({
       return res.end();
     }
     if (url.pathname.startsWith("/api/auth/") && req.method === "POST") {
+      const closers = [];
+      res.once("finish", () => {
+        for (const [ws, why] of closers) ws.close(4001, why);
+      });
+      closeAfterAuth = closers;
       try {
         if (!sameOrigin(req)) throw Object.assign(Error("Origine refusée"), { status: 403 });
         authLimit(req);
@@ -2060,7 +2069,7 @@ export function createApp({
         } else throw Object.assign(Error("Action inconnue"), { status: 404 });
         if (next) {
           if (next !== p) {
-            for (const ws of connections.get(p?.id) ?? []) ws.close(4001, "Session changée");
+            for (const ws of connections.get(p?.id) ?? []) closers.push([ws, "Session changée"]);
           }
           setSession(req, res, next);
         }
@@ -2069,6 +2078,8 @@ export function createApp({
         return json(res, 200, next ? playerView(next) : { ok: true });
       } catch (e) {
         return json(res, e.status ?? 400, { error: e.message });
+      } finally {
+        if (closeAfterAuth === closers) closeAfterAuth = null;
       }
     }
     if (url.pathname === "/api/avatar" && req.method === "POST") {
