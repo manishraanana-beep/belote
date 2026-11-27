@@ -22,6 +22,10 @@ const sessionToken = () => {
     }
     const r = await nativeFetch(input, init);
     const nt = sameOrigin ? r.headers.get("X-Session-Token") : null;
+    try {
+      const path = new URL(typeof input === "string" ? input : input.url, location.href).pathname;
+      if (/^\/api\/(session|auth\/)/.test(path)) dbg(`${path} → ${r.status} · jeton envoyé ${tok ? "oui" : "non"} · reçu ${nt ? "oui" : "non"}`);
+    } catch {}
     if (nt) {
       try {
         localStorage.setItem(SESSION_KEY, nt);
@@ -33,6 +37,7 @@ const sessionToken = () => {
 import { cardImage, cardSrcset, cardAttrs, CARD_SIZES } from "./cards.js";
 import { nextTip } from "./tips.js";
 import { $, e, SUITS, SUIT_NAMES, HAND_ORDER, TRUMP_STRENGTH, PLAIN_STRENGTH, RANKS, BIDS, REACTIONS, REPORT_REASONS, fmt, coins, signed, stakeRisk, DEFAULT_RULES, isRed, amountLabel, cardName, avatarUrl, avatar, myFrame, framed, btn, suitHtml, toast, perf, cmd, api, cardSound, chime, buzz, SFX, tone, modal, closeModal, icon, readLocal, writeLocal, ask, AVATARS, STAKES, unlockAudio, when, myTz } from "./ui.js";
+import { dbg, dbgInit } from "./debug-connexion.js";
 import { state, setState, ws, setWs, page, setPage, authConfig, setAuthConfig, shopConfig, setShopConfig, sound, setSound, vibra, setVibra, pendingAcks } from "./store.js";
 import { snapshot as snapCards, play as playCards, shake as shakeCard } from "./cards-motion.js";
 // Les 32 cartes sont chargées et décodées d'avance : une carte jouée s'affiche aussitôt, jamais en rectangle blanc.
@@ -1261,6 +1266,7 @@ const GUEST_PAGES = new Set(["welcome", "register", "login", "forgot", "reset", 
 // Connexion/inscription réussie : le serveur renvoie le profil. On l'applique tout de suite, sans attendre
 // la reconnexion du canal temps réel, sinon la page « invité » ramène à l'écran d'accueil.
 function adopt(player) {
+  dbg(`adopt : compte ${player?.account ? "oui" : "non"}, état ${state ? "oui" : "non"}`);
   if (state && player?.account) {
     state.player = player;
     expectAccount = true;
@@ -3418,12 +3424,14 @@ async function connect() {
     // pas d'invité (401), on réessaie quelques fois au lieu de perdre le compte.
     const session = await fetch("/api/session", { method: "POST", headers: expectAccount ? { "X-Expect-Account": "1" } : {} });
     if (session.status === 401 && expectAccount && sessionTries++ < 6) return void setTimeout(connect, 500);
+    dbg(`connect : session ${session.status}`);
     expectAccount = false;
     if (!session.ok) return toast("Accès au profil indisponible. Contactez l’administrateur.");
     if (!shopConfig) fetch("/api/shop/config").then((r) => r.json()).then((c) => setShopConfig(c)).catch(() => {});
     const sock = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?delta=1${sessionToken() ? `&st=${encodeURIComponent(sessionToken())}` : ""}`); // delta : messages table / player / lobby
     setWs(sock);
     ws.onopen = () => {
+      dbg("ws ouvert");
       ws.send(JSON.stringify({ id: crypto.randomUUID(), type: "timezone", data: { timeZone: myTz() } }));
       if (retry) toast("Connexion rétablie · partie restaurée");
       retry = 0;
@@ -3431,9 +3439,10 @@ async function connect() {
     const onWsMessage = (ev) => {
       // Message d'un ancien canal (celui de l'invité, fermé par le serveur à la connexion) : on l'ignore, il écraserait
       // le compte qu'on vient d'adopter et ramènerait à l'écran d'accueil (il fallait se connecter deux fois).
-      if (sock !== ws) return;
+      if (sock !== ws) return dbg("message d'un ancien canal ignoré");
       perf?.msg(ev.data);
       const msg = JSON.parse(ev.data);
+      if (msg.type === "state" || msg.type === "player") dbg(`ws ${msg.type} · compte ${msg.player?.account ? "oui" : "non"}`);
       if (perf && (msg.type === "ack" || msg.type === "error")) perf.ack(msg.id);
       // `state` : état complet (connexion, reconnexion, ancien serveur). `table` / `player` / `lobby` : mises à jour
       // partielles, fusionnées dans `state`.
@@ -3555,6 +3564,7 @@ async function connect() {
       : onWsMessage;
     ws.onclose = (ev) => {
       if (sock !== ws) return; // ancien canal déjà remplacé
+      dbg(`ws fermé · code ${ev.code}`);
       if (ev.code === 4001) return connect(); // session changée (connexion, déconnexion)
       toast("Connexion perdue · reconnexion…");
       setTimeout(connect, Math.min(8000, 800 * 2 ** retry++));
@@ -3575,6 +3585,14 @@ async function connect() {
 if (location.pathname.replace(/\/$/, "") === "/admin") {
   import("./admin.js").then((m) => m.initAdmin());
 } else {
+  dbgInit(() => ({
+    adresse: location.origin,
+    page: page?.name,
+    "compte dans l'app": !!state?.player?.account,
+    "attente du compte": expectAccount,
+    jeton: sessionToken() ? `présent (${sessionToken().length} car.)` : "absent",
+    ws: ["connexion", "ouvert", "fermeture", "fermé"][ws?.readyState] ?? "aucun",
+  }));
   loadAuthConfig();
   handleHash();
   handleDeepLink();
