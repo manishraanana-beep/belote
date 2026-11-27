@@ -1857,3 +1857,43 @@ test("session sans cookie (web view iPad) : jeton en Authorization et en paramè
     await f.close();
   }
 });
+
+test("connexion : l'ancien canal de l'invité est fermé (4001) seulement après la réponse HTTP", async () => {
+  const f = await fixture();
+  try {
+    const post = (url, body, token) =>
+      fetch(f.base + url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: f.base, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(body),
+      });
+    // Un compte existant (créé depuis une première session).
+    const s1 = await fetch(f.base + "/api/session", { method: "POST" });
+    const mail = `a${Date.now()}@example.com`;
+    const reg = await post("/api/auth/register", { email: mail, password: "motdepasse-solide-1", name: "Testeur" }, s1.headers.get("x-session-token"));
+    assert.equal(reg.status, 200);
+    // Nouvel appareil : session invité avec un canal ouvert, puis connexion au compte.
+    const s2 = await fetch(f.base + "/api/session", { method: "POST" });
+    const guestToken = s2.headers.get("x-session-token");
+    const ws = new WebSocket(f.base.replace("http", "ws") + `/ws?delta=1&st=${guestToken}`, { headers: { Origin: f.base } });
+    await new Promise((res, rej) => {
+      ws.once("message", res);
+      ws.once("error", rej);
+    });
+    let closedAt = 0,
+      code = 0;
+    ws.on("close", (c) => {
+      code = c;
+      closedAt = Date.now();
+    });
+    const login = await post("/api/auth/login", { email: mail, password: "motdepasse-solide-1" }, guestToken);
+    const respondedAt = Date.now();
+    assert.equal(login.status, 200);
+    assert.ok(login.headers.get("x-session-token"), "jeton du compte renvoyé");
+    for (let i = 0; i < 300 && !closedAt; i++) await delay(10);
+    assert.equal(code, 4001, "canal de l'invité fermé en 4001");
+    assert.ok(closedAt >= respondedAt - 5, "fermeture après la réponse HTTP");
+  } finally {
+    await f.close();
+  }
+});
