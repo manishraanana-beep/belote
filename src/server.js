@@ -2461,6 +2461,7 @@ export function createApp({
       "tips.js",
       "store.js",
       "ui.js",
+      "debug-connexion.js",
       "cards-motion.js",
       "admin.js",
       "style.css",
