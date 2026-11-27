@@ -1,3 +1,35 @@
+// Session : le jeton renvoyé par le serveur (en-tête X-Session-Token) est gardé et renvoyé en Authorization, ce qui évite de
+// dépendre du cookie (web view iPad/iPhone qui ne le conserve pas toujours : retour à l'écran de connexion).
+const SESSION_KEY = "beloteSession";
+const sessionToken = () => {
+  try {
+    return localStorage.getItem(SESSION_KEY) || "";
+  } catch {
+    return "";
+  }
+};
+{
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = async (input, init) => {
+    const tok = sessionToken();
+    let sameOrigin = false;
+    try {
+      sameOrigin = new URL(typeof input === "string" ? input : input.url, location.href).origin === location.origin;
+    } catch {}
+    if (tok && sameOrigin && typeof input === "string") {
+      const h = init?.headers instanceof Headers ? Object.fromEntries(init.headers) : { ...(init?.headers ?? {}) };
+      init = { ...init, headers: { ...h, Authorization: `Bearer ${tok}` } };
+    }
+    const r = await nativeFetch(input, init);
+    const nt = sameOrigin ? r.headers.get("X-Session-Token") : null;
+    if (nt) {
+      try {
+        localStorage.setItem(SESSION_KEY, nt);
+      } catch {}
+    }
+    return r;
+  };
+}
 import { cardImage, cardSrcset, cardAttrs, CARD_SIZES } from "./cards.js";
 import { nextTip } from "./tips.js";
 import { $, e, SUITS, SUIT_NAMES, HAND_ORDER, TRUMP_STRENGTH, PLAIN_STRENGTH, RANKS, BIDS, REACTIONS, REPORT_REASONS, fmt, coins, signed, stakeRisk, DEFAULT_RULES, isRed, amountLabel, cardName, avatarUrl, avatar, myFrame, framed, btn, suitHtml, toast, perf, cmd, api, cardSound, chime, buzz, SFX, tone, modal, closeModal, icon, readLocal, writeLocal, ask, AVATARS, STAKES, unlockAudio, when, myTz } from "./ui.js";
@@ -3389,7 +3421,7 @@ async function connect() {
     expectAccount = false;
     if (!session.ok) return toast("Accès au profil indisponible. Contactez l’administrateur.");
     if (!shopConfig) fetch("/api/shop/config").then((r) => r.json()).then((c) => setShopConfig(c)).catch(() => {});
-    setWs(new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?delta=1`)); // delta : messages table / player / lobby
+    setWs(new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?delta=1${sessionToken() ? `&st=${encodeURIComponent(sessionToken())}` : ""}`)); // delta : messages table / player / lobby
     ws.onopen = () => {
       ws.send(JSON.stringify({ id: crypto.randomUUID(), type: "timezone", data: { timeZone: myTz() } }));
       if (retry) toast("Connexion rétablie · partie restaurée");
