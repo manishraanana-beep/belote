@@ -1851,15 +1851,32 @@ export function createApp({
     ".txt": "text/plain; charset=utf-8",
     ".woff2": "font/woff2",
   };
-  const cookieToken = (req) =>
-    /\bbelote_session=([A-Za-z0-9_-]+)/.exec(req.headers.cookie ?? "")?.[1];
+  // Jetons de session acceptés : en-tête Authorization (l'app garde le jeton, indépendant du cookie : web view iOS/iPad
+  // qui ne conserve pas toujours le cookie), paramètre `st` du WebSocket, puis cookie.
+  const TOKEN_RE = /^[A-Za-z0-9_-]{8,200}$/;
+  function sessionTokens(req) {
+    const out = [];
+    const bearer = /^Bearer ([A-Za-z0-9_-]+)$/.exec(req.headers.authorization ?? "")?.[1];
+    if (bearer) out.push(bearer);
+    if (req.url?.includes("st=")) {
+      try {
+        const st = new URL(req.url, "http://x").searchParams.get("st");
+        if (st && TOKEN_RE.test(st)) out.push(st);
+      } catch {}
+    }
+    const cookie = /\bbelote_session=([A-Za-z0-9_-]+)/.exec(req.headers.cookie ?? "")?.[1];
+    if (cookie) out.push(cookie);
+    return out;
+  }
+  const cookieToken = (req) => sessionTokens(req)[0];
   function getPlayer(req) {
-    const token = cookieToken(req);
-    if (!token) return null;
-    return (
-      accounts.resolve(token) ??
-      Object.values(db.players).find((p) => p.token && p.token === token)
-    );
+    for (const token of sessionTokens(req)) {
+      const p =
+        accounts.resolve(token) ??
+        Object.values(db.players).find((q) => q.token && q.token === token);
+      if (p) return p;
+    }
+    return null;
   }
   const accounts = createAccounts({
     db,
@@ -1873,9 +1890,11 @@ export function createApp({
   const secure = (req) =>
     req.socket.encrypted || process.env.BELOTE_SECURE_COOKIE === "true" ? "; Secure" : "";
   function setSession(req, res, p) {
+    const token = accounts.session(p);
+    res.setHeader("X-Session-Token", token); // l'app le garde et le renvoie : la connexion ne dépend plus du cookie
     res.setHeader(
       "Set-Cookie",
-      `belote_session=${accounts.session(p)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000${secure(req)}`,
+      `belote_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000${secure(req)}`,
     );
   }
   const sameOrigin = (req) =>
@@ -2035,7 +2054,7 @@ export function createApp({
           else {
             check(!p.tableId || !db.tables[p.tableId]?.game || db.tables[p.tableId].game.phase === "finished", "Quittez d’abord la partie en cours");
             if (p.tableId) leave(p);
-            accounts.logout(cookieToken(req));
+            for (const t of sessionTokens(req)) accounts.logout(t);
           }
           next = newPlayer();
         } else throw Object.assign(Error("Action inconnue"), { status: 404 });

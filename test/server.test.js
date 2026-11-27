@@ -1829,3 +1829,31 @@ test("back office : purge des invités hors ligne (les comptes restent)", async 
     await f.close();
   }
 });
+
+test("session sans cookie (web view iPad) : jeton en Authorization et en paramètre du WebSocket", async () => {
+  const f = await fixture();
+  try {
+    const r = await fetch(f.base + "/api/session", { method: "POST" });
+    const token = r.headers.get("x-session-token");
+    assert.match(token, /^[A-Za-z0-9_-]{8,}$/);
+    const me = await r.json();
+    // Aucun cookie : le jeton seul doit identifier le même joueur, sans créer d'invité.
+    const r2 = await fetch(f.base + "/api/session", { method: "POST", headers: { Authorization: `Bearer ${token}`, "X-Expect-Account": "1" } });
+    assert.equal(r2.status, 200);
+    assert.equal((await r2.json()).id, me.id);
+    // Sans jeton ni cookie, avec X-Expect-Account : toujours 401 (pas d'invité créé).
+    const r3 = await fetch(f.base + "/api/session", { method: "POST", headers: { "X-Expect-Account": "1" } });
+    assert.equal(r3.status, 401);
+    // WebSocket sans cookie : paramètre st.
+    const ws = new WebSocket(f.base.replace("http", "ws") + `/ws?delta=1&st=${token}`, { headers: { Origin: f.base } });
+    const first = await new Promise((res, rej) => {
+      ws.on("message", (raw) => res(JSON.parse(raw)));
+      ws.on("error", rej);
+      ws.on("close", () => rej(Error("WebSocket refusé")));
+    });
+    assert.equal(first.type, "state");
+    ws.close();
+  } finally {
+    await f.close();
+  }
+});
