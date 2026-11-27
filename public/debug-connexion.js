@@ -45,10 +45,11 @@ export function dbgInit(fn) {
   if (/[?&#]debug=connexion\b/.test(location.href)) show();
   let taps = 0,
     last = 0;
+  // « pointerup » et non « click » : iOS n'envoie pas de clic sur un élément non cliquable comme le logo.
   document.addEventListener(
-    "click",
+    "pointerup",
     (ev) => {
-      if (!ev.target.closest?.(".logo")) return;
+      if (!ev.target.closest?.(".logo, .page-top")) return;
       const now = Date.now();
       taps = now - last < 1500 ? taps + 1 : 1;
       last = now;
